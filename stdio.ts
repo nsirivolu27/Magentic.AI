@@ -2,7 +2,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { LnkzClient } from "./client.js";
 import { createLnkzMcpServer } from "./mcp.js";
 
-const server = createLnkzMcpServer(LnkzClient.fromEnv());
+const client = LnkzClient.fromEnv();
+// Verify a named profile before exposing any tools to its MCP client.
+if (process.env.LNKZ_PROFILE || process.env.LNKZ_PROFILES_JSON) await client.workspace();
+const server = createLnkzMcpServer(client);
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, async () => {

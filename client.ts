@@ -1,3 +1,4 @@
+import { resolveProfile } from "./profiles.js";
 import type {
   AuditEvent,
   ConnectorStatus,
@@ -22,6 +23,8 @@ import type {
 } from "./contract.js";
 
 export interface LnkzClientLike {
+  workspace(): Promise<{ workspace: { id: string; name: string; mode: string; useCase: string; datasets: { enabled: boolean; approvalTag: string } }; access: { actorId: string; scopes: string[] } }>;
+  exportDataset(input: unknown): Promise<{ manifest: Record<string, unknown>; trainJsonl: string; validationJsonl: string }>;
   saveConversation(input: ConversationInput): Promise<{ conversation: Conversation }>;
   importConversations(input: unknown): Promise<{
     format: string;
@@ -72,6 +75,7 @@ export class LnkzClient implements LnkzClientLike {
     baseUrl: string,
     private readonly apiKey: string,
     private readonly fetchImpl: typeof fetch = globalThis.fetch,
+    private readonly expectedWorkspaceId: string | undefined = undefined,
   ) {
     if (!baseUrl.trim()) throw new Error("LNKZ_BASE_URL is required.");
     if (!apiKey.trim()) throw new Error("LNKZ_API_KEY is required.");
@@ -79,10 +83,22 @@ export class LnkzClient implements LnkzClientLike {
     if (!new Set(["http:", "https:"]).has(this.baseUrl.protocol)) {
       throw new Error("LNKZ_BASE_URL must use http or https.");
     }
+    if (this.baseUrl.username || this.baseUrl.password || this.baseUrl.search || this.baseUrl.hash) {
+      throw new Error("LNKZ_BASE_URL must not contain credentials, query parameters or fragments.");
+    }
   }
 
   static fromEnv(env: NodeJS.ProcessEnv = process.env): LnkzClient {
-    return new LnkzClient(env.LNKZ_BASE_URL ?? "", env.LNKZ_API_KEY ?? "");
+    const profile = resolveProfile(env);
+    return new LnkzClient(profile.baseUrl, profile.apiKey, globalThis.fetch, profile.workspaceId);
+  }
+
+  workspace() {
+    return this.json<Awaited<ReturnType<LnkzClientLike["workspace"]>>>("api/workspace");
+  }
+
+  exportDataset(input: unknown) {
+    return this.json<Awaited<ReturnType<LnkzClientLike["exportDataset"]>>>("api/datasets/export", { method: "POST", body: input });
   }
 
   saveConversation(input: ConversationInput) {
@@ -203,6 +219,7 @@ export class LnkzClient implements LnkzClientLike {
     const headers = new Headers(options.headers);
     headers.set("accept", options.accept ?? "application/json");
     headers.set("authorization", `Bearer ${this.apiKey}`);
+    if (this.expectedWorkspaceId && path.startsWith("api/")) headers.set("x-lnkz-expected-workspace-id", this.expectedWorkspaceId);
     let body: BodyInit | undefined;
     if (options.body !== undefined) {
       headers.set("content-type", "application/json");
@@ -211,9 +228,15 @@ export class LnkzClient implements LnkzClientLike {
     const response = await this.fetchImpl(new URL(path, this.baseUrl), {
       method: options.method ?? "GET",
       headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
       ...(body === undefined ? {} : { body }),
     });
     if (!response.ok) throw new LnkzApiError(response.status, await errorMessage(response));
+    if (this.expectedWorkspaceId && path.startsWith("api/")
+      && response.headers.get("x-lnkz-workspace-id")?.toLowerCase() !== this.expectedWorkspaceId) {
+      throw new Error("Relay workspace does not match the selected MCP profile.");
+    }
     return response;
   }
 }

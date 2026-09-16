@@ -49,6 +49,8 @@ function stubClient(calls: string[]): LnkzClientLike {
     return Promise.resolve(value);
   };
   return {
+    workspace: async () => hit("workspace", { workspace: { id: conversationId, name: "Personal", mode: "personal", useCase: "Research", datasets: { enabled: false, approvalTag: "training-approved" } }, access: { actorId: "test", scopes: ["read"] } }),
+    exportDataset: async () => hit("exportDataset", { manifest: {}, trainJsonl: "", validationJsonl: "" }),
     saveConversation: async () => hit("saveConversation", { conversation }),
     importConversations: async () => hit("importConversations", {
       format: "text",

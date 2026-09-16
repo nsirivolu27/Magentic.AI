@@ -2,6 +2,7 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { z } from "zod";
 import { LnkzApiError, type LnkzClientLike } from "./client.js";
 import { registerSurfaces } from "./surfaces.js";
+import { registerWorkspaceTools } from "./workspace.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -52,6 +53,8 @@ export function createLnkzMcpServer(client: LnkzClientLike): McpServer {
         return toolError(error instanceof Error ? error.message : "LNKZ request failed.");
       }
     })) as typeof server.registerTool;
+
+  registerWorkspaceTools(server, client);
 
   // ---------------------------------------------------------------- conversations
 
