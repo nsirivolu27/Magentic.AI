@@ -46,6 +46,10 @@ const WRITE_TOOLS = new Set([
   "continue_handoff",
   "continue_from_link",
   "revoke_handoff",
+  // Exporting a dataset does not change the relay, but it takes conversation
+  // content out of it, which is the thing a read-only deployment is trying to
+  // prevent. Hidden with the writes.
+  "export_training_dataset",
 ]);
 
 export interface McpServerOptions {
