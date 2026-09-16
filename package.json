@@ -11,6 +11,7 @@
   "scripts": {
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/stdio.mjs",
+    "start:http": "node --enable-source-maps ./dist/http-main.mjs",
     "test": "tsc -p tsconfig.test.json && node --test .testbuild/tests/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

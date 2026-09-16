@@ -102,6 +102,37 @@ It also preserves the `lnkz://connectors`, `lnkz://stats`, `lnkz://conversations
 - MCP registration, stdio transport, REST wire contract, and the authenticated REST client belong here.
 - RSNA work belongs only in [rsna-knee-abnormality-detection](https://github.com/nsirivolu27/rsna-knee-abnormality-detection).
 
+## Hosting it
+
+`pnpm start:http` runs the adapter as an HTTP server instead of a subprocess,
+for clients that speak Streamable HTTP or for one adapter shared by several
+people.
+
+```text
+LNKZ_BASE_URL=https://relay.example.com
+HOST=0.0.0.0
+PORT=8080
+```
+
+**A hosted adapter holds no key.** Each caller sends their own relay key as
+`Authorization: Bearer <key>`, and the adapter builds a client with it for
+that one request. The relay then decides what that caller may do, exactly as
+if they had connected to it directly.
+
+This is the difference between hosting and running locally, and getting it
+wrong is quiet. An adapter that read `LNKZ_API_KEY` and listened on a port
+would let everyone who reached the URL act as that one key. `LNKZ_API_KEY` is
+therefore ignored in hosted mode rather than used as a fallback, and the
+server says so at startup if it is set. A caller without a key gets 401.
+
+`GET /health` answers without a credential and returns only whether the
+process is up and which relay it points at, because a probe that needs a key
+is a probe nobody runs.
+
+One thing to be clear about with your users: pointing a client at someone
+else's hosted adapter means handing them your relay key. Host one for people
+who already trust you with it, and tell them what they are sending.
+
 ## Moving a conversation between two relays
 
 Four tools cover the crossing, and the differences between them are the point.
