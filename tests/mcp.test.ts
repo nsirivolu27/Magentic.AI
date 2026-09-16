@@ -83,6 +83,21 @@ function stubClient(calls: string[]): LnkzClientLike {
       exportedAt: now,
     }),
     continueHandoff: async () => hit("continueHandoff", { conversation, parentId: conversationId }),
+    importFromUrl: async () => hit("importFromUrl", {
+      conversation,
+      origin: { instance: "https://theirs.example", url: `https://theirs.example/share/${token}`, conversationId: "theirs-1" },
+      warnings: [],
+    }),
+    previewLink: async () => hit("previewLink", {
+      origin: { instance: "https://theirs.example", url: `https://theirs.example/share/${token}` },
+      warnings: [],
+      preview: { title: conversation.title, provider: "chatgpt", messages: 1, usesRemaining: 1, expiresAt: now, redact: true },
+    }),
+    continueFromLink: async () => hit("continueFromLink", {
+      conversation,
+      origin: { instance: "https://theirs.example", url: `https://theirs.example/share/${token}`, conversationId: "theirs-1" },
+      warnings: [],
+    }),
     revokeHandoff: async () => { await hit("revokeHandoff", undefined); },
     listHandoffs: async () => hit("listHandoffs", { handoffs: [] }),
     buildContextPacket: async () => hit("buildContextPacket", {
@@ -147,6 +162,13 @@ const toolCases: { name: string; input: Record<string, unknown>; call: string }[
   ["continue_handoff", { token, provider: "claude", messages: [{ role: "assistant", content: "Continued" }] }, "continueHandoff"],
   ["revoke_handoff", { handoffId }, "revokeHandoff"],
   ["list_handoffs", {}, "listHandoffs"],
+  ["import_from_url", { url: "https://theirs.example/share/abcdefghijklmnopqrstuvwx" }, "importFromUrl"],
+  ["preview_handoff", { url: "https://theirs.example/share/abcdefghijklmnopqrstuvwx" }, "previewLink"],
+  ["continue_from_link", {
+    url: "https://theirs.example/share/abcdefghijklmnopqrstuvwx",
+    provider: "claude",
+    messages: [{ role: "assistant", content: "Carrying it forward." }],
+  }, "continueFromLink"],
   ["build_context_packet", { query: "context" }, "buildContextPacket"],
   ["analyze_conversation", { conversationId }, "getConversation"],
   ["find_conflicts", {}, "findConflicts"],
@@ -216,4 +238,50 @@ test("resources are served through the REST client", async (t) => {
   await client.readResource({ uri: "lnkz://graph" });
   await client.readResource({ uri: `lnkz://conversation/${conversationId}` });
   assert.deepEqual(calls, ["listConnectors", "stats", "listConversations", "graph", "getConversation"]);
+});
+
+test("a dry run import previews the link instead of redeeming it", async (t) => {
+  // import_from_url with dryRun must not reach importFromUrl. Fetching the
+  // packet to describe it is a redemption as far as the sending relay is
+  // concerned, which on a one-use link makes looking and taking mutually
+  // exclusive. The same mistake has been fixed in four places now; this test
+  // is what stops it reappearing in a fifth.
+  const calls: string[] = [];
+  const server = createLnkzMcpServer(stubClient(calls));
+  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  t.after(async () => {
+    await client.close();
+    await server.close();
+  });
+
+  await client.callTool({
+    name: "import_from_url",
+    arguments: { url: "https://theirs.example/share/abcdefghijklmnopqrstuvwx", dryRun: true },
+  });
+
+  assert.deepEqual(calls, ["previewLink"], "a dry run redeemed the link instead of previewing it");
+});
+
+test("preview never returns the transcript", async (t) => {
+  // The preview route is unauthenticated on the relay, exactly like redemption,
+  // so a peek must not become a way to read someone's conversation for free.
+  const server = createLnkzMcpServer(stubClient([]));
+  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  t.after(async () => {
+    await client.close();
+    await server.close();
+  });
+
+  const result = await client.callTool({
+    name: "preview_handoff",
+    arguments: { url: "https://theirs.example/share/abcdefghijklmnopqrstuvwx" },
+  });
+
+  const serialized = JSON.stringify(result);
+  assert.equal(serialized.includes("messages\":["), false, "the preview carried the transcript");
+  assert.ok(serialized.includes("Nothing was written"), "the preview did not say what it cost");
 });

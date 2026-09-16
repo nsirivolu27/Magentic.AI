@@ -19,6 +19,8 @@ import type {
   StoreStats,
   TargetTools,
   ConflictPair,
+  LinkPreview,
+  TransferOrigin,
 } from "./contract.js";
 
 export interface LnkzClientLike {
@@ -37,6 +39,9 @@ export interface LnkzClientLike {
   createHandoff(id: string, input: unknown): Promise<HandoffIssue>;
   redeemHandoff(token: string): Promise<HandoffPacket>;
   continueHandoff(input: unknown): Promise<{ conversation: Conversation; parentId: string }>;
+  importFromUrl(input: unknown): Promise<{ conversation: Conversation; origin: TransferOrigin; warnings: string[] }>;
+  previewLink(url: string): Promise<LinkPreview>;
+  continueFromLink(input: unknown): Promise<{ conversation: Conversation; origin: TransferOrigin; warnings: string[] }>;
   revokeHandoff(id: string): Promise<void>;
   listHandoffs(conversationId?: string): Promise<{ handoffs: HandoffSummary[] }>;
   buildContextPacket(input: unknown): Promise<{ packet: ContextPacket }>;
@@ -131,6 +136,33 @@ export class LnkzClient implements LnkzClientLike {
 
   continueHandoff(input: unknown) {
     return this.json<{ conversation: Conversation; parentId: string }>("api/handoffs/continue", { method: "POST", body: input });
+  }
+
+  importFromUrl(input: unknown) {
+    return this.json<{ conversation: Conversation; origin: TransferOrigin; warnings: string[] }>(
+      "api/conversations/import-url",
+      { method: "POST", body: input },
+    );
+  }
+
+  /**
+   * A dry run on the relay, which asks the sending instance to describe the
+   * link rather than fetching the packet. It costs the link nothing, so this
+   * is safe on a one-use link where looking and taking would otherwise be
+   * mutually exclusive.
+   */
+  previewLink(url: string) {
+    return this.json<LinkPreview>("api/conversations/import-url", {
+      method: "POST",
+      body: { url, dryRun: true },
+    });
+  }
+
+  continueFromLink(input: unknown) {
+    return this.json<{ conversation: Conversation; origin: TransferOrigin; warnings: string[] }>(
+      "api/handoffs/continue",
+      { method: "POST", body: input },
+    );
   }
 
   async revokeHandoff(id: string): Promise<void> {

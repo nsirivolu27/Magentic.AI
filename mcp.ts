@@ -14,6 +14,9 @@ import {
   createHandoffSchema,
   duplicateSchema,
   importSchema,
+  importUrlSchema,
+  previewLinkSchema,
+  continueFromLinkSchema,
   listConversationsSchema,
   redeemHandoffSchema,
   revokeHandoffSchema,
@@ -239,6 +242,85 @@ export function createLnkzMcpServer(client: LnkzClientLike): McpServer {
         `Continued ${parentId} as ${continuation.id} in ${options.provider}.`,
         { conversation: continuation, parentId },
       );
+    },
+  );
+
+  server.registerTool(
+    "import_from_url",
+    {
+      title: "Pull a conversation from another LNKZ",
+      description:
+        "Fetches a LNKZ share link through the relay and stores the conversation there. This is how a conversation "
+        + "moves between two people running their own instances: they send a link, you import it, and it becomes "
+        + "yours, continuable without touching their server again. Lineage records which instance it came from.",
+      inputSchema: importUrlSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      const options = importUrlSchema.parse(input);
+      if (options.dryRun) {
+        const peek = await client.previewLink(options.url);
+        return ok(
+          `${peek.origin.instance} offers "${peek.preview.title}" from ${peek.preview.provider} with `
+          + `${peek.preview.messages} message(s). Nothing was written and no use was spent.`,
+          { origin: peek.origin, preview: peek.preview },
+        );
+      }
+      const result = await client.importFromUrl(options);
+      return ok(
+        `Imported "${result.conversation.title}" from ${result.origin.instance} as ${result.conversation.id}.`,
+        result,
+      );
+    },
+  );
+
+  server.registerTool(
+    "preview_handoff",
+    {
+      title: "Look at a link without taking it",
+      description:
+        "Reports what a LNKZ share link contains without redeeming it: title, provider, message count, uses "
+        + "remaining and whether it will be redacted. Never returns the transcript and never spends one of the "
+        + "link's uses, so it is safe on a one-use link. Use it before import_from_url or continue_from_link when "
+        + "you are not sure what someone sent you.",
+      inputSchema: previewLinkSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async (input) => {
+      const { url } = previewLinkSchema.parse(input);
+      const peek = await client.previewLink(url);
+      const lines = [
+        `"${peek.preview.title}" from ${peek.preview.provider}, ${peek.preview.messages} message(s).`,
+        `Offered by ${peek.origin.instance}.`,
+        `${peek.preview.usesRemaining} use(s) left, expiring ${peek.preview.expiresAt}.`,
+        peek.preview.redact ? "It will be redacted on the way out." : "It will be sent unredacted.",
+        "Nothing was written and no use was spent.",
+      ];
+      return ok(lines.join("\n"), { origin: peek.origin, preview: peek.preview });
+    },
+  );
+
+  server.registerTool(
+    "continue_from_link",
+    {
+      title: "Continue someone else's conversation here",
+      description:
+        "Takes a LNKZ share link from another instance and stores your continuation of it as a new conversation, "
+        + "recording which instance it came from and which provider carried it forward. Different from "
+        + "import_from_url followed by append_messages: that edits your copy and leaves nothing saying the work "
+        + "moved on. Use continue_handoff for a link this relay minted.",
+      inputSchema: continueFromLinkSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      const options = continueFromLinkSchema.parse(input);
+      const result = await client.continueFromLink(options);
+      const lines = [
+        `Continued ${result.origin.instance}'s conversation as ${result.conversation.id} in ${options.provider}.`,
+        `It carries ${result.conversation.messages.length} message(s), including everything that came before.`,
+        ...result.warnings.map((warning) => `Warning: ${warning}`),
+      ];
+      return ok(lines.join("\n"), result);
     },
   );
 
