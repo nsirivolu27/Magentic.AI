@@ -309,6 +309,55 @@ export const continueConversationSchema = z.object({
   title: z.string().trim().max(240).optional(),
   messages: z.array(messageSchema).min(1).max(500),
 });
+/**
+ * Pulling a conversation off another instance's link.
+ *
+ * The relay does the fetching, not this adapter. That keeps every SSRF guard
+ * in one place: protocol allowlist, no credentials in the URL, public
+ * addresses only, size cap, timeout. An adapter that dialled the link itself
+ * would be a second, weaker copy of those rules.
+ */
+export const importUrlSchema = z.object({
+  url: z.string().trim().min(1).max(2_048),
+  tags: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  dryRun: z.boolean().default(false),
+});
+
+export const previewLinkSchema = z.object({ url: z.string().trim().min(1).max(2_048) });
+
+/**
+ * Continuing someone else's link, as distinct from one this relay minted.
+ * The two produce different lineage, so they are different calls rather than
+ * one call with an optional field.
+ */
+export const continueFromLinkSchema = z.object({
+  url: z.string().trim().min(1).max(2_048),
+  provider: z.string().trim().min(1).max(80),
+  app: z.string().trim().max(120).optional(),
+  title: z.string().trim().max(240).optional(),
+  messages: z.array(messageSchema).min(1).max(500),
+});
+
+export interface TransferOrigin {
+  instance: string;
+  url: string;
+  handoffId?: string;
+  conversationId?: string;
+}
+
+export interface LinkPreview {
+  origin: { instance: string; url: string };
+  warnings: string[];
+  preview: {
+    title: string;
+    provider: string;
+    messages: number;
+    usesRemaining: number;
+    expiresAt: string;
+    redact: boolean;
+  };
+}
+
 export const analyzeSchema = z.object({ conversationId: z.string().uuid() });
 export const conflictSchema = z.object({
   limit: z.number().int().min(2).max(100).default(30),
