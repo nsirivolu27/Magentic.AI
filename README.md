@@ -1,14 +1,26 @@
 # LNKZ MCP
 
-LNKZ MCP is the standalone Model Context Protocol adapter for the LNKZ relay built into [LLMM](https://github.com/nsirivolu27/LLMM). It exposes the existing LNKZ tools, resources, and prompts to MCP clients while using the relay's authenticated REST API for every operation.
+LNKZ MCP is the standalone Model Context Protocol adapter for the
+[LNKZ relay](https://github.com/nsirivolu27/LNKZ). It exposes LNKZ's tools,
+resources and prompts to MCP clients, using the relay's authenticated REST API
+for every operation.
 
-This repository contains no LLMM console, database, conversation store, import pipeline, connector implementation, or product branding. Run LLMM/LNKZ separately, then point this adapter at it.
+This repository holds no database, conversation store, import pipeline,
+connector implementation, authentication implementation or console. Run a relay
+separately and point this at it.
+
+That is the whole boundary, and it is worth stating plainly because it is easy
+to erode. LNKZ ships its own MCP surface that talks to the store in process;
+this adapter exists for people whose relay is somewhere else. Two transports
+onto one implementation, not two implementations. If this repository ever needs
+to import from the relay's source, the boundary is wrong and the fix belongs
+here.
 
 ## Requirements
 
 - Node.js 22
 - pnpm 10.26.1 through Corepack
-- A running LLMM/LNKZ relay
+- A running LNKZ relay
 - A relay API key with the scopes needed by the tools you use
 
 ## Install and build
@@ -29,6 +41,22 @@ LNKZ_API_KEY=replace-with-a-dedicated-relay-key
 ```
 
 Do not commit API keys or put them in command-line arguments. Supply them through your MCP client's environment configuration or a secret manager.
+
+### Exposing fewer tools
+
+`LNKZ_MCP_SCOPES=read` hides the tools that change things: saving, importing,
+appending, deleting, minting, redeeming, continuing and revoking. Everything
+that only reads stays, and `preview_handoff` counts as reading because it
+spends nothing.
+
+Omit the setting for everything, which is the default and what every existing
+deployment already has.
+
+This controls what a model can see, not what it is permitted to do. The relay
+enforces the key's real scopes and refuses a write on a read-only key whatever
+is registered here. The reason to set it anyway is that a model cannot build a
+plan around a tool it never sees, so a reader-only deployment stops being
+offered deletions it was never going to be allowed to perform.
 
 ## Claude Desktop (stdio)
 
@@ -73,3 +101,28 @@ It also preserves the `lnkz://connectors`, `lnkz://stats`, `lnkz://conversations
 - Product UI, relay REST API, stores, authentication, managed OIDC membership, connectors, import/export implementation, intelligence, graph construction, and publish-target discovery belong in [LLMM](https://github.com/nsirivolu27/LLMM).
 - MCP registration, stdio transport, REST wire contract, and the authenticated REST client belong here.
 - RSNA work belongs only in [rsna-knee-abnormality-detection](https://github.com/nsirivolu27/rsna-knee-abnormality-detection).
+
+## Moving a conversation between two relays
+
+Four tools cover the crossing, and the differences between them are the point.
+
+| Tool | What it does | Cost |
+| --- | --- | --- |
+| `preview_handoff` | Reports title, provider, message count, uses left and whether redaction is on | Nothing. No transcript, no use spent |
+| `import_from_url` | Stores a copy here and records where it came from | One use |
+| `continue_from_link` | Stores your continuation of their conversation as a new conversation | One use |
+| `continue_handoff` | The same, for a link this relay minted | One use |
+
+Preview first when you are not sure what someone sent you. A share link is a
+bearer link and every redemption spends one of its uses, so on a one-use link
+finding out what is inside would otherwise cost you the thing itself.
+
+Importing and then appending is not the same as continuing. It edits your copy
+and leaves nothing recording that the work moved on or which client carried it.
+`continue_from_link` records both, and the chain root survives so the sender can
+still resolve the conversation to their own original if it comes back to them.
+
+The relay does the fetching in every case. This adapter never dials a share
+link itself, which keeps the protocol allowlist, the credential check, the
+public-address requirement, the size cap and the timeout in one place rather
+than in two copies that drift.
