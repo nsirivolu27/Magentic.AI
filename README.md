@@ -42,6 +42,22 @@ LNKZ_API_KEY=replace-with-a-dedicated-relay-key
 
 Do not commit API keys or put them in command-line arguments. Supply them through your MCP client's environment configuration or a secret manager.
 
+### Exposing fewer tools
+
+`LNKZ_MCP_SCOPES=read` hides the tools that change things: saving, importing,
+appending, deleting, minting, redeeming, continuing and revoking. Everything
+that only reads stays, and `preview_handoff` counts as reading because it
+spends nothing.
+
+Omit the setting for everything, which is the default and what every existing
+deployment already has.
+
+This controls what a model can see, not what it is permitted to do. The relay
+enforces the key's real scopes and refuses a write on a read-only key whatever
+is registered here. The reason to set it anyway is that a model cannot build a
+plan around a tool it never sees, so a reader-only deployment stops being
+offered deletions it was never going to be allowed to perform.
+
 ## Claude Desktop (stdio)
 
 Build the repository, then add an entry like this to Claude Desktop's MCP configuration. Replace the path and placeholder key locally.
