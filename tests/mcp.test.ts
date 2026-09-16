@@ -179,6 +179,8 @@ const toolCases: { name: string; input: Record<string, unknown>; call: string }[
   ["list_connectors", {}, "listConnectors"],
   ["workspace_stats", {}, "stats"],
   ["audit_log", {}, "audit"],
+  ["get_workspace", {}, "workspace"],
+  ["export_training_dataset", { conversationIds: [conversationId], acknowledgeRights: true }, "exportDataset"],
 ].map(([name, input, call]) => ({ name, input, call })) as { name: string; input: Record<string, unknown>; call: string }[];
 
 for (const item of toolCases) {
@@ -213,7 +215,7 @@ test("publishes the preserved tool, resource, template, and prompt names", async
   assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), toolCases.map((item) => item.name).sort());
   const resources = await client.listResources();
   assert.deepEqual(resources.resources.map((resource) => resource.uri).sort(), [
-    "lnkz://connectors", "lnkz://conversations", "lnkz://graph", "lnkz://stats",
+    "lnkz://connectors", "lnkz://conversations", "lnkz://graph", "lnkz://stats", "lnkz://workspace",
   ]);
   const templates = await client.listResourceTemplates();
   assert.deepEqual(templates.resourceTemplates.map((resource) => resource.uriTemplate), ["lnkz://conversation/{id}"]);

@@ -1,0 +1,40 @@
+# Supply the app name with --app. See README.md for the deploy recipe.
+#
+# LNKZ_BASE_URL is the one setting this needs and it is not a secret, so it
+# lives here rather than in fly secrets. There is deliberately no
+# LNKZ_API_KEY: a hosted adapter holds no credential and uses each caller's
+# own key. Setting one here would hand every caller the same access.
+primary_region = "iad"
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  HOST = "0.0.0.0"
+  PORT = "8080"
+  # Point this at your relay before deploying.
+  # LNKZ_BASE_URL = "https://your-relay.fly.dev"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Stateless and holding nothing, so machines can stop when idle and start on
+  # a request. The relay cannot do this because it owns a database; this can.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"

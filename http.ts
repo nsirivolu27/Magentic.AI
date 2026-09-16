@@ -109,13 +109,23 @@ async function handle(
   // A client and a server per request. Both are cheap, and neither outliving
   // the request is what keeps one caller's key from reaching another's call.
   const server = createLnkzMcpServer(new LnkzClient(baseUrl, apiKey), options);
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+
+  // Omitted rather than set to undefined. Stateless is the absence of a
+  // session id generator, and under exactOptionalPropertyTypes an optional
+  // property cannot be handed an explicit undefined. Same object at runtime.
+  const transport = new StreamableHTTPServerTransport({});
   response.on("close", () => {
     void transport.close().catch(() => undefined);
     void server.close().catch(() => undefined);
   });
 
-  await server.connect(transport);
+  // The cast is friction between the SDK's types and
+  // exactOptionalPropertyTypes, not a real mismatch: the transport declares
+  // `onclose?: (() => void) | undefined` where the Transport interface asks
+  // for `onclose?: () => void`, which that flag treats as incompatible even
+  // though every implementation satisfies both. Narrow and commented rather
+  // than relaxing the flag for the whole project.
+  await server.connect(transport as unknown as Parameters<typeof server.connect>[0]);
   await transport.handleRequest(request, response, body);
 }
 

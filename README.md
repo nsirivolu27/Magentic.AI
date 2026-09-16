@@ -133,6 +133,44 @@ One thing to be clear about with your users: pointing a client at someone
 else's hosted adapter means handing them your relay key. Host one for people
 who already trust you with it, and tell them what they are sending.
 
+### Deploying it
+
+```bash
+set -eu
+corepack enable
+pnpm install --frozen-lockfile
+pnpm test
+fly auth login
+APP="lnkz-mcp-$(node -e 'console.log(require("node:crypto").randomBytes(4).toString("hex"))')"
+fly apps create "$APP"
+fly deploy --app "$APP" --env LNKZ_BASE_URL=https://your-relay.example.com
+curl -fsS "https://$APP.fly.dev/health"
+```
+
+No volume, no database, no secrets. The adapter keeps nothing between
+requests, so machines suspend when idle and start on the next call, and
+restarting one loses nothing. `min_machines_running` is 0 for the same reason,
+which the relay cannot do because it owns a file.
+
+Do not set `LNKZ_API_KEY` on a deployment. There is no use for it here and
+setting one hands every caller the same access. The server logs a warning if
+it finds one.
+
+Point a client at it with the hosted form of the config, sending your own
+relay key:
+
+```json
+{
+  "mcpServers": {
+    "lnkz": {
+      "type": "streamable-http",
+      "url": "https://your-adapter.fly.dev/mcp",
+      "headers": { "Authorization": "Bearer YOUR_RELAY_KEY" }
+    }
+  }
+}
+```
+
 ## Moving a conversation between two relays
 
 Four tools cover the crossing, and the differences between them are the point.
