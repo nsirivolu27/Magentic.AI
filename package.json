@@ -23,5 +23,17 @@
     "@types/node": "^25.3.3",
     "esbuild": "^0.27.3",
     "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@langchain/openai": "^0.6.0",
+    "@langchain/ollama": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@langchain/openai": {
+      "optional": true
+    },
+    "@langchain/ollama": {
+      "optional": true
+    }
   }
 }

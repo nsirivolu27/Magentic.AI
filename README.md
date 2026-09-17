@@ -58,6 +58,28 @@ is registered here. The reason to set it anyway is that a model cannot build a
 plan around a tool it never sees, so a reader-only deployment stops being
 offered deletions it was never going to be allowed to perform.
 
+### Semantic search and grounded answers
+
+Setting `LNKZ_LLM_PROVIDER` adds two read-only tools. `semantic_search` ranks
+conversation passages by meaning rather than by shared words, and
+`ask_conversations` answers a question from the stored conversations with a
+citation on every claim and an explicit refusal when the answer is not there.
+Both name the conversation and the message ids behind every result.
+
+Leaving the setting unset registers neither tool, and no LangChain package is
+installed or imported. Turning it on means passage text leaves this instance
+for the provider you name, so `ollama` against a server you run is the
+configuration that keeps conversations on your own hardware.
+
+```
+pnpm add @langchain/ollama          # or @langchain/openai
+LNKZ_LLM_PROVIDER=ollama
+LNKZ_LLM_BASE_URL=http://127.0.0.1:11434
+```
+
+`LANGCHAIN.md` explains why this lives in the adapter rather than in the
+relay, and what each per-query cost ceiling in `.env.example` bounds.
+
 ## Claude Desktop (stdio)
 
 Build the repository, then add an entry like this to Claude Desktop's MCP configuration. Replace the path and placeholder key locally.
