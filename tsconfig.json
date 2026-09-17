@@ -16,6 +16,7 @@
   "include": [
     "*.ts",
     "llm/**/*.ts",
+    "catalog/**/*.ts",
     "tests/**/*.ts"
   ]
 }

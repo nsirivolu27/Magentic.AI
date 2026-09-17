@@ -1,5 +1,6 @@
 import { createAdapterHttpServer } from "./http.js";
 import { optionsFromEnv } from "./mcp.js";
+import { loadCatalog, type Catalog } from "./catalog/load.js";
 
 /**
  * Hosting the adapter.
@@ -18,10 +19,40 @@ if (!baseUrl) {
 
 const host = process.env.HOST ?? "127.0.0.1";
 const port = Number(process.env.PORT ?? 8080);
-const server = createAdapterHttpServer({ baseUrl, options: optionsFromEnv() });
+const options = optionsFromEnv();
+
+// The catalog is loaded before the port is bound, and a bad definition stops
+// the process. A server that came up with half its agents would report
+// healthy and then fail one connection at a time, which is the worst way to
+// find out a file has a typo in a tool name.
+const directory = (process.env.LNKZ_AGENTS_DIR ?? "agents").trim();
+let catalog: Catalog | undefined;
+try {
+  catalog = loadCatalog({ directory, allowWrites: options.allowWrites ?? true });
+} catch (error) {
+  if (process.env.LNKZ_AGENTS_DIR) {
+    console.error(`[http] ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
+  // No directory and none asked for: this is a deployment that predates
+  // agents, and /mcp alone is exactly what it had before.
+  catalog = undefined;
+}
+
+const server = createAdapterHttpServer({ baseUrl, options, ...(catalog ? { catalog } : {}) });
 
 server.listen(port, host, () => {
   console.log(`[http] LNKZ MCP adapter on http://${host}:${port}/mcp, relaying to ${baseUrl}`);
+  for (const entry of catalog?.entries ?? []) {
+    const access = entry.writesAllowed ? "read+write" : "read";
+    console.log(`[http]   ${entry.endpoint}  ${entry.definition.title} (${entry.activeTools.size} tools, ${access})`);
+    if (entry.unavailableTools.length) {
+      // Said out loud rather than left to be noticed. An agent quietly
+      // missing an optional tool looks like the tool is broken.
+      console.warn(`[http]   ${entry.definition.name}: not available on this build: ${entry.unavailableTools.join(", ")}`);
+    }
+  }
+  if (catalog) console.log(`[http] catalog at http://${host}:${port}/agents`);
   if (process.env.LNKZ_API_KEY) {
     // Loud, because someone setting it has assumed the wrong model: that the
     // host holds a key. It does not, and a caller without their own gets 401.

@@ -124,6 +124,20 @@ It also preserves the `lnkz://connectors`, `lnkz://stats`, `lnkz://conversations
 - MCP registration, stdio transport, REST wire contract, and the authenticated REST client belong here.
 - RSNA work belongs only in [rsna-knee-abnormality-detection](https://github.com/nsirivolu27/rsna-knee-abnormality-detection).
 
+## Agents hosted here
+
+One hosted process can serve several agents, each a fixed set of tools at its
+own MCP URL. `/agents` is the machine-readable catalog, `/` is a page listing
+what is hosted, and `/mcp/<name>` is an agent's endpoint. Three ship with the
+adapter: `conversation-relay` for passing conversations between people,
+`research-reader` for everything that reads and nothing that changes, and
+`handoff-desk` for minting and receiving links.
+
+An agent is configuration and nothing else: no relay, no key, no code. It
+narrows what this deployment offers and can never widen it, so
+`LNKZ_MCP_SCOPES=read` makes every agent read-only whatever its own scopes
+say. `CATALOG.md` has the record format and the rules.
+
 ## Hosting it
 
 `pnpm start:http` runs the adapter as an HTTP server instead of a subprocess,
