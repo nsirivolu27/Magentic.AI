@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { loadCatalog, resolve } from "../catalog/load.js";
 import { agentSchema, toPublicAgent } from "../catalog/schema.js";
 import { lnkzToolNames } from "../mcp.js";
+import { defaultAgentsDirectory, selectAgent } from "../catalog/select.js";
 
 const SHIPPED = "agents";
 
@@ -184,4 +185,41 @@ test("a read-only deployment publishes the tool list it will actually serve", ()
     assert.equal(locked.activeTools.has(write), false, `${write} is still advertised on a read-only host`);
   }
   assert.ok(locked.activeTools.has("list_conversations"));
+});
+
+// ------------------------------------------------------------------ choosing one agent
+
+test("selecting an agent narrows the tools and replaces the instructions", () => {
+  const catalog = loadCatalog({ directory: SHIPPED, allowWrites: true });
+  const selected = selectAgent(catalog, "handoff-desk", { allowWrites: true });
+  assert.equal(selected.options.allowWrites, true);
+  assert.equal(selected.options.tools, selected.entry.activeTools);
+  assert.equal(selected.options.instructions, selected.entry.definition.instructions);
+});
+
+test("selecting an agent cannot widen a read-only process", () => {
+  const catalog = loadCatalog({ directory: SHIPPED, allowWrites: false });
+  const selected = selectAgent(catalog, "conversation-relay", { allowWrites: false });
+  assert.equal(selected.options.allowWrites, false, "a read-only process stays read-only whatever the agent asked for");
+});
+
+test("an unknown agent name says which names exist", () => {
+  const catalog = loadCatalog({ directory: SHIPPED, allowWrites: true });
+  assert.throws(
+    () => selectAgent(catalog, "reader", { allowWrites: true }),
+    (error: Error) => /No agent named "reader"/.test(error.message) && /research-reader/.test(error.message),
+  );
+});
+
+test("the agents directory is found from the build, not the working directory", () => {
+  // A desktop MCP client spawns the adapter with its cwd set to wherever it
+  // likes. Resolving relative to cwd works by hand and fails from the client,
+  // which is the worse failure because it reads as bad configuration.
+  const fromBundle = defaultAgentsDirectory("file:///somewhere/repo/dist/stdio.mjs", {});
+  assert.equal(fromBundle.replace(/\\/g, "/"), "/somewhere/repo/agents");
+});
+
+test("an explicit agents directory wins over the default", () => {
+  const explicit = defaultAgentsDirectory("file:///somewhere/repo/dist/stdio.mjs", { LNKZ_AGENTS_DIR: "/opt/agents" });
+  assert.equal(explicit.replace(/\\/g, "/"), "/opt/agents");
 });
