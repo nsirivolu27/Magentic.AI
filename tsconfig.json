@@ -8,8 +8,14 @@
     "exactOptionalPropertyTypes": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "noEmit": true
   },
-  "include": ["*.ts", "tests/**/*.ts"]
+  "include": [
+    "*.ts",
+    "llm/**/*.ts",
+    "tests/**/*.ts"
+  ]
 }
