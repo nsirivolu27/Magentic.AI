@@ -2,6 +2,7 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { z } from "zod";
 import { LnkzApiError, type LnkzClientLike } from "./client.js";
 import { registerSurfaces } from "./surfaces.js";
+import { registerWorkspaceTools } from "./workspace.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -14,6 +15,9 @@ import {
   createHandoffSchema,
   duplicateSchema,
   importSchema,
+  importUrlSchema,
+  previewLinkSchema,
+  continueFromLinkSchema,
   listConversationsSchema,
   redeemHandoffSchema,
   revokeHandoffSchema,
@@ -26,16 +30,113 @@ import {
 
 export const LNKZ_VERSION = "0.2.0";
 
-export function createLnkzMcpServer(client: LnkzClientLike): McpServer {
+/**
+ * Tools that change something: on this relay, on someone else's, or to a
+ * link's remaining uses. redeem_handoff is here because redeeming spends a
+ * use, which is a change even though nothing is stored locally.
+ */
+export const WRITE_TOOLS: ReadonlySet<string> = new Set([
+  "save_conversation",
+  "import_conversation",
+  "import_from_url",
+  "append_messages",
+  "delete_conversation",
+  "create_handoff",
+  "redeem_handoff",
+  "continue_handoff",
+  "continue_from_link",
+  "revoke_handoff",
+  // Exporting a dataset does not change the relay, but it takes conversation
+  // content out of it, which is the thing a read-only deployment is trying to
+  // prevent. Hidden with the writes.
+  "export_training_dataset",
+]);
+
+export interface McpServerOptions {
+  /**
+   * Whether this adapter exposes the tools that change things. Defaults to
+   * true, which is what every existing deployment already has.
+   *
+   * This is exposure, not enforcement. The relay decides what the API key may
+   * actually do and will refuse a write on a read-only key regardless of what
+   * is registered here. What this controls is what a model can see, which
+   * matters for a different reason: a model cannot plan around a tool that
+   * does not appear in its list, so a reader-only deployment stops getting
+   * proposals to delete things it was never going to be allowed to delete.
+   */
+  allowWrites?: boolean;
+
+  /**
+   * Restrict this server to a named set of tools. Absent means every tool,
+   * which is what a direct connection to the adapter gets.
+   *
+   * This is how one hosted process serves several agents: a request arriving
+   * at an agent's endpoint builds a server with that agent's allowlist, so
+   * the tools outside it are not registered rather than registered and
+   * refusing. allowWrites still applies on top, and an allowlist cannot
+   * widen it: a read-only deployment stays read-only however an agent is
+   * defined.
+   */
+  tools?: ReadonlySet<string>;
+
+  /**
+   * Replace the server instructions a client reads on connect. An agent is
+   * mostly a description of what it is for, and the instructions are where a
+   * model actually reads that.
+   */
+  instructions?: string;
+
+  /**
+   * Every tool name the server considered registering, appended as it goes.
+   * Only lnkzToolNames uses it, to learn what this build actually exposes
+   * rather than trusting a list someone typed.
+   */
+  collect?: string[];
+}
+
+/** Read the exposure setting. Anything other than an explicit read-only wins nothing. */
+export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): McpServerOptions {
+  const declared = (env.LNKZ_MCP_SCOPES ?? "").trim().toLowerCase();
+  if (!declared) return { allowWrites: true };
+  const scopes = new Set(declared.split(/[\s,]+/).filter(Boolean));
+  return { allowWrites: scopes.has("write") };
+}
+
+const DEFAULT_INSTRUCTIONS = [
+  "LNKZ carries portable conversation context between people, devices, and LLM clients.",
+  "Save or import a chat, build a context packet when another model needs the gist,",
+  "and create a handoff when a human or a different client needs the whole thread.",
+  "Treat handoff tokens as bearer secrets and never echo them into shared output.",
+].join(" ");
+
+/**
+ * Every tool this build registers, read from the build rather than listed by
+ * hand. A hand-written list is a list that drifts, and the thing it would
+ * drift away from is what an agent definition is checked against.
+ *
+ * The probe client throws on any call, which is safe because registration
+ * only describes tools; nothing reaches the relay until one is invoked.
+ */
+let toolNames: readonly string[] | undefined;
+export function lnkzToolNames(): readonly string[] {
+  if (toolNames) return toolNames;
+  const collect: string[] = [];
+  const probe = new Proxy({}, {
+    get: () => () => {
+      throw new Error("The tool-name probe must not reach the relay.");
+    },
+  }) as LnkzClientLike;
+  createLnkzMcpServer(probe, { allowWrites: true, collect });
+  toolNames = [...new Set(collect)].sort();
+  return toolNames;
+}
+
+export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
+  const allowWrites = options.allowWrites ?? true;
   const server = new McpServer(
     { name: "lnkz", version: LNKZ_VERSION },
     {
-      instructions: [
-        "LNKZ carries portable conversation context between people, devices, and LLM clients.",
-        "Save or import a chat, build a context packet when another model needs the gist,",
-        "and create a handoff when a human or a different client needs the whole thread.",
-        "Treat handoff tokens as bearer secrets and never echo them into shared output.",
-      ].join(" "),
+      instructions: options.instructions?.trim() || DEFAULT_INSTRUCTIONS,
     },
   );
   const originalRegisterTool = server.registerTool.bind(server);
@@ -44,14 +145,24 @@ export function createLnkzMcpServer(client: LnkzClientLike): McpServer {
     config: unknown,
     handler: (input: unknown) => Promise<unknown>,
   ) => unknown;
-  server.registerTool = ((name: string, config: unknown, handler: (input: unknown) => Promise<unknown>) =>
-    register(name, config, async (input: unknown) => {
+  server.registerTool = ((name: string, config: unknown, handler: (input: unknown) => Promise<unknown>) => {
+    options.collect?.push(name);
+    // Not registered rather than registered-and-refusing. A tool a model
+    // cannot see is a tool it will not build a plan around.
+    if (!allowWrites && WRITE_TOOLS.has(name)) return undefined as never;
+    // The allowlist is checked after the write gate, never instead of it.
+    // An agent narrows what this deployment offers; it cannot widen it.
+    if (options.tools && !options.tools.has(name)) return undefined as never;
+    return register(name, config, async (input: unknown) => {
       try {
         return await handler(input);
       } catch (error) {
         return toolError(error instanceof Error ? error.message : "LNKZ request failed.");
       }
-    })) as typeof server.registerTool;
+    });
+  }) as typeof server.registerTool;
+
+  registerWorkspaceTools(server, client);
 
   // ---------------------------------------------------------------- conversations
 
@@ -239,6 +350,85 @@ export function createLnkzMcpServer(client: LnkzClientLike): McpServer {
         `Continued ${parentId} as ${continuation.id} in ${options.provider}.`,
         { conversation: continuation, parentId },
       );
+    },
+  );
+
+  server.registerTool(
+    "import_from_url",
+    {
+      title: "Pull a conversation from another LNKZ",
+      description:
+        "Fetches a LNKZ share link through the relay and stores the conversation there. This is how a conversation "
+        + "moves between two people running their own instances: they send a link, you import it, and it becomes "
+        + "yours, continuable without touching their server again. Lineage records which instance it came from.",
+      inputSchema: importUrlSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      const options = importUrlSchema.parse(input);
+      if (options.dryRun) {
+        const peek = await client.previewLink(options.url);
+        return ok(
+          `${peek.origin.instance} offers "${peek.preview.title}" from ${peek.preview.provider} with `
+          + `${peek.preview.messages} message(s). Nothing was written and no use was spent.`,
+          { origin: peek.origin, preview: peek.preview },
+        );
+      }
+      const result = await client.importFromUrl(options);
+      return ok(
+        `Imported "${result.conversation.title}" from ${result.origin.instance} as ${result.conversation.id}.`,
+        result,
+      );
+    },
+  );
+
+  server.registerTool(
+    "preview_handoff",
+    {
+      title: "Look at a link without taking it",
+      description:
+        "Reports what a LNKZ share link contains without redeeming it: title, provider, message count, uses "
+        + "remaining and whether it will be redacted. Never returns the transcript and never spends one of the "
+        + "link's uses, so it is safe on a one-use link. Use it before import_from_url or continue_from_link when "
+        + "you are not sure what someone sent you.",
+      inputSchema: previewLinkSchema.shape,
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async (input) => {
+      const { url } = previewLinkSchema.parse(input);
+      const peek = await client.previewLink(url);
+      const lines = [
+        `"${peek.preview.title}" from ${peek.preview.provider}, ${peek.preview.messages} message(s).`,
+        `Offered by ${peek.origin.instance}.`,
+        `${peek.preview.usesRemaining} use(s) left, expiring ${peek.preview.expiresAt}.`,
+        peek.preview.redact ? "It will be redacted on the way out." : "It will be sent unredacted.",
+        "Nothing was written and no use was spent.",
+      ];
+      return ok(lines.join("\n"), { origin: peek.origin, preview: peek.preview });
+    },
+  );
+
+  server.registerTool(
+    "continue_from_link",
+    {
+      title: "Continue someone else's conversation here",
+      description:
+        "Takes a LNKZ share link from another instance and stores your continuation of it as a new conversation, "
+        + "recording which instance it came from and which provider carried it forward. Different from "
+        + "import_from_url followed by append_messages: that edits your copy and leaves nothing saying the work "
+        + "moved on. Use continue_handoff for a link this relay minted.",
+      inputSchema: continueFromLinkSchema.shape,
+      annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      const options = continueFromLinkSchema.parse(input);
+      const result = await client.continueFromLink(options);
+      const lines = [
+        `Continued ${result.origin.instance}'s conversation as ${result.conversation.id} in ${options.provider}.`,
+        `It carries ${result.conversation.messages.length} message(s), including everything that came before.`,
+        ...result.warnings.map((warning) => `Warning: ${warning}`),
+      ];
+      return ok(lines.join("\n"), result);
     },
   );
 
