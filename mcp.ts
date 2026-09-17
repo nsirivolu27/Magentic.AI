@@ -5,6 +5,7 @@ import { LnkzApiError, type LnkzClientLike } from "./client.js";
 import { registerSurfaces } from "./surfaces.js";
 import { registerWorkspaceTools } from "./workspace.js";
 import { createSuggestions, resolveConversation, shortId } from "./suggest.js";
+import { askHandoffChoices, clientSupportsElicitation, missingChoices } from "./elicit.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -15,6 +16,7 @@ import {
   continueConversationSchema,
   conversationInputSchema,
   createHandoffSchema,
+  HANDOFF_FALLBACKS,
   duplicateSchema,
   importSchema,
   importUrlSchema,
@@ -310,16 +312,45 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     "create_handoff",
     {
       title: "Create conversation handoff",
-      description: "Mints an expiring, use-limited bearer link that another person, device, or LLM client can redeem for portable context. Optionally redacts secrets before the packet leaves.",
+      description: "Mints an expiring, use-limited bearer link that another person, device, or LLM client can redeem for portable context. Leave ttlMinutes, maxUses or redact out and the person is asked, so the link matches the situation instead of a default; pass them to decide without a prompt. Redaction strips names, addresses and keys before the packet leaves.",
       inputSchema: createHandoffSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     async (input) => {
       const options = createHandoffSchema.parse(input);
+      const unanswered = missingChoices(options);
+
+      // Only looked up when there is a question to put a name on. A client
+      // that cannot be asked should not pay for a listing nobody reads.
+      const willAsk = unanswered.length > 0 && clientSupportsElicitation(server);
+      const title = willAsk
+        ? (await suggestions.conversations().catch(() => []))
+            .find((entry) => entry.id === options.conversationId)?.title
+        : undefined;
+
+      const asked = await askHandoffChoices(server, title ?? "this conversation", unanswered);
+      if (asked.asked && !asked.accepted) {
+        // Being shown the question and dismissing it is not agreement to an
+        // hour-long unredacted link, so nothing is minted.
+        return toolError(
+          `No handoff was created: the ${asked.reason === "declined" ? "request was declined" : "prompt was dismissed"}. `
+          + "Pass ttlMinutes, maxUses and redact directly to skip the question.",
+        );
+      }
+
       const { conversationId, ...request } = options;
-      const handoff = await client.createHandoff(conversationId, request);
+      const chosen = asked.asked && asked.accepted ? asked.choices : {};
+      // Fallbacks last and only where still unset, so an answer beats them
+      // and an explicit argument beats everything.
+      const handoff = await client.createHandoff(conversationId, {
+        ...HANDOFF_FALLBACKS,
+        ...clean(request),
+        ...clean(chosen),
+      });
       return ok(
-        `Handoff ${handoff.id} expires ${handoff.expiresAt} after up to ${handoff.maxUses} use(s): ${handoff.shareUrl}`,
+        `Handoff ${handoff.id}${title ? ` for "${title}"` : ""} expires ${handoff.expiresAt} `
+        + `after up to ${handoff.maxUses} use(s)`
+        + `${handoff.redact ? ", redacted" : ", not redacted"}: ${handoff.shareUrl}`,
         { ...handoff },
       );
     },
@@ -819,6 +850,11 @@ function section(heading: string, values: string[]): string {
 
 function ok(text: string, structuredContent: Record<string, unknown>) {
   return { content: [{ type: "text" as const, text }], structuredContent };
+}
+
+/** Drop absent keys so a spread cannot overwrite a set value with undefined. */
+function clean<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>;
 }
 
 function toolError(message: string) {
