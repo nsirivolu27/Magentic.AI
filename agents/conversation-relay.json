@@ -1,0 +1,28 @@
+{
+  "name": "conversation-relay",
+  "title": "Conversation relay",
+  "description": "The whole point of LNKZ: take a conversation you are having, hand it to someone else, and let them carry it forward on their own instance with the chain intact. Saves and imports chats from any client, mints and redeems handoff links, and continues a conversation someone else started.",
+  "category": "conversation",
+  "version": "1.0.0",
+  "publisher": "lnkz",
+  "scopes": ["read", "write"],
+  "tools": [
+    "get_workspace",
+    "save_conversation",
+    "import_conversation",
+    "list_conversations",
+    "get_conversation",
+    "search_conversations",
+    "append_messages",
+    "build_context_packet",
+    "create_handoff",
+    "list_handoffs",
+    "preview_handoff",
+    "redeem_handoff",
+    "continue_handoff",
+    "continue_from_link",
+    "import_from_url",
+    "revoke_handoff"
+  ],
+  "instructions": "This endpoint moves conversations between people and instances. Save or import a chat first so it has an id, then create a handoff when someone else needs the thread. Preview a link before redeeming it: previewing spends nothing, redeeming spends a use. Handoff tokens are bearer secrets, so never echo one into output the recipient did not already have. When continuing someone else's conversation, the lineage is recorded for you; do not restate it as if it were your own work."
+}

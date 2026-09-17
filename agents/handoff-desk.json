@@ -1,0 +1,22 @@
+{
+  "name": "handoff-desk",
+  "title": "Handoff desk",
+  "description": "Just the passing. Mint a link for a conversation, see what is outstanding, preview or redeem a link someone sent you, and revoke one that should stop working. No saving, no importing, no deleting: an endpoint for the person whose job in the moment is getting a thread to someone else and nothing more.",
+  "category": "conversation",
+  "version": "1.0.0",
+  "publisher": "lnkz",
+  "scopes": ["read", "write"],
+  "tools": [
+    "get_workspace",
+    "list_conversations",
+    "get_conversation",
+    "create_handoff",
+    "list_handoffs",
+    "preview_handoff",
+    "redeem_handoff",
+    "continue_handoff",
+    "continue_from_link",
+    "revoke_handoff"
+  ],
+  "instructions": "This endpoint mints and receives handoffs. Set the shortest expiry and the fewest uses that fit the situation, and turn on redaction when the recipient does not need names, addresses or keys that appear in the thread. Preview a link before redeeming it, because redeeming spends a use and previewing does not. Treat every token as a bearer secret: it is the whole credential, so do not repeat one back into shared output. Revoking is immediate and cannot be undone."
+}

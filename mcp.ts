@@ -35,7 +35,7 @@ export const LNKZ_VERSION = "0.2.0";
  * link's remaining uses. redeem_handoff is here because redeeming spends a
  * use, which is a change even though nothing is stored locally.
  */
-const WRITE_TOOLS = new Set([
+export const WRITE_TOOLS: ReadonlySet<string> = new Set([
   "save_conversation",
   "import_conversation",
   "import_from_url",
@@ -65,6 +65,33 @@ export interface McpServerOptions {
    * proposals to delete things it was never going to be allowed to delete.
    */
   allowWrites?: boolean;
+
+  /**
+   * Restrict this server to a named set of tools. Absent means every tool,
+   * which is what a direct connection to the adapter gets.
+   *
+   * This is how one hosted process serves several agents: a request arriving
+   * at an agent's endpoint builds a server with that agent's allowlist, so
+   * the tools outside it are not registered rather than registered and
+   * refusing. allowWrites still applies on top, and an allowlist cannot
+   * widen it: a read-only deployment stays read-only however an agent is
+   * defined.
+   */
+  tools?: ReadonlySet<string>;
+
+  /**
+   * Replace the server instructions a client reads on connect. An agent is
+   * mostly a description of what it is for, and the instructions are where a
+   * model actually reads that.
+   */
+  instructions?: string;
+
+  /**
+   * Every tool name the server considered registering, appended as it goes.
+   * Only lnkzToolNames uses it, to learn what this build actually exposes
+   * rather than trusting a list someone typed.
+   */
+  collect?: string[];
 }
 
 /** Read the exposure setting. Anything other than an explicit read-only wins nothing. */
@@ -75,17 +102,41 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): McpServerO
   return { allowWrites: scopes.has("write") };
 }
 
+const DEFAULT_INSTRUCTIONS = [
+  "LNKZ carries portable conversation context between people, devices, and LLM clients.",
+  "Save or import a chat, build a context packet when another model needs the gist,",
+  "and create a handoff when a human or a different client needs the whole thread.",
+  "Treat handoff tokens as bearer secrets and never echo them into shared output.",
+].join(" ");
+
+/**
+ * Every tool this build registers, read from the build rather than listed by
+ * hand. A hand-written list is a list that drifts, and the thing it would
+ * drift away from is what an agent definition is checked against.
+ *
+ * The probe client throws on any call, which is safe because registration
+ * only describes tools; nothing reaches the relay until one is invoked.
+ */
+let toolNames: readonly string[] | undefined;
+export function lnkzToolNames(): readonly string[] {
+  if (toolNames) return toolNames;
+  const collect: string[] = [];
+  const probe = new Proxy({}, {
+    get: () => () => {
+      throw new Error("The tool-name probe must not reach the relay.");
+    },
+  }) as LnkzClientLike;
+  createLnkzMcpServer(probe, { allowWrites: true, collect });
+  toolNames = [...new Set(collect)].sort();
+  return toolNames;
+}
+
 export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
   const allowWrites = options.allowWrites ?? true;
   const server = new McpServer(
     { name: "lnkz", version: LNKZ_VERSION },
     {
-      instructions: [
-        "LNKZ carries portable conversation context between people, devices, and LLM clients.",
-        "Save or import a chat, build a context packet when another model needs the gist,",
-        "and create a handoff when a human or a different client needs the whole thread.",
-        "Treat handoff tokens as bearer secrets and never echo them into shared output.",
-      ].join(" "),
+      instructions: options.instructions?.trim() || DEFAULT_INSTRUCTIONS,
     },
   );
   const originalRegisterTool = server.registerTool.bind(server);
@@ -95,9 +146,13 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     handler: (input: unknown) => Promise<unknown>,
   ) => unknown;
   server.registerTool = ((name: string, config: unknown, handler: (input: unknown) => Promise<unknown>) => {
+    options.collect?.push(name);
     // Not registered rather than registered-and-refusing. A tool a model
     // cannot see is a tool it will not build a plan around.
     if (!allowWrites && WRITE_TOOLS.has(name)) return undefined as never;
+    // The allowlist is checked after the write gate, never instead of it.
+    // An agent narrows what this deployment offers; it cannot widen it.
+    if (options.tools && !options.tools.has(name)) return undefined as never;
     return register(name, config, async (input: unknown) => {
       try {
         return await handler(input);

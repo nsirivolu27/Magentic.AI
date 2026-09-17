@@ -1,0 +1,25 @@
+{
+  "name": "research-reader",
+  "title": "Research reader",
+  "description": "Everything that reads and nothing that changes. Search, analyze, compare and summarize the stored conversations, find contradictions and near duplicates across them, and build a context packet for another model. Safe to hand to a collaborator, because nothing on this endpoint can save, change, delete or send anything: the only export is a formatted copy of a conversation you can already read.",
+  "category": "research",
+  "version": "1.0.0",
+  "publisher": "lnkz",
+  "scopes": ["read"],
+  "tools": [
+    "get_workspace",
+    "workspace_stats",
+    "list_conversations",
+    "get_conversation",
+    "search_conversations",
+    "search_context",
+    "analyze_conversation",
+    "build_context_packet",
+    "build_context_graph",
+    "find_conflicts",
+    "find_duplicates",
+    "export_conversation"
+  ],
+  "optionalTools": ["semantic_search", "ask_conversations"],
+  "instructions": "This endpoint reads the stored conversations and changes nothing. Start with search_conversations for a term and semantic_search when the subject was discussed in different words than the question uses. Use build_context_graph rather than repeated searches when the question is about what this corpus knows as a whole. Cite the conversation id behind every claim; if the conversations do not answer the question, say so rather than filling the gap."
+}
