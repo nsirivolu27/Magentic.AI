@@ -285,14 +285,25 @@ export const importSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   dryRun: z.boolean().default(false),
 });
+/**
+ * The three fields that decide what a share link is are optional rather than
+ * defaulted, on purpose. A default here is a guess about a situation the
+ * tool cannot see, and advertising one told every caller the question was
+ * already settled. Left out, the person is asked (see elicit.ts); if their
+ * client cannot ask, HANDOFF_FALLBACKS applies the values this schema used
+ * to hard-code, so nothing that worked before behaves differently.
+ */
 export const createHandoffSchema = z.object({
   conversationId: z.string().uuid(),
-  ttlMinutes: z.number().int().min(5).max(10_080).default(60),
-  maxUses: z.number().int().min(1).max(1_000).default(25),
+  ttlMinutes: z.number().int().min(5).max(10_080).optional(),
+  maxUses: z.number().int().min(1).max(1_000).optional(),
   audience: z.string().trim().max(200).optional(),
   note: z.string().trim().max(1_000).optional(),
-  redact: z.boolean().default(false),
+  redact: z.boolean().optional(),
 });
+
+/** What a handoff is when nobody said and nobody could be asked. */
+export const HANDOFF_FALLBACKS = { ttlMinutes: 60, maxUses: 25, redact: false } as const;
 export const redeemHandoffSchema = z.object({ token: z.string().trim().min(20).max(500) });
 export const revokeHandoffSchema = z.object({ handoffId: z.string().uuid() });
 export const contextPacketSchema = z.object({
