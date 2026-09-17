@@ -214,9 +214,21 @@ test("publishes the preserved tool, resource, template, and prompt names", async
   const tools = await client.listTools();
   assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), toolCases.map((item) => item.name).sort());
   const resources = await client.listResources();
-  assert.deepEqual(resources.resources.map((resource) => resource.uri).sort(), [
-    "lnkz://connectors", "lnkz://conversations", "lnkz://graph", "lnkz://stats", "lnkz://workspace",
-  ]);
+  const uris = resources.resources.map((resource) => resource.uri).sort();
+  // The fixed resources, all still here.
+  for (const fixed of ["lnkz://connectors", "lnkz://conversations", "lnkz://graph", "lnkz://stats", "lnkz://workspace"]) {
+    assert.ok(uris.includes(fixed), `${fixed} is no longer listed`);
+  }
+  // And every stored conversation, listed individually so a client can put
+  // them in a resource picker. This is what the template's list callback is
+  // for: a person points at a conversation by title instead of a model
+  // going looking for it by id.
+  const listed = resources.resources.filter((resource) => resource.uri.startsWith("lnkz://conversation/"));
+  assert.equal(listed.length, 1, "the one stubbed conversation should appear once");
+  assert.equal(listed[0]?.uri, `lnkz://conversation/${conversationId}`);
+  assert.equal(listed[0]?.name, conversation.title, "the picker shows the title, not the id");
+  assert.match(listed[0]?.description ?? "", /chatgpt/, "and enough to tell two apart");
+  assert.equal(uris.length, 6, "the fixed five plus the one conversation, and nothing unaccounted for");
   const templates = await client.listResourceTemplates();
   assert.deepEqual(templates.resourceTemplates.map((resource) => resource.uriTemplate), ["lnkz://conversation/{id}"]);
   const prompts = await client.listPrompts();

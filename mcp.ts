@@ -1,8 +1,10 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
 import { z } from "zod";
 import { LnkzApiError, type LnkzClientLike } from "./client.js";
 import { registerSurfaces } from "./surfaces.js";
 import { registerWorkspaceTools } from "./workspace.js";
+import { createSuggestions, resolveConversation, shortId } from "./suggest.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -161,6 +163,10 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
       }
     });
   }) as typeof server.registerTool;
+
+  // One suggestion source per server, so a burst of keystrokes shares a
+  // single relay request. See suggest.ts.
+  const suggestions = createSuggestions(client);
 
   registerWorkspaceTools(server, client);
 
@@ -643,7 +649,38 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
 
   server.registerResource(
     "conversation",
-    new ResourceTemplate("lnkz://conversation/{id}", { list: undefined }),
+    // A list callback is what puts conversations in a client's resource
+    // picker, so a person points at one by title instead of a model going
+    // looking for it by id. The completion callback narrows that list as
+    // they type. The protocol only completes prompt arguments and resource
+    // template variables, never tool arguments, so this and the prompts
+    // below are the whole of where completion can help.
+    new ResourceTemplate("lnkz://conversation/{id}", {
+      list: async () => {
+        const conversations = await suggestions.conversations().catch(() => []);
+        return {
+          resources: conversations.map((conversation) => ({
+            uri: `lnkz://conversation/${conversation.id}`,
+            name: conversation.title,
+            description: `${conversation.source.provider} \u00b7 ${conversation.messageCount} messages \u00b7 ${shortId(conversation.id)}`,
+            mimeType: "text/markdown",
+          })),
+        };
+      },
+      complete: {
+        id: async (value: string) => {
+          const conversations = await suggestions.conversations().catch(() => []);
+          const needle = value.trim().toLowerCase();
+          return conversations
+            .filter((conversation) =>
+              !needle
+              || conversation.id.startsWith(needle)
+              || conversation.title.toLowerCase().includes(needle))
+            .slice(0, 25)
+            .map((conversation) => conversation.id);
+        },
+      },
+    }),
     { title: "LNKZ conversation", description: "One conversation as a portable Markdown transcript.", mimeType: "text/markdown" },
     async (uri, variables) => {
       const id = Array.isArray(variables.id) ? variables.id[0] : variables.id;
@@ -689,7 +726,7 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     {
       title: "Cross-source research brief",
       description: "Builds a sourced brief from conversations and connected work systems.",
-      argsSchema: { topic: z.string().min(1) },
+      argsSchema: { topic: completable(z.string().min(1), (value) => suggestions.tags(value ?? "")) },
     },
     async ({ topic }) => userPrompt(
       `Call build_context_packet with query "${topic}". Write a brief that separates verified facts, decisions, assumptions, and open questions. `
@@ -702,14 +739,26 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     {
       title: "Prepare a conversation for handoff",
       description: "Summarize a conversation, then mint a scoped handoff for a named recipient.",
-      argsSchema: { conversationId: z.string().uuid(), audience: z.string().min(1), ttlMinutes: z.string().optional() },
+      // A title or an id. Completion offers titles because nobody recognises
+      // a uuid, and the handler resolves whichever arrived back to one
+      // conversation before the model sees it.
+      argsSchema: {
+        conversation: completable(z.string().min(1), (value) => suggestions.conversationTitles(value ?? "")),
+        audience: z.string().min(1),
+        ttlMinutes: z.string().optional(),
+      },
     },
-    async ({ conversationId, audience, ttlMinutes }) => userPrompt(
-      `Call analyze_conversation for ${conversationId} and summarize what the recipient needs: the decision, the reason, and what is still open. `
+    async ({ conversation, audience, ttlMinutes }) => {
+      const found = await resolveConversation(client, conversation, suggestions);
+      if (!found.ok) return userPrompt(found.message);
+      const conversationId = found.conversation.id;
+      return userPrompt(
+      `Call analyze_conversation for ${conversationId} ("${found.conversation.title}") and summarize what the recipient needs: the decision, the reason, and what is still open. `
       + `Then call create_handoff for that conversation with audience "${audience}"`
       + `${ttlMinutes ? `, ttlMinutes ${ttlMinutes}` : ""}, redact true, and maxUses 3. `
       + "Give the recipient the share URL and the summary together, and say when it expires.",
-    ),
+      );
+    },
   );
 
   server.registerPrompt(
