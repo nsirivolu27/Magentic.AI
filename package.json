@@ -13,7 +13,8 @@
     "start": "node --enable-source-maps ./dist/stdio.mjs",
     "start:http": "node --enable-source-maps ./dist/http-main.mjs",
     "test": "tsc -p tsconfig.test.json && node --test .testbuild/tests/*.test.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "agents": "node ./dist/list.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

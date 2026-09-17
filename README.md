@@ -124,6 +124,14 @@ It also preserves the `lnkz://connectors`, `lnkz://stats`, `lnkz://conversations
 - MCP registration, stdio transport, REST wire contract, and the authenticated REST client belong here.
 - RSNA work belongs only in [rsna-knee-abnormality-detection](https://github.com/nsirivolu27/rsna-knee-abnormality-detection).
 
+## Run it yourself
+
+Two terminals and no deployment: the relay on 3100, the adapter built from
+this checkout, and either your desktop client or a browser. `LOCAL.md` has
+the whole path, including the Claude Desktop entries and how to add an agent
+of your own. `corepack pnpm agents` prints what this checkout hosts without
+starting anything.
+
 ## Agents hosted here
 
 One hosted process can serve several agents, each a fixed set of tools at its
