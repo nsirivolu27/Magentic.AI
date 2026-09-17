@@ -1,0 +1,8 @@
+.git
+node_modules
+dist
+.testbuild
+.env*
+*.log
+*.bundle
+*.pem
