@@ -212,7 +212,13 @@ test("publishes the preserved tool, resource, template, and prompt names", async
   });
 
   const tools = await client.listTools();
-  assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), toolCases.map((item) => item.name).sort());
+  // ask_conversations is not in toolCases because it is not called through
+  // the relay: it is always registered, since whether it works depends on
+  // the connecting client offering sampling rather than on anything knowable
+  // here, and it is exercised end to end in sampling.test.ts. Listed
+  // explicitly so this assertion still catches a tool nobody meant to add.
+  const expectedTools = [...toolCases.map((item) => item.name), "ask_conversations"].sort();
+  assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), expectedTools);
   const resources = await client.listResources();
   const uris = resources.resources.map((resource) => resource.uri).sort();
   // The fixed resources, all still here.
