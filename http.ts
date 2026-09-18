@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { LnkzClient } from "./client.js";
-import { createLnkzMcpServer, type McpServerOptions } from "./mcp.js";
+import { createMagenticMcpServer, type McpServerOptions } from "./mcp.js";
 import { toPublicAgent, type CatalogEntry } from "./catalog/schema.js";
 import type { Catalog } from "./catalog/load.js";
 
@@ -200,7 +200,7 @@ async function handle(
         instructions: requested.definition.instructions,
       }
     : options;
-  const server = createLnkzMcpServer(new LnkzClient(baseUrl, apiKey), perRequest);
+  const server = createMagenticMcpServer(new LnkzClient(baseUrl, apiKey), perRequest);
 
   // Omitted rather than set to undefined. Stateless is the absence of a
   // session id generator, and under exactOptionalPropertyTypes an optional

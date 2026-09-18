@@ -25,7 +25,7 @@ derived is written back.
 
 ## What it adds
 
-Two read-only tools, registered only when `LNKZ_LLM_PROVIDER` is set:
+Two read-only tools, registered only when `MAGENTIC_LLM_PROVIDER` is set:
 
 - **`semantic_search`** ranks conversation passages by meaning rather than by
   shared words. It answers the case the relay's own search cannot: the
@@ -103,7 +103,7 @@ because this process is long lived.
 one embedding. On a relay whose purpose is copying conversations between
 instances, duplicated transcripts are the normal case, not the exception.
 
-**Batching and concurrency.** Passages go out `LNKZ_LLM_BATCH_SIZE` at a time.
+**Batching and concurrency.** Passages go out `MAGENTIC_LLM_BATCH_SIZE` at a time.
 The query vector and the passage vectors are requested concurrently, since
 waiting for one before starting the other adds a round trip to every query.
 Relay reads run six at a time.
@@ -143,8 +143,8 @@ the first call that needs one.
 
 ```
 pnpm add @langchain/ollama          # or @langchain/openai
-LNKZ_LLM_PROVIDER=ollama
-LNKZ_LLM_BASE_URL=http://127.0.0.1:11434
+MAGENTIC_LLM_PROVIDER=ollama
+MAGENTIC_LLM_BASE_URL=http://127.0.0.1:11434
 ```
 
 See `.env.example` for the rest, including the per-query cost ceilings.

@@ -1,12 +1,13 @@
 {
-  "name": "lnkz-mcp",
+  "name": "magentic-mcp",
   "version": "0.2.0",
-  "description": "MCP adapter for the LNKZ conversation relay REST API.",
+  "description": "Magentic: the Model Context Protocol server for the LNKZ conversation relay.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.26.1",
   "bin": {
-    "lnkz-mcp": "dist/stdio.mjs"
+    "magentic": "dist/stdio.mjs",
+    "magentic-mcp": "dist/stdio.mjs"
   },
   "scripts": {
     "build": "node ./build.mjs",

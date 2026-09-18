@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadCatalog, resolve } from "../catalog/load.js";
 import { agentSchema, toPublicAgent } from "../catalog/schema.js";
-import { lnkzToolNames } from "../mcp.js";
+import { magenticToolNames } from "../mcp.js";
 import { defaultAgentsDirectory, selectAgent } from "../catalog/select.js";
 
 const SHIPPED = "agents";
@@ -31,7 +31,7 @@ const valid = {
 // ------------------------------------------------------------------ the tool universe
 
 test("the tool universe is read from the build, not from a list someone typed", () => {
-  const names = lnkzToolNames();
+  const names = magenticToolNames();
   assert.ok(names.length > 20, "the adapter registers a lot of tools and all of them should be here");
   assert.ok(names.includes("create_handoff"));
   assert.ok(names.includes("search_conversations"));
@@ -227,6 +227,6 @@ test("the agents directory is found from the build, not the working directory", 
 test("an explicit agents directory wins over the default", () => {
   const directory = join(tmpdir(), "explicit agents");
   const moduleUrl = pathToFileURL(join(tmpdir(), "other repo", "dist", "stdio.mjs")).href;
-  const explicit = defaultAgentsDirectory(moduleUrl, { LNKZ_AGENTS_DIR: directory });
+  const explicit = defaultAgentsDirectory(moduleUrl, { MAGENTIC_AGENTS_DIR: directory });
   assert.equal(explicit, directory);
 });

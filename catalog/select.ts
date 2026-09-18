@@ -3,13 +3,14 @@ import { fileURLToPath } from "node:url";
 import type { McpServerOptions } from "../mcp.js";
 import { loadCatalog, type Catalog } from "./load.js";
 import type { CatalogEntry } from "./schema.js";
+import { setting } from "../env.js";
 
 /**
  * Choosing one agent, for the case where there is no server at all.
  *
  * Hosting serves every agent at once and lets the URL pick. Running the
  * adapter as a subprocess of one desktop client has no URL, so the choice
- * has to be made before the process starts. LNKZ_AGENT is that choice, and
+ * has to be made before the process starts. MAGENTIC_AGENT is that choice, and
  * it is what makes an agent usable from a laptop without deploying anything.
  */
 
@@ -23,7 +24,7 @@ import type { CatalogEntry } from "./schema.js";
  * because it looks like the configuration is wrong.
  */
 export function defaultAgentsDirectory(moduleUrl: string, env: NodeJS.ProcessEnv = process.env): string {
-  const declared = env.LNKZ_AGENTS_DIR?.trim();
+  const declared = setting("MAGENTIC_AGENTS_DIR", env)?.trim();
   if (declared) return isAbsolute(declared) ? declared : resolvePath(process.cwd(), declared);
   // dist/stdio.mjs and dist/http-main.mjs both sit one level under the
   // repository root, next to agents/.
@@ -71,7 +72,7 @@ export function catalogFor(moduleUrl: string, allowWrites: boolean, env: NodeJS.
     // A directory that was explicitly named, or an agent that was explicitly
     // asked for, makes a load failure fatal. Neither of those means this is
     // a deployment that simply predates agents.
-    if (env.LNKZ_AGENTS_DIR || env.LNKZ_AGENT) throw error;
+    if (setting("MAGENTIC_AGENTS_DIR", env) || setting("MAGENTIC_AGENT", env)) throw error;
     return undefined;
   }
 }
