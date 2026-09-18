@@ -3,6 +3,7 @@ import test from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { loadCatalog, resolve } from "../catalog/load.js";
 import { agentSchema, toPublicAgent } from "../catalog/schema.js";
 import { lnkzToolNames } from "../mcp.js";
@@ -215,11 +216,17 @@ test("the agents directory is found from the build, not the working directory", 
   // A desktop MCP client spawns the adapter with its cwd set to wherever it
   // likes. Resolving relative to cwd works by hand and fails from the client,
   // which is the worse failure because it reads as bad configuration.
-  const fromBundle = defaultAgentsDirectory("file:///somewhere/repo/dist/stdio.mjs", {});
-  assert.equal(fromBundle.replace(/\\/g, "/"), "/somewhere/repo/agents");
+  const repo = join(tmpdir(), "magentic repo away from cwd");
+  for (const entry of ["stdio.mjs", "http-main.mjs"]) {
+    const fromBundle = defaultAgentsDirectory(pathToFileURL(join(repo, "dist", entry)).href, {});
+    assert.equal(fromBundle, join(repo, "agents"));
+    assert.notEqual(fromBundle, join(process.cwd(), "agents"));
+  }
 });
 
 test("an explicit agents directory wins over the default", () => {
-  const explicit = defaultAgentsDirectory("file:///somewhere/repo/dist/stdio.mjs", { LNKZ_AGENTS_DIR: "/opt/agents" });
-  assert.equal(explicit.replace(/\\/g, "/"), "/opt/agents");
+  const directory = join(tmpdir(), "explicit agents");
+  const moduleUrl = pathToFileURL(join(tmpdir(), "other repo", "dist", "stdio.mjs")).href;
+  const explicit = defaultAgentsDirectory(moduleUrl, { LNKZ_AGENTS_DIR: directory });
+  assert.equal(explicit, directory);
 });
