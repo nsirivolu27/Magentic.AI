@@ -1,20 +1,33 @@
-# LNKZ MCP
+# Magentic
 
-LNKZ MCP is the standalone Model Context Protocol adapter for the
-[LNKZ relay](https://github.com/nsirivolu27/LNKZ). It exposes LNKZ's tools,
-resources and prompts to MCP clients, using the relay's authenticated REST API
-for every operation.
+Magentic is the Model Context Protocol server for the
+[LNKZ relay](https://github.com/nsirivolu27/LNKZ). It exposes conversation
+tools, resources and prompts to MCP clients, using the relay's authenticated
+REST API for every operation.
 
-This repository holds no database, conversation store, import pipeline,
-connector implementation, authentication implementation or console. Run a relay
-separately and point this at it.
+Magentic owns MCP. LNKZ owns conversations and serves REST. REST is the seam
+between the two, and this repository is on the MCP side of it: no database, no
+conversation store, no import pipeline, no connector implementation, no
+authentication implementation, no console. Run a relay separately and point
+this at it.
 
-That is the whole boundary, and it is worth stating plainly because it is easy
-to erode. LNKZ ships its own MCP surface that talks to the store in process;
-this adapter exists for people whose relay is somewhere else. Two transports
-onto one implementation, not two implementations. If this repository ever needs
-to import from the relay's source, the boundary is wrong and the fix belongs
-here.
+That boundary is worth stating plainly because it is easy to erode. If this
+repository ever needs to import from the relay's source, the boundary is wrong
+and the fix belongs here.
+
+## Naming
+
+This server used to be called LNKZ MCP, and its settings were named `LNKZ_*`.
+They are `MAGENTIC_*` now. Every renamed setting still accepts its old name and
+prints one warning naming the replacement, and resources answer on both
+`magentic://` and the old `magentic://` addresses, so a deployment configured
+before the rename keeps working. Both fallbacks go away in the next major
+version; `MAGENTIC_LEGACY_URIS=0` drops the old addresses today.
+
+Three settings keep their LNKZ names on purpose. `LNKZ_BASE_URL` and
+`LNKZ_API_KEY` are the address of and the key for the relay this server talks
+to, and `LNKZ_MCP_TARGETS` is configured on the relay. Renaming those would
+hide the boundary above rather than move it.
 
 ## Requirements
 
@@ -44,7 +57,7 @@ Do not commit API keys or put them in command-line arguments. Supply them throug
 
 ### Exposing fewer tools
 
-`LNKZ_MCP_SCOPES=read` hides the tools that change things: saving, importing,
+`MAGENTIC_SCOPES=read` hides the tools that change things: saving, importing,
 appending, deleting, minting, redeeming, continuing and revoking. Everything
 that only reads stays, and `preview_handoff` counts as reading because it
 spends nothing.
@@ -60,7 +73,7 @@ offered deletions it was never going to be allowed to perform.
 
 ### Semantic search and grounded answers
 
-Setting `LNKZ_LLM_PROVIDER` adds two read-only tools. `semantic_search` ranks
+Setting `MAGENTIC_LLM_PROVIDER` adds two read-only tools. `semantic_search` ranks
 conversation passages by meaning rather than by shared words, and
 `ask_conversations` answers a question from the stored conversations with a
 citation on every claim and an explicit refusal when the answer is not there.
@@ -73,8 +86,8 @@ configuration that keeps conversations on your own hardware.
 
 ```
 pnpm add @langchain/ollama          # or @langchain/openai
-LNKZ_LLM_PROVIDER=ollama
-LNKZ_LLM_BASE_URL=http://127.0.0.1:11434
+MAGENTIC_LLM_PROVIDER=ollama
+MAGENTIC_LLM_BASE_URL=http://127.0.0.1:11434
 ```
 
 `LANGCHAIN.md` explains why this lives in the adapter rather than in the
@@ -87,9 +100,9 @@ Build the repository, then add an entry like this to Claude Desktop's MCP config
 ```json
 {
   "mcpServers": {
-    "lnkz": {
+    "magentic": {
       "command": "node",
-      "args": ["C:\\path\\to\\lnkz-mcp\\dist\\stdio.mjs"],
+      "args": ["C:\\path\\to\\magentic-mcp\\dist\\stdio.mjs"],
       "env": {
         "LNKZ_BASE_URL": "http://127.0.0.1:3100",
         "LNKZ_API_KEY": "replace-with-a-dedicated-relay-key"
@@ -103,7 +116,7 @@ The adapter uses local stdio for MCP traffic. It does not open a port or mount `
 
 ## Preserved MCP surface
 
-The adapter preserves all 24 tool names:
+Magentic serves all 24 tool names:
 
 ```text
 save_conversation          import_conversation       get_conversation
@@ -116,7 +129,7 @@ find_conflicts             find_duplicates           search_context
 list_connectors            workspace_stats           audit_log
 ```
 
-It also preserves the `lnkz://connectors`, `lnkz://stats`, `lnkz://conversations`, `lnkz://conversation/{id}`, and `lnkz://graph` resources, plus the four existing prompts.
+It also preserves the `magentic://connectors`, `magentic://stats`, `magentic://conversations`, `magentic://conversation/{id}`, and `magentic://graph` resources, plus the four existing prompts.
 
 ## Repository boundary
 
@@ -143,7 +156,7 @@ adapter: `conversation-relay` for passing conversations between people,
 
 An agent is configuration and nothing else: no relay, no key, no code. It
 narrows what this deployment offers and can never widen it, so
-`LNKZ_MCP_SCOPES=read` makes every agent read-only whatever its own scopes
+`MAGENTIC_SCOPES=read` makes every agent read-only whatever its own scopes
 say. `CATALOG.md` has the record format and the rules.
 
 ## Hosting it
@@ -185,7 +198,7 @@ corepack enable
 pnpm install --frozen-lockfile
 pnpm test
 fly auth login
-APP="lnkz-mcp-$(node -e 'console.log(require("node:crypto").randomBytes(4).toString("hex"))')"
+APP="magentic-mcp-$(node -e 'console.log(require("node:crypto").randomBytes(4).toString("hex"))')"
 fly apps create "$APP"
 fly deploy --app "$APP" --env LNKZ_BASE_URL=https://your-relay.example.com
 curl -fsS "https://$APP.fly.dev/health"
@@ -206,7 +219,7 @@ relay key:
 ```json
 {
   "mcpServers": {
-    "lnkz": {
+    "magentic": {
       "type": "streamable-http",
       "url": "https://your-adapter.fly.dev/mcp",
       "headers": { "Authorization": "Bearer YOUR_RELAY_KEY" }

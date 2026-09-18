@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { lnkzToolNames, WRITE_TOOLS } from "../mcp.js";
+import { magenticToolNames, WRITE_TOOLS } from "../mcp.js";
 import { agentSchema, type AgentDefinition, type CatalogEntry } from "./schema.js";
 
 /**
@@ -36,7 +36,7 @@ export interface LoadOptions {
 
 export function loadCatalog(options: LoadOptions): Catalog {
   const files = listDefinitionFiles(options.directory);
-  const known = new Set(options.known ?? lnkzToolNames());
+  const known = new Set(options.known ?? magenticToolNames());
   const entries: CatalogEntry[] = [];
   const byName = new Map<string, CatalogEntry>();
 

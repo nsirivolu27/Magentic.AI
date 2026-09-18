@@ -95,7 +95,7 @@ export function registerLlmTools(
   const search = async (input: unknown) => {
     const options = searchObject.parse(input);
     if (!embeddings || !config) {
-      return { isError: true as const, content: [{ type: "text" as const, text: "semantic_search needs an embedding model, and this instance has no LNKZ_LLM_PROVIDER configured. Use search_conversations, or ask_conversations, which works without one." }] };
+      return { isError: true as const, content: [{ type: "text" as const, text: "semantic_search needs an embedding model, and this instance has no MAGENTIC_LLM_PROVIDER configured. Use search_conversations, or ask_conversations, which works without one." }] };
     }
     const retrieval: RetrievalDeps = { client, config, embeddings: await embeddings(), cache };
     const result = await retrieve(retrieval, {
@@ -140,7 +140,7 @@ export function registerLlmTools(
 
     const chosen = await chooseChatModel(server, chatModel);
     if (!chosen) {
-      return { isError: true as const, content: [{ type: "text" as const, text: "This instance has no language model available: your client does not offer sampling and no LNKZ_LLM_PROVIDER is configured." }] };
+      return { isError: true as const, content: [{ type: "text" as const, text: "This instance has no language model available: your client does not offer sampling and no MAGENTIC_LLM_PROVIDER is configured." }] };
     }
 
     // Embeddings when an operator paid for them, the relay's own index when

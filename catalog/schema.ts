@@ -47,7 +47,7 @@ export const agentSchema = z.object({
   /**
    * What this agent needs to be able to do. "read" is implied and cannot be
    * dropped; "write" is the one that matters, and it is a request rather
-   * than a grant. A deployment running with LNKZ_MCP_SCOPES=read hides the
+   * than a grant. A deployment running with MAGENTIC_SCOPES=read hides the
    * write tools from an agent that asks for them.
    */
   scopes: z.array(z.enum(["read", "write"])).min(1).default(["read"]),

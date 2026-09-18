@@ -13,7 +13,7 @@ record.
 It is deliberately not a model, not a credential and not code. An agent cannot
 name a relay, so it cannot point a caller at someone else's data. It cannot
 carry a key, so adopting one grants nothing on its own. And it cannot widen
-what the deployment allows, so a server running with `LNKZ_MCP_SCOPES=read`
+what the deployment allows, so a server running with `MAGENTIC_SCOPES=read`
 stays read-only however an agent file is written.
 
 This is the same definition `MARKETPLACE.md` gives a package, which is the
@@ -85,11 +85,11 @@ an agent missing the tool it was chosen for.
 
 ```
 LNKZ_BASE_URL=https://relay.example.com
-LNKZ_AGENTS_DIR=agents
+MAGENTIC_AGENTS_DIR=agents
 node dist/http-main.mjs
 ```
 
-The container sets `LNKZ_AGENTS_DIR=/app/agents` and bakes `agents/` into the
+The container sets `MAGENTIC_AGENTS_DIR=/app/agents` and bakes `agents/` into the
 image, so changing the hosted set means editing the files and redeploying.
 There is no runtime registry yet, which is deliberate: a registry is
 `MARKETPLACE.md`, and it is third for the reasons written there.

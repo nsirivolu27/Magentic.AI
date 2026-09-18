@@ -15,9 +15,9 @@ const allowWrites = optionsFromEnv().allowWrites ?? true;
 
 let catalog;
 try {
-  // LNKZ_AGENT is irrelevant here, but catalogFor treats it as a reason to
+  // MAGENTIC_AGENT is irrelevant here, but catalogFor treats it as a reason to
   // make a load failure fatal, and for this command a failure always is.
-  catalog = catalogFor(import.meta.url, allowWrites, { ...process.env, LNKZ_AGENT: "list" });
+  catalog = catalogFor(import.meta.url, allowWrites, { ...process.env, MAGENTIC_AGENT: "list" });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
@@ -41,7 +41,7 @@ if (json) {
     if (entry.unavailableTools.length) {
       console.log(`  not available on this build: ${entry.unavailableTools.join(", ")}`);
     }
-    console.log(`  stdio:  LNKZ_AGENT=${entry.definition.name}`);
+    console.log(`  stdio:  MAGENTIC_AGENT=${entry.definition.name}`);
     console.log(`  hosted: ${entry.endpoint}\n`);
   }
 }

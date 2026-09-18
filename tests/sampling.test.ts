@@ -123,7 +123,7 @@ test("with no provider and no sampling, the tool is visible and says which of th
   assert.equal(result.isError, true);
   const text = (result.content as { text: string }[])[0]?.text ?? "";
   assert.match(text, /does not offer sampling/);
-  assert.match(text, /LNKZ_LLM_PROVIDER/);
+  assert.match(text, /MAGENTIC_LLM_PROVIDER/);
 });
 
 test("a client that offers its model gets ask_conversations, and semantic_search stays absent", async (t) => {

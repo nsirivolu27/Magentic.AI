@@ -5,7 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ElicitRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { LnkzClientLike } from "../client.js";
 import { missingChoices } from "../elicit.js";
-import { createLnkzMcpServer } from "../mcp.js";
+import { createMagenticMcpServer } from "../mcp.js";
 
 const CONVERSATION = "11111111-1111-4111-8111-111111111111";
 const now = "2026-01-01T00:00:00.000Z";
@@ -41,7 +41,7 @@ async function connect(
   minted: Minted[],
   elicit?: { reply: () => { action: string; content?: Record<string, unknown> } | never; seen: unknown[] },
 ) {
-  const server = createLnkzMcpServer(stubClient(minted));
+  const server = createMagenticMcpServer(stubClient(minted));
   const client = new Client(
     { name: "elicit-test", version: "1.0.0" },
     elicit ? { capabilities: { elicitation: {} } } : {},

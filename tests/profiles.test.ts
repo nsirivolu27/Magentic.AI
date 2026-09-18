@@ -7,11 +7,11 @@ const workspaceId = "22222222-2222-4222-8222-222222222222";
 const profiles = JSON.stringify([{ name: "team", baseUrl: "https://relay.example", apiKeyEnv: "TEAM_KEY", workspaceId }]);
 
 test("profiles resolve secrets by reference and never silently fall back", () => {
-  const env = { LNKZ_PROFILES_JSON: profiles, LNKZ_PROFILE: "team", TEAM_KEY: "team-secret", LNKZ_API_KEY: "wrong-key" };
+  const env = { MAGENTIC_PROFILES_JSON: profiles, MAGENTIC_PROFILE: "team", TEAM_KEY: "team-secret", LNKZ_API_KEY: "wrong-key" };
   assert.equal(resolveProfile(env).apiKey, "team-secret");
-  assert.throws(() => resolveProfile({ ...env, LNKZ_PROFILE: "typo" }), /no fallback/);
+  assert.throws(() => resolveProfile({ ...env, MAGENTIC_PROFILE: "typo" }), /no fallback/);
   assert.throws(() => resolveProfile({ ...env, TEAM_KEY: "" }), /missing/);
-  assert.throws(() => resolveProfile({ ...env, LNKZ_PROFILES_JSON: "team-secret" }), (error: unknown) => {
+  assert.throws(() => resolveProfile({ ...env, MAGENTIC_PROFILES_JSON: "team-secret" }), (error: unknown) => {
     assert.ok(error instanceof Error); assert.doesNotMatch(error.message, /team-secret/); return true;
   });
 });

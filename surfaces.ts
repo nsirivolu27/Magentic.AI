@@ -19,6 +19,6 @@ export function registerSurfaces(server: McpServer, client: LnkzClientLike): voi
   registerExportTool(server, client);
   registerGraphTools(server, client);
   registerPublishTools(server, client);
-  // Registers nothing unless LNKZ_LLM_PROVIDER is set. See llm/tools.ts.
+  // Registers nothing unless MAGENTIC_LLM_PROVIDER is set. See llm/tools.ts.
   registerLlmTools(server, client);
 }
