@@ -19,7 +19,7 @@ kill_timeout = "15s"
   # LNKZ_BASE_URL = "https://your-relay.fly.dev"
   # Agent definitions, baked into the image at /app/agents. Change the set by
   # editing agents/*.json and redeploying; there is no runtime registry yet.
-  LNKZ_AGENTS_DIR = "/app/agents"
+  MAGENTIC_AGENTS_DIR = "/app/agents"
 
 [http_service]
   internal_port = 8080

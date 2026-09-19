@@ -4,7 +4,7 @@
   "description": "Just the passing. Mint a link for a conversation, see what is outstanding, preview or redeem a link someone sent you, and revoke one that should stop working. No saving, no importing, no deleting: an endpoint for the person whose job in the moment is getting a thread to someone else and nothing more.",
   "category": "conversation",
   "version": "1.0.0",
-  "publisher": "lnkz",
+  "publisher": "magentic",
   "scopes": ["read", "write"],
   "tools": [
     "get_workspace",

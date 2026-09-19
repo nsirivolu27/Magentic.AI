@@ -1,6 +1,6 @@
 # LangChain in the adapter
 
-**Status: built, optional, off by default.** No LangChain package is
+**Status: built and optional. `ask_conversations` works with no provider at all when the client supports sampling; `semantic_search` needs one.** No LangChain package is
 installed by this repository, nothing imports one at the top level, and the
 adapter typechecks, tests, bundles and runs without any of them.
 
@@ -25,7 +25,7 @@ derived is written back.
 
 ## What it adds
 
-Two read-only tools, registered only when `LNKZ_LLM_PROVIDER` is set:
+Two read-only tools, registered only when `MAGENTIC_LLM_PROVIDER` is set:
 
 - **`semantic_search`** ranks conversation passages by meaning rather than by
   shared words. It answers the case the relay's own search cannot: the
@@ -36,6 +36,51 @@ Two read-only tools, registered only when `LNKZ_LLM_PROVIDER` is set:
 
 Both name the conversation and the message ids behind every result, so an
 answer can be checked against the turn it came from.
+
+## Three tiers, and why the cheapest one is the default
+
+A provider is no longer required for `ask_conversations`, and that changed
+the shape of the whole feature.
+
+**Sampling first.** A client that supports it will run inference for the
+server using whatever model the person is already talking to. No key, no cost
+to the operator, no egress the person did not already choose, and the adapter
+keeps holding nothing. It is preferred even when a provider is configured,
+because the person's own model is the one they picked.
+
+**A configured provider second.** The LangChain path below, for clients that
+cannot sample.
+
+**Nothing third**, which says which of the two to fix rather than failing
+vaguely.
+
+Retrieval tiers the same way. With an embedding model, passages are ranked by
+meaning. Without one, the relay's own keyword index supplies the candidates
+and plain term overlap orders them. That is worse at exactly the case
+embeddings exist for, a question phrased in different words than the answer,
+so every result prints which path ran instead of leaving someone to guess why
+recall felt thin.
+
+What sampling cannot do is embed. There is no protocol request for
+"vectorise this", so `semantic_search` still needs a provider and stays
+hidden without one. `ask_conversations` is always registered instead, because
+whether it works depends on the connecting client rather than on anything
+knowable when the server is built, and because capabilities are negotiated
+during initialize, so a server that declared no tools then cannot add one
+afterwards.
+
+## Verifying that LangChain itself still fits
+
+`provider.ts` depends on two interfaces of ours rather than on LangChain's
+types, which is what lets every other test run with no package installed. The
+cost is precise: nothing would catch a renamed export or a changed method
+name until the first tool call on a machine that actually has the package.
+
+`tests/langchain-contract.test.ts` is that check. It constructs the real
+classes through the same variable-specifier import the product uses and
+asserts they satisfy `EmbeddingsLike` and `ChatModelLike`. It skips when the
+package is absent, naming the install command, and runs for real the moment
+someone installs one. Nothing in it reaches the network.
 
 ## The optimizations, and what each one is for
 
@@ -58,7 +103,7 @@ because this process is long lived.
 one embedding. On a relay whose purpose is copying conversations between
 instances, duplicated transcripts are the normal case, not the exception.
 
-**Batching and concurrency.** Passages go out `LNKZ_LLM_BATCH_SIZE` at a time.
+**Batching and concurrency.** Passages go out `MAGENTIC_LLM_BATCH_SIZE` at a time.
 The query vector and the passage vectors are requested concurrently, since
 waiting for one before starting the other adds a round trip to every query.
 Relay reads run six at a time.
@@ -98,8 +143,8 @@ the first call that needs one.
 
 ```
 pnpm add @langchain/ollama          # or @langchain/openai
-LNKZ_LLM_PROVIDER=ollama
-LNKZ_LLM_BASE_URL=http://127.0.0.1:11434
+MAGENTIC_LLM_PROVIDER=ollama
+MAGENTIC_LLM_BASE_URL=http://127.0.0.1:11434
 ```
 
 See `.env.example` for the rest, including the per-query cost ceilings.

@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { LnkzClientLike } from "../client.js";
 import type { Conversation, ConversationAnalysis, ConversationGraph } from "../contract.js";
-import { createLnkzMcpServer, optionsFromEnv } from "../mcp.js";
+import { createMagenticMcpServer, optionsFromEnv } from "../mcp.js";
 
 const conversationId = "11111111-1111-4111-8111-111111111111";
 const handoffId = "22222222-2222-4222-8222-222222222222";
@@ -186,8 +186,8 @@ const toolCases: { name: string; input: Record<string, unknown>; call: string }[
 for (const item of toolCases) {
   test(`tool ${item.name} delegates to LNKZ REST`, async (t) => {
     const calls: string[] = [];
-    const server = createLnkzMcpServer(stubClient(calls));
-    const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+    const server = createMagenticMcpServer(stubClient(calls));
+    const client = new Client({ name: "magentic-mcp-test", version: "1.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     t.after(async () => {
@@ -202,8 +202,8 @@ for (const item of toolCases) {
 }
 
 test("publishes the preserved tool, resource, template, and prompt names", async (t) => {
-  const server = createLnkzMcpServer(stubClient([]));
-  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const server = createMagenticMcpServer(stubClient([]));
+  const client = new Client({ name: "magentic-mcp-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   t.after(async () => {
@@ -212,13 +212,35 @@ test("publishes the preserved tool, resource, template, and prompt names", async
   });
 
   const tools = await client.listTools();
-  assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), toolCases.map((item) => item.name).sort());
+  // ask_conversations is not in toolCases because it is not called through
+  // the relay: it is always registered, since whether it works depends on
+  // the connecting client offering sampling rather than on anything knowable
+  // here, and it is exercised end to end in sampling.test.ts. Listed
+  // explicitly so this assertion still catches a tool nobody meant to add.
+  const expectedTools = [...toolCases.map((item) => item.name), "ask_conversations"].sort();
+  assert.deepEqual(tools.tools.map((tool) => tool.name).sort(), expectedTools);
   const resources = await client.listResources();
-  assert.deepEqual(resources.resources.map((resource) => resource.uri).sort(), [
-    "lnkz://connectors", "lnkz://conversations", "lnkz://graph", "lnkz://stats", "lnkz://workspace",
-  ]);
+  const uris = resources.resources.map((resource) => resource.uri).sort();
+  // The fixed resources, all still here.
+  for (const fixed of ["magentic://connectors", "magentic://conversations", "magentic://graph", "magentic://stats", "magentic://workspace"]) {
+    assert.ok(uris.includes(fixed), `${fixed} is no longer listed`);
+  }
+  // The pre-rename addresses answer too, until the next major version.
+  for (const legacy of ["lnkz://connectors", "lnkz://conversations", "lnkz://graph", "lnkz://stats", "lnkz://workspace"]) {
+    assert.ok(uris.includes(legacy), `${legacy} should still be listed as a deprecated alias`);
+  }
+  // And every stored conversation, listed individually so a client can put
+  // them in a resource picker. This is what the template's list callback is
+  // for: a person points at a conversation by title instead of a model
+  // going looking for it by id.
+  const listed = resources.resources.filter((resource) => resource.uri.startsWith("magentic://conversation/"));
+  assert.equal(listed.length, 1, "the one stubbed conversation should appear once");
+  assert.equal(listed[0]?.uri, `magentic://conversation/${conversationId}`);
+  assert.equal(listed[0]?.name, conversation.title, "the picker shows the title, not the id");
+  assert.match(listed[0]?.description ?? "", /chatgpt/, "and enough to tell two apart");
+  assert.equal(uris.length, 12, "the fixed five plus the one conversation, on both schemes, and nothing unaccounted for");
   const templates = await client.listResourceTemplates();
-  assert.deepEqual(templates.resourceTemplates.map((resource) => resource.uriTemplate), ["lnkz://conversation/{id}"]);
+  assert.deepEqual(templates.resourceTemplates.map((resource) => resource.uriTemplate).sort(), ["lnkz://conversation/{id}", "magentic://conversation/{id}"]);
   const prompts = await client.listPrompts();
   assert.deepEqual(prompts.prompts.map((prompt) => prompt.name).sort(), [
     "continue_shared_conversation", "prepare_handoff", "reconcile_conflicts", "research_brief",
@@ -227,8 +249,8 @@ test("publishes the preserved tool, resource, template, and prompt names", async
 
 test("resources are served through the REST client", async (t) => {
   const calls: string[] = [];
-  const server = createLnkzMcpServer(stubClient(calls));
-  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const server = createMagenticMcpServer(stubClient(calls));
+  const client = new Client({ name: "magentic-mcp-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   t.after(async () => {
@@ -236,11 +258,11 @@ test("resources are served through the REST client", async (t) => {
     await server.close();
   });
 
-  await client.readResource({ uri: "lnkz://connectors" });
-  await client.readResource({ uri: "lnkz://stats" });
-  await client.readResource({ uri: "lnkz://conversations" });
-  await client.readResource({ uri: "lnkz://graph" });
-  await client.readResource({ uri: `lnkz://conversation/${conversationId}` });
+  await client.readResource({ uri: "magentic://connectors" });
+  await client.readResource({ uri: "magentic://stats" });
+  await client.readResource({ uri: "magentic://conversations" });
+  await client.readResource({ uri: "magentic://graph" });
+  await client.readResource({ uri: `magentic://conversation/${conversationId}` });
   assert.deepEqual(calls, ["listConnectors", "stats", "listConversations", "graph", "getConversation"]);
 });
 
@@ -251,8 +273,8 @@ test("a dry run import previews the link instead of redeeming it", async (t) => 
   // exclusive. The same mistake has been fixed in four places now; this test
   // is what stops it reappearing in a fifth.
   const calls: string[] = [];
-  const server = createLnkzMcpServer(stubClient(calls));
-  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const server = createMagenticMcpServer(stubClient(calls));
+  const client = new Client({ name: "magentic-mcp-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   t.after(async () => {
@@ -271,8 +293,8 @@ test("a dry run import previews the link instead of redeeming it", async (t) => 
 test("preview never returns the transcript", async (t) => {
   // The preview route is unauthenticated on the relay, exactly like redemption,
   // so a peek must not become a way to read someone's conversation for free.
-  const server = createLnkzMcpServer(stubClient([]));
-  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const server = createMagenticMcpServer(stubClient([]));
+  const client = new Client({ name: "magentic-mcp-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   t.after(async () => {
@@ -294,8 +316,8 @@ test("a read-only adapter does not expose the tools that change things", async (
   // Not "registers them and refuses": a model cannot build a plan around a
   // tool it never sees, so a reader-only deployment stops being offered
   // deletions it was never going to be allowed to perform.
-  const server = createLnkzMcpServer(stubClient([]), { allowWrites: false });
-  const client = new Client({ name: "lnkz-mcp-test", version: "1.0.0" });
+  const server = createMagenticMcpServer(stubClient([]), { allowWrites: false });
+  const client = new Client({ name: "magentic-mcp-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   t.after(async () => {
@@ -324,9 +346,9 @@ test("exposure defaults to everything, and only an explicit read restricts it", 
   // deployment on upgrade. The relay is the enforcer either way, so the safe
   // default here is the non-breaking one.
   assert.equal(optionsFromEnv({}).allowWrites, true);
-  assert.equal(optionsFromEnv({ LNKZ_MCP_SCOPES: "" }).allowWrites, true);
-  assert.equal(optionsFromEnv({ LNKZ_MCP_SCOPES: "read" }).allowWrites, false);
-  assert.equal(optionsFromEnv({ LNKZ_MCP_SCOPES: "read,write" }).allowWrites, true);
-  assert.equal(optionsFromEnv({ LNKZ_MCP_SCOPES: "READ, WRITE" }).allowWrites, true);
-  assert.equal(optionsFromEnv({ LNKZ_MCP_SCOPES: "nonsense" }).allowWrites, false);
+  assert.equal(optionsFromEnv({ MAGENTIC_SCOPES: "" }).allowWrites, true);
+  assert.equal(optionsFromEnv({ MAGENTIC_SCOPES: "read" }).allowWrites, false);
+  assert.equal(optionsFromEnv({ MAGENTIC_SCOPES: "read,write" }).allowWrites, true);
+  assert.equal(optionsFromEnv({ MAGENTIC_SCOPES: "READ, WRITE" }).allowWrites, true);
+  assert.equal(optionsFromEnv({ MAGENTIC_SCOPES: "nonsense" }).allowWrites, false);
 });

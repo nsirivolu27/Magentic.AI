@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { LnkzClientLike } from "./client.js";
+import { registerAliasedResource } from "./resources.js";
 
 const datasetSchema = z.object({
   conversationIds: z.array(z.string().uuid()).min(1).max(100),
@@ -27,7 +28,11 @@ export function registerWorkspaceTools(server: McpServer, client: LnkzClientLike
     const result = await client.exportDataset(datasetSchema.parse(input));
     return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
   });
-  server.registerResource("workspace", "lnkz://workspace", {
-    title: "Authenticated LNKZ workspace", mimeType: "application/json",
-  }, async () => ({ contents: [{ uri: "lnkz://workspace", mimeType: "application/json", text: JSON.stringify(await client.workspace()) }] }));
+  registerAliasedResource(server, "workspace", "workspace", {
+    title: "Authenticated workspace",
+    description: "The workspace the configured relay credential belongs to.",
+    mimeType: "application/json",
+  }, async (uri) => ({
+    contents: [{ uri, mimeType: "application/json", text: JSON.stringify(await client.workspace()) }],
+  }));
 }

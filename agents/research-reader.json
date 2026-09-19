@@ -4,7 +4,7 @@
   "description": "Everything that reads and nothing that changes. Search, analyze, compare and summarize the stored conversations, find contradictions and near duplicates across them, and build a context packet for another model. Safe to hand to a collaborator, because nothing on this endpoint can save, change, delete or send anything: the only export is a formatted copy of a conversation you can already read.",
   "category": "research",
   "version": "1.0.0",
-  "publisher": "lnkz",
+  "publisher": "magentic",
   "scopes": ["read"],
   "tools": [
     "get_workspace",

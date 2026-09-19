@@ -4,7 +4,7 @@
   "description": "The whole point of LNKZ: take a conversation you are having, hand it to someone else, and let them carry it forward on their own instance with the chain intact. Saves and imports chats from any client, mints and redeems handoff links, and continues a conversation someone else started.",
   "category": "conversation",
   "version": "1.0.0",
-  "publisher": "lnkz",
+  "publisher": "magentic",
   "scopes": ["read", "write"],
   "tools": [
     "get_workspace",

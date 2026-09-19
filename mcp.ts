@@ -1,8 +1,13 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
 import { z } from "zod";
 import { LnkzApiError, type LnkzClientLike } from "./client.js";
 import { registerSurfaces } from "./surfaces.js";
 import { registerWorkspaceTools } from "./workspace.js";
+import { createSuggestions, resolveConversation, shortId } from "./suggest.js";
+import { askHandoffChoices, clientSupportsElicitation, missingChoices } from "./elicit.js";
+import { setting } from "./env.js";
+import { legacyUrisEnabled, registerAliasedResource, LEGACY_SCHEME, SCHEME } from "./resources.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -13,6 +18,7 @@ import {
   continueConversationSchema,
   conversationInputSchema,
   createHandoffSchema,
+  HANDOFF_FALLBACKS,
   duplicateSchema,
   importSchema,
   importUrlSchema,
@@ -28,7 +34,7 @@ import {
   type MessageInput,
 } from "./contract.js";
 
-export const LNKZ_VERSION = "0.2.0";
+export const MAGENTIC_VERSION = "0.2.0";
 
 /**
  * Tools that change something: on this relay, on someone else's, or to a
@@ -88,7 +94,7 @@ export interface McpServerOptions {
 
   /**
    * Every tool name the server considered registering, appended as it goes.
-   * Only lnkzToolNames uses it, to learn what this build actually exposes
+   * Only magenticToolNames uses it, to learn what this build actually exposes
    * rather than trusting a list someone typed.
    */
   collect?: string[];
@@ -96,7 +102,7 @@ export interface McpServerOptions {
 
 /** Read the exposure setting. Anything other than an explicit read-only wins nothing. */
 export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): McpServerOptions {
-  const declared = (env.LNKZ_MCP_SCOPES ?? "").trim().toLowerCase();
+  const declared = (setting("MAGENTIC_SCOPES", env) ?? "").trim().toLowerCase();
   if (!declared) return { allowWrites: true };
   const scopes = new Set(declared.split(/[\s,]+/).filter(Boolean));
   return { allowWrites: scopes.has("write") };
@@ -118,7 +124,7 @@ const DEFAULT_INSTRUCTIONS = [
  * only describes tools; nothing reaches the relay until one is invoked.
  */
 let toolNames: readonly string[] | undefined;
-export function lnkzToolNames(): readonly string[] {
+export function magenticToolNames(): readonly string[] {
   if (toolNames) return toolNames;
   const collect: string[] = [];
   const probe = new Proxy({}, {
@@ -126,15 +132,15 @@ export function lnkzToolNames(): readonly string[] {
       throw new Error("The tool-name probe must not reach the relay.");
     },
   }) as LnkzClientLike;
-  createLnkzMcpServer(probe, { allowWrites: true, collect });
+  createMagenticMcpServer(probe, { allowWrites: true, collect });
   toolNames = [...new Set(collect)].sort();
   return toolNames;
 }
 
-export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
+export function createMagenticMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
   const allowWrites = options.allowWrites ?? true;
   const server = new McpServer(
-    { name: "lnkz", version: LNKZ_VERSION },
+    { name: "magentic", version: MAGENTIC_VERSION },
     {
       instructions: options.instructions?.trim() || DEFAULT_INSTRUCTIONS,
     },
@@ -161,6 +167,10 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
       }
     });
   }) as typeof server.registerTool;
+
+  // One suggestion source per server, so a burst of keystrokes shares a
+  // single relay request. See suggest.ts.
+  const suggestions = createSuggestions(client);
 
   registerWorkspaceTools(server, client);
 
@@ -304,16 +314,45 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     "create_handoff",
     {
       title: "Create conversation handoff",
-      description: "Mints an expiring, use-limited bearer link that another person, device, or LLM client can redeem for portable context. Optionally redacts secrets before the packet leaves.",
+      description: "Mints an expiring, use-limited bearer link that another person, device, or LLM client can redeem for portable context. Leave ttlMinutes, maxUses or redact out and the person is asked, so the link matches the situation instead of a default; pass them to decide without a prompt. Redaction strips names, addresses and keys before the packet leaves.",
       inputSchema: createHandoffSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     async (input) => {
       const options = createHandoffSchema.parse(input);
+      const unanswered = missingChoices(options);
+
+      // Only looked up when there is a question to put a name on. A client
+      // that cannot be asked should not pay for a listing nobody reads.
+      const willAsk = unanswered.length > 0 && clientSupportsElicitation(server);
+      const title = willAsk
+        ? (await suggestions.conversations().catch(() => []))
+            .find((entry) => entry.id === options.conversationId)?.title
+        : undefined;
+
+      const asked = await askHandoffChoices(server, title ?? "this conversation", unanswered);
+      if (asked.asked && !asked.accepted) {
+        // Being shown the question and dismissing it is not agreement to an
+        // hour-long unredacted link, so nothing is minted.
+        return toolError(
+          `No handoff was created: the ${asked.reason === "declined" ? "request was declined" : "prompt was dismissed"}. `
+          + "Pass ttlMinutes, maxUses and redact directly to skip the question.",
+        );
+      }
+
       const { conversationId, ...request } = options;
-      const handoff = await client.createHandoff(conversationId, request);
+      const chosen = asked.asked && asked.accepted ? asked.choices : {};
+      // Fallbacks last and only where still unset, so an answer beats them
+      // and an explicit argument beats everything.
+      const handoff = await client.createHandoff(conversationId, {
+        ...HANDOFF_FALLBACKS,
+        ...clean(request),
+        ...clean(chosen),
+      });
       return ok(
-        `Handoff ${handoff.id} expires ${handoff.expiresAt} after up to ${handoff.maxUses} use(s): ${handoff.shareUrl}`,
+        `Handoff ${handoff.id}${title ? ` for "${title}"` : ""} expires ${handoff.expiresAt} `
+        + `after up to ${handoff.maxUses} use(s)`
+        + `${handoff.redact ? ", redacted" : ", not redacted"}: ${handoff.shareUrl}`,
         { ...handoff },
       );
     },
@@ -620,32 +659,70 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
 
   // ------------------------------------------------------------------- resources
 
-  server.registerResource(
+  registerAliasedResource(
+    server,
     "connector-status",
-    "lnkz://connectors",
-    { title: "LNKZ connector status", description: "Configured and disabled connector inventory.", mimeType: "application/json" },
-    async () => jsonResource("lnkz://connectors", await client.listConnectors()),
+    "connectors",
+    { title: "Connector status", description: "Configured and disabled connector inventory.", mimeType: "application/json" },
+    async (uri) => jsonResource(uri, await client.listConnectors()),
   );
 
-  server.registerResource(
+  registerAliasedResource(
+    server,
     "workspace-stats",
-    "lnkz://stats",
-    { title: "LNKZ workspace statistics", description: "Conversation, message, provider, and handoff counts.", mimeType: "application/json" },
-    async () => jsonResource("lnkz://stats", (await client.stats()).stats),
+    "stats",
+    { title: "Workspace statistics", description: "Conversation, message, provider, and handoff counts.", mimeType: "application/json" },
+    async (uri) => jsonResource(uri, (await client.stats()).stats),
   );
 
-  server.registerResource(
+  registerAliasedResource(
+    server,
     "recent-conversations",
-    "lnkz://conversations",
-    { title: "Recent LNKZ conversations", description: "The 25 most recently updated conversations.", mimeType: "application/json" },
-    async () => jsonResource("lnkz://conversations", await client.listConversations({ limit: 25 })),
+    "conversations",
+    { title: "Recent conversations", description: "The 25 most recently updated conversations.", mimeType: "application/json" },
+    async (uri) => jsonResource(uri, await client.listConversations({ limit: 25 })),
   );
 
-  server.registerResource(
-    "conversation",
-    new ResourceTemplate("lnkz://conversation/{id}", { list: undefined }),
-    { title: "LNKZ conversation", description: "One conversation as a portable Markdown transcript.", mimeType: "text/markdown" },
-    async (uri, variables) => {
+  const conversationTemplateOptions = {
+    // A list callback is what puts conversations in a client's resource
+    // picker, so a person points at one by title instead of a model going
+    // looking for it by id. The completion callback narrows that list as
+    // they type. The protocol only completes prompt arguments and resource
+    // template variables, never tool arguments, so this and the prompts
+    // below are the whole of where completion can help.
+    list: async () => {
+        const conversations = await suggestions.conversations().catch(() => []);
+        return {
+          resources: conversations.map((conversation) => ({
+            uri: `${SCHEME}://conversation/${conversation.id}`,
+            name: conversation.title,
+            description: `${conversation.source.provider} \u00b7 ${conversation.messageCount} messages \u00b7 ${shortId(conversation.id)}`,
+            mimeType: "text/markdown",
+          })),
+        };
+      },
+      complete: {
+        id: async (value: string) => {
+          const conversations = await suggestions.conversations().catch(() => []);
+          const needle = value.trim().toLowerCase();
+          return conversations
+            .filter((conversation) =>
+              !needle
+              || conversation.id.startsWith(needle)
+              || conversation.title.toLowerCase().includes(needle))
+            .slice(0, 25)
+            .map((conversation) => conversation.id);
+        },
+      },
+  };
+
+  const conversationConfig = {
+    title: "Conversation",
+    description: "One conversation as a portable Markdown transcript.",
+    mimeType: "text/markdown",
+  };
+
+  const readConversation = async (uri: URL, variables: Record<string, string | string[]>) => {
       const id = Array.isArray(variables.id) ? variables.id[0] : variables.id;
       if (!id) {
         return { contents: [{ uri: uri.href, mimeType: "text/plain", text: "Conversation not found." }] };
@@ -665,8 +742,23 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
         }
         throw error;
       }
-    },
+    };
+
+  server.registerResource(
+    "conversation",
+    new ResourceTemplate(`${SCHEME}://conversation/{id}`, conversationTemplateOptions),
+    conversationConfig,
+    readConversation,
   );
+
+  if (legacyUrisEnabled()) {
+    server.registerResource(
+      "conversation-legacy",
+      new ResourceTemplate(`${LEGACY_SCHEME}://conversation/{id}`, conversationTemplateOptions),
+      { ...conversationConfig, description: `${conversationConfig.description} Deprecated alias for ${SCHEME}://conversation/{id}.` },
+      readConversation,
+    );
+  }
 
   // --------------------------------------------------------------------- prompts
 
@@ -689,7 +781,7 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     {
       title: "Cross-source research brief",
       description: "Builds a sourced brief from conversations and connected work systems.",
-      argsSchema: { topic: z.string().min(1) },
+      argsSchema: { topic: completable(z.string().min(1), (value) => suggestions.tags(value ?? "")) },
     },
     async ({ topic }) => userPrompt(
       `Call build_context_packet with query "${topic}". Write a brief that separates verified facts, decisions, assumptions, and open questions. `
@@ -702,14 +794,26 @@ export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOp
     {
       title: "Prepare a conversation for handoff",
       description: "Summarize a conversation, then mint a scoped handoff for a named recipient.",
-      argsSchema: { conversationId: z.string().uuid(), audience: z.string().min(1), ttlMinutes: z.string().optional() },
+      // A title or an id. Completion offers titles because nobody recognises
+      // a uuid, and the handler resolves whichever arrived back to one
+      // conversation before the model sees it.
+      argsSchema: {
+        conversation: completable(z.string().min(1), (value) => suggestions.conversationTitles(value ?? "")),
+        audience: z.string().min(1),
+        ttlMinutes: z.string().optional(),
+      },
     },
-    async ({ conversationId, audience, ttlMinutes }) => userPrompt(
-      `Call analyze_conversation for ${conversationId} and summarize what the recipient needs: the decision, the reason, and what is still open. `
+    async ({ conversation, audience, ttlMinutes }) => {
+      const found = await resolveConversation(client, conversation, suggestions);
+      if (!found.ok) return userPrompt(found.message);
+      const conversationId = found.conversation.id;
+      return userPrompt(
+      `Call analyze_conversation for ${conversationId} ("${found.conversation.title}") and summarize what the recipient needs: the decision, the reason, and what is still open. `
       + `Then call create_handoff for that conversation with audience "${audience}"`
       + `${ttlMinutes ? `, ttlMinutes ${ttlMinutes}` : ""}, redact true, and maxUses 3. `
       + "Give the recipient the share URL and the summary together, and say when it expires.",
-    ),
+      );
+    },
   );
 
   server.registerPrompt(
@@ -770,6 +874,11 @@ function section(heading: string, values: string[]): string {
 
 function ok(text: string, structuredContent: Record<string, unknown>) {
   return { content: [{ type: "text" as const, text }], structuredContent };
+}
+
+/** Drop absent keys so a spread cannot overwrite a set value with undefined. */
+function clean<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>;
 }
 
 function toolError(message: string) {

@@ -1,19 +1,21 @@
 {
-  "name": "lnkz-mcp",
+  "name": "magentic-mcp",
   "version": "0.2.0",
-  "description": "MCP adapter for the LNKZ conversation relay REST API.",
+  "description": "Magentic: the Model Context Protocol server for the LNKZ conversation relay.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.26.1",
   "bin": {
-    "lnkz-mcp": "dist/stdio.mjs"
+    "magentic": "dist/stdio.mjs",
+    "magentic-mcp": "dist/stdio.mjs"
   },
   "scripts": {
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/stdio.mjs",
     "start:http": "node --enable-source-maps ./dist/http-main.mjs",
     "test": "tsc -p tsconfig.test.json && node --test .testbuild/tests/*.test.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "agents": "node ./dist/list.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
