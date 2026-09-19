@@ -2,7 +2,8 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { LnkzClientLike } from "../client.js";
 import { EmbeddingCache } from "./cache.js";
-import { packSources, retrieve, type RetrievalDeps, type RetrievalUsage } from "./corpus.js";
+import { packSources, retrieve, retrieveLexically, type RetrievalDeps, type RetrievalUsage } from "./corpus.js";
+import { chooseChatModel, type ModelTier } from "./sampling.js";
 import type { ScoredChunk } from "./chunk.js";
 import {
   llmConfigFromEnv,
@@ -58,22 +59,44 @@ export interface LlmToolDeps {
   chatModel?: () => Promise<ChatModelLike>;
 }
 
+/**
+ * Retrieval settings for an instance that configured no provider at all.
+ *
+ * The lexical path still needs to know how big a chunk is and how much text
+ * may reach a model. These are the same numbers the configured path defaults
+ * to, so turning a provider on later changes what retrieval can do without
+ * changing how it is shaped.
+ */
+const LEXICAL_DEFAULTS = {
+  maxConversations: 40,
+  maxChunks: 12,
+  chunkChars: 1_600,
+  maxContextChars: 24_000,
+} as const;
+
 export function registerLlmTools(
   server: McpServer,
   client: LnkzClientLike,
   deps: LlmToolDeps | undefined = defaultDeps(),
 ): void {
-  if (!deps) return;
-  const { config } = deps;
-  const cache = new EmbeddingCache(config.cacheSize);
-  const embeddings = deps.embeddings ?? (() => loadEmbeddings(config));
-  const chatModel = deps.chatModel ?? (() => loadChatModel(config));
+  const config = deps?.config;
+  const cache = new EmbeddingCache(config?.cacheSize ?? 0);
+  const embeddings = deps?.embeddings ?? (config ? () => loadEmbeddings(config) : undefined);
+  const chatModel = deps?.chatModel ?? (config ? () => loadChatModel(config) : undefined);
+  const shape = config ?? LEXICAL_DEFAULTS;
 
-  const where = config.baseUrl ?? (config.provider === "openai" ? "OpenAI" : "the configured Ollama server");
-  const egress = `Conversation text from this instance is sent to ${where} for embedding.`;
+  const where = config
+    ? (config.baseUrl ?? (config.provider === "openai" ? "OpenAI" : "the configured Ollama server"))
+    : undefined;
+  const egress = where
+    ? `Conversation text from this instance is sent to ${where} for embedding.`
+    : "Retrieval runs on this instance and the answer is written by your own client's model, so no conversation text reaches a third party this instance configured.";
 
   const search = async (input: unknown) => {
     const options = searchObject.parse(input);
+    if (!embeddings || !config) {
+      return { isError: true as const, content: [{ type: "text" as const, text: "semantic_search needs an embedding model, and this instance has no MAGENTIC_LLM_PROVIDER configured. Use search_conversations, or ask_conversations, which works without one." }] };
+    }
     const retrieval: RetrievalDeps = { client, config, embeddings: await embeddings(), cache };
     const result = await retrieve(retrieval, {
       query: options.query,
@@ -93,7 +116,9 @@ export function registerLlmTools(
     };
   };
 
-  server.registerTool(
+  // Only with a provider. There is no protocol request for "vectorise this",
+  // so sampling cannot stand in for an embedding model.
+  if (embeddings && config) server.registerTool(
     "semantic_search",
     {
       title: "Search conversations by meaning",
@@ -110,54 +135,115 @@ export function registerLlmTools(
     search,
   );
 
-  server.registerTool(
-    "ask_conversations",
-    {
-      title: "Answer a question from stored conversations",
-      description:
-        "Answers a question using only the stored conversations, with a numbered citation on every "
-        + "claim, and says so plainly when the conversations do not contain the answer. Use it for "
-        + "questions that span conversations, such as what was decided about a subject or what is "
-        + "still open. This does not store the answer; save it as a conversation if it should be kept. "
-        + egress,
-      inputSchema: askSchema,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    async (input: unknown) => {
-      const options = askObject.parse(input);
-      const retrieval: RetrievalDeps = { client, config, embeddings: await embeddings(), cache };
-      const result = await retrieve(retrieval, {
-        query: options.question,
-        limit: Math.min(options.limit, config.maxChunks),
-        minScore: options.minScore,
-        perConversation: options.perConversation,
-        recent: options.recent,
-        ...(options.conversationIds ? { conversationIds: options.conversationIds } : {}),
-      });
+  const ask = async (input: unknown) => {
+    const options = askObject.parse(input);
 
-      if (result.chunks.length === 0) {
-        return {
-          content: [{ type: "text" as const, text: "No stored conversation is close enough to this question to answer it." }],
-          structuredContent: { question: options.question, answer: null, sources: [], usage: result.usage },
-        };
-      }
+    const chosen = await chooseChatModel(server, chatModel);
+    if (!chosen) {
+      return { isError: true as const, content: [{ type: "text" as const, text: "This instance has no language model available: your client does not offer sampling and no MAGENTIC_LLM_PROVIDER is configured." }] };
+    }
 
-      const packed = packSources(result.chunks, config.maxContextChars);
-      const model = await chatModel();
-      const response = await model.invoke(groundedPrompt(options.question, packed.text));
-      const answer = textOf(response.content).trim();
+    // Embeddings when an operator paid for them, the relay's own index when
+    // not. Both produce the same shape, and the caption says which ran.
+    const limit = Math.min(options.limit, shape.maxChunks);
+    const result = embeddings && config
+      ? await retrieve(
+          { client, config, embeddings: await embeddings(), cache } satisfies RetrievalDeps,
+          {
+            query: options.question,
+            limit,
+            minScore: options.minScore,
+            perConversation: options.perConversation,
+            recent: options.recent,
+            ...(options.conversationIds ? { conversationIds: options.conversationIds } : {}),
+          },
+        )
+      : await retrieveLexically(client, shape, {
+          query: options.question,
+          limit,
+          perConversation: options.perConversation,
+          ...(options.conversationIds ? { conversationIds: options.conversationIds } : {}),
+        });
+    const retrievalTier: RetrievalTier = embeddings && config ? "semantic" : "lexical";
 
+    if (result.chunks.length === 0) {
       return {
-        content: [{ type: "text" as const, text: answerToMarkdown(answer, packed.sources) }],
+        content: [{ type: "text" as const, text: `No stored conversation matched this question. ${describeTiers(retrievalTier, chosen.tier)}` }],
         structuredContent: {
-          question: options.question,
-          answer,
-          sources: packed.sources.map(toMatch),
-          usage: { ...result.usage, contextChars: packed.usedChars },
+          question: options.question, answer: null, sources: [],
+          usage: { ...result.usage, retrieval: retrievalTier, model: chosen.tier },
         },
       };
-    },
-  );
+    }
+
+    const packed = packSources(result.chunks, shape.maxContextChars);
+    const response = await chosen.model.invoke(groundedPrompt(options.question, packed.text));
+    const answer = textOf(response.content).trim();
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: `${answerToMarkdown(answer, packed.sources)}\n\n${describeTiers(retrievalTier, chosen.tier)}`,
+      }],
+      structuredContent: {
+        question: options.question,
+        answer,
+        sources: packed.sources.map(toMatch),
+        usage: {
+          ...result.usage,
+          contextChars: packed.usedChars,
+          retrieval: retrievalTier,
+          model: chosen.tier,
+        },
+      },
+    };
+  };
+
+  const askConfig = {
+    title: "Answer a question from stored conversations",
+    description:
+      "Answers a question using only the stored conversations, with a numbered citation on every "
+      + "claim, and says so plainly when the conversations do not contain the answer. Use it for "
+      + "questions that span conversations, such as what was decided about a subject or what is "
+      + "still open. This does not store the answer; save it as a conversation if it should be kept. "
+      + egress,
+    inputSchema: askSchema,
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  };
+
+  // Always registered, which is a deliberate exception to the rule the write
+  // tools follow.
+  //
+  // Those are hidden when the operator turned them off, because that is
+  // knowable before a client connects and a model should not plan around a
+  // tool it can never have. Whether this one works depends on the *client*
+  // offering its model, and that is only known after initialize. Registering
+  // the first tool that late cannot work: capabilities are negotiated during
+  // initialize, so a server that declared no tools then has no tools
+  // capability to add one to.
+  //
+  // So it is visible, and when there is no model it says exactly which of
+  // the two things to fix. Most clients do offer sampling, and hiding the
+  // feature from all of them to spare the few is the worse trade.
+  server.registerTool("ask_conversations", askConfig, ask);
+}
+
+/** Which retrieval path found the sources. */
+type RetrievalTier = "semantic" | "lexical";
+
+/**
+ * Printed with every answer. Someone reading a thin result deserves to know
+ * whether it was retrieved by meaning or by keyword, and whose model wrote
+ * it, without opening a log.
+ */
+function describeTiers(retrieval: RetrievalTier, model: ModelTier): string {
+  const found = retrieval === "semantic"
+    ? "Retrieved by meaning."
+    : "Retrieved by keyword, because this instance has no embedding model configured.";
+  const wrote = model === "sampling"
+    ? "Answered by your own client's model."
+    : "Answered by the model this instance is configured with.";
+  return `${found} ${wrote}`;
 }
 
 /** Configuration from the environment, or undefined when the integration is off. */

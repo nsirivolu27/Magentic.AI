@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createAdapterHttpServer } from "../http.js";
 import { loadCatalog } from "../catalog/load.js";
-import { createLnkzMcpServer } from "../mcp.js";
+import { createMagenticMcpServer } from "../mcp.js";
 import type { LnkzClientLike } from "../client.js";
 
 /**
@@ -38,8 +38,8 @@ const unusedClient = new Proxy({}, {
   get: () => () => { throw new Error("A registration test must not reach the relay."); },
 }) as LnkzClientLike;
 
-async function toolsOf(options: Parameters<typeof createLnkzMcpServer>[1]) {
-  const server = createLnkzMcpServer(unusedClient, options);
+async function toolsOf(options: Parameters<typeof createMagenticMcpServer>[1]) {
+  const server = createMagenticMcpServer(unusedClient, options);
   const client = new Client({ name: "catalog-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);

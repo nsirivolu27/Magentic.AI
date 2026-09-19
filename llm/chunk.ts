@@ -135,6 +135,21 @@ export function rankChunks(
     .filter((entry) => entry.score >= options.minScore)
     .sort((left, right) => right.score - left.score);
 
+  return thin(scored, options);
+}
+
+/**
+ * Keep the best, but not all from one place.
+ *
+ * Shared by both retrieval paths so semantic and lexical results are shaped
+ * the same way. A question about a decision usually wants the two or three
+ * conversations that touched it, not eight consecutive chunks of whichever
+ * one is longest.
+ */
+export function thin(
+  scored: readonly ScoredChunk[],
+  options: { limit: number; perConversation: number },
+): ScoredChunk[] {
   const taken = new Map<string, number>();
   const kept: ScoredChunk[] = [];
   for (const entry of scored) {
@@ -145,4 +160,20 @@ export function rankChunks(
     kept.push(entry);
   }
   return kept;
+}
+
+/**
+ * How well a chunk answers a query using words alone.
+ *
+ * Deliberately simple: the share of the query's distinct terms that appear in
+ * the chunk. No idf, no stemming, no tuning. It is a tiebreaker within a set
+ * the relay's own index already decided was relevant, and pretending it is
+ * more than that would invite trusting it more than it deserves.
+ */
+export function lexicalOverlap(query: string, text: string): number {
+  const terms = [...new Set(query.toLowerCase().split(/[^a-z0-9]+/).filter((term) => term.length > 2))];
+  if (terms.length === 0) return 0;
+  const haystack = text.toLowerCase();
+  const hits = terms.filter((term) => haystack.includes(term)).length;
+  return hits / terms.length;
 }

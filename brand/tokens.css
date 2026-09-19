@@ -1,0 +1,194 @@
+/*
+ * Magentic design tokens
+ *
+ * Dark is the base and light is a real second theme, not an afterthought.
+ * Both are declared here so a surface never has to invent a value.
+ *
+ * Three rules this file cannot enforce but the system depends on:
+ *   1. Magenta is reserved. It marks the one primary action, the focus ring,
+ *      and nothing else. A panel is never magenta and a heading is never
+ *      magenta.
+ *   2. Depth is a lighter surface plus a hairline. Shadow appears only when
+ *      something genuinely left the page, which means an overlay.
+ *   3. Hierarchy comes from scale and weight. Uppercase is rare enough that
+ *      it means something when it appears.
+ */
+
+:root {
+  /* Signal magenta, the house colour. 400 on dark, 600 on light. */
+  --mg-50:  #FDEBF6;
+  --mg-100: #FBD2EA;
+  --mg-200: #F7A9D5;
+  --mg-300: #F177BC;
+  --mg-400: #E84BA3;
+  --mg-500: #D42E8B;
+  --mg-600: #B22273;
+  --mg-700: #8E1B5C;
+  --mg-800: #6B1445;
+  --mg-900: #470D2E;
+
+  /* Type */
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* The jumps matter more than the values. 72 to 40 to 24 is nearly a
+     halving each time, which is what lets one element on a screen lead. */
+  --text-display: 72px;
+  --text-title:   40px;
+  --text-heading: 24px;
+  --text-body:    17px;
+  --text-small:   14px;
+  --text-micro:   12px;
+
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semi:    600;
+
+  --track-display: -0.04em;
+  --track-title:   -0.03em;
+  --track-heading: -0.015em;
+
+  /* Space, in fours */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Corners stay small. A large radius reads as a toy. */
+  --radius-chip:  4px;
+  --radius-field: 6px;
+  --radius-panel: 8px;
+  --radius-pill:  999px;
+
+  /* Motion. Nothing bounces, nothing travels more than 4px. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-hover: 120ms;
+  --dur-enter: 180ms;
+
+  /* Minimum target for anything tappable. */
+  --target: 44px;
+}
+
+/* ---------------------------------------------------------------- dark, the base */
+
+:root,
+:root[data-theme="dark"] {
+  --bg:         #0A0610;
+  --surface-1:  #130D1C;
+  --surface-2:  #1B1327;
+  --surface-3:  #251B35;
+
+  --line:        #2C2140;
+  --line-strong: #3E2F58;
+
+  --text:   #F2EDF8;
+  --text-2: #B0A4C4;
+  --text-3: #8B7DA3;
+
+  --accent:      var(--mg-400);
+  --accent-hover: var(--mg-300);
+  --accent-press: var(--mg-500);
+  --accent-weak: rgba(232, 75, 163, 0.12);
+  /* Dark ink on magenta, never white: white on #E84BA3 is 3.5:1 and fails. */
+  --on-accent:   #12060E;
+  --focus-ring:  rgba(232, 75, 163, 0.22);
+
+  --lineage: #A87BFF;
+  --live:    #34E0B0;
+  --caution: #F5B544;
+  --stop:    #FF5C47;
+
+  /* Overlay only. Nothing else casts a shadow. */
+  --shadow-overlay: 0 18px 48px rgba(3, 1, 6, 0.7);
+}
+
+/* ---------------------------------------------------------------- light, supported */
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:         #FAF7FD;
+    --surface-1:  #FFFFFF;
+    --surface-2:  #F3EEFA;
+    --surface-3:  #EAE2F5;
+
+    --line:        #E4DCF0;
+    --line-strong: #CFC2E4;
+
+    --text:   #140D1F;
+    --text-2: #4E4361;
+    --text-3: #6B5F80;
+
+    --accent:      var(--mg-600);
+    --accent-hover: var(--mg-700);
+    --accent-press: var(--mg-800);
+    --accent-weak: rgba(178, 34, 115, 0.08);
+    --on-accent:   #FFFFFF;
+    --focus-ring:  rgba(178, 34, 115, 0.2);
+
+    --lineage: #6D34D6;
+    --live:    #0C8F70;
+    --caution: #8A5A08;
+    --stop:    #C23A28;
+
+    --shadow-overlay: 0 18px 40px rgba(20, 13, 31, 0.14);
+  }
+}
+
+:root[data-theme="light"] {
+  --bg:         #FAF7FD;
+  --surface-1:  #FFFFFF;
+  --surface-2:  #F3EEFA;
+  --surface-3:  #EAE2F5;
+
+  --line:        #E4DCF0;
+  --line-strong: #CFC2E4;
+
+  --text:   #140D1F;
+  --text-2: #4E4361;
+  --text-3: #6B5F80;
+
+  --accent:      var(--mg-600);
+  --accent-hover: var(--mg-700);
+  --accent-press: var(--mg-800);
+  --accent-weak: rgba(178, 34, 115, 0.08);
+  --on-accent:   #FFFFFF;
+  --focus-ring:  rgba(178, 34, 115, 0.2);
+
+  --lineage: #6D34D6;
+  --live:    #0C8F70;
+  --caution: #8A5A08;
+  --stop:    #C23A28;
+
+  --shadow-overlay: 0 18px 40px rgba(20, 13, 31, 0.14);
+}
+
+/* ---------------------------------------------------------------- base */
+
+body {
+  /* Always explicit, so a theme flip never leaves a white gap. */
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers a person will compare against other numbers. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Machine output: an id, a tool name, an endpoint, a count. Never prose. */
+.mono { font-family: var(--font-mono); }
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

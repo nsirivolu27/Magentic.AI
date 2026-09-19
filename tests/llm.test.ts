@@ -127,16 +127,16 @@ function configOf(overrides: Partial<LlmConfig> = {}): LlmConfig {
 
 test("the integration is off unless an operator names a provider", () => {
   assert.equal(llmConfigFromEnv({}), undefined);
-  assert.equal(llmConfigFromEnv({ LNKZ_LLM_PROVIDER: "   " }), undefined);
-  assert.throws(() => llmConfigFromEnv({ LNKZ_LLM_PROVIDER: "anthropic" }), /openai or ollama/);
+  assert.equal(llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "   " }), undefined);
+  assert.throws(() => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "anthropic" }), /openai or ollama/);
 });
 
 test("numeric settings are clamped rather than trusted", () => {
   const config = llmConfigFromEnv({
-    LNKZ_LLM_PROVIDER: "openai",
-    LNKZ_LLM_MAX_CONVERSATIONS: "100000",
-    LNKZ_LLM_BATCH_SIZE: "0",
-    LNKZ_LLM_CHUNK_CHARS: "not a number",
+    MAGENTIC_LLM_PROVIDER: "openai",
+    MAGENTIC_LLM_MAX_CONVERSATIONS: "100000",
+    MAGENTIC_LLM_BATCH_SIZE: "0",
+    MAGENTIC_LLM_CHUNK_CHARS: "not a number",
   });
   assert.ok(config);
   assert.equal(config.maxConversations, 500);
@@ -147,7 +147,7 @@ test("numeric settings are clamped rather than trusted", () => {
 
 test("a base URL carrying credentials is refused", () => {
   assert.throws(
-    () => llmConfigFromEnv({ LNKZ_LLM_PROVIDER: "ollama", LNKZ_LLM_BASE_URL: "http://user:pass@host:11434" }),
+    () => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "ollama", MAGENTIC_LLM_BASE_URL: "http://user:pass@host:11434" }),
     /must not contain credentials/,
   );
 });
@@ -344,7 +344,7 @@ async function connect(server: McpServer) {
   return { client, close: async () => { await client.close(); await server.close(); } };
 }
 
-test("no provider means no tools, not tools that refuse", async (t) => {
+test("no provider means no semantic_search, because an operator decides that one", async (t) => {
   const server = new McpServer({ name: "lnkz", version: "test" });
   // A marker tool so the server still advertises a tools capability. Without
   // one, listTools would fail as unimplemented and the test would pass for
@@ -353,7 +353,13 @@ test("no provider means no tools, not tools that refuse", async (t) => {
   registerLlmTools(server, retrievalClient([storeConversation]), undefined);
   const { client, close } = await connect(server);
   t.after(close);
-  assert.deepEqual((await client.listTools()).tools.map((tool) => tool.name), ["marker"]);
+  const names = (await client.listTools()).tools.map((tool) => tool.name).sort();
+  // Embeddings need a provider and there is no protocol request for them, so
+  // this one is genuinely unavailable and stays hidden. ask_conversations can
+  // still run on the client's own model, so it is offered; sampling.test.ts
+  // covers what it does when the client cannot.
+  assert.deepEqual(names, ["ask_conversations", "marker"]);
+  assert.equal(names.includes("semantic_search"), false);
 });
 
 test("a configured provider exposes exactly the two read tools", async (t) => {
@@ -438,30 +444,30 @@ test("ask_conversations says nothing matched rather than answering from the mode
 });
 
 test("the real server picks the tools up through surfaces, and only when configured", async (t) => {
-  const { createLnkzMcpServer } = await import("../mcp.js");
+  const { createMagenticMcpServer } = await import("../mcp.js");
   const client = retrievalClient([storeConversation]);
 
-  const withoutProvider = createLnkzMcpServer(client);
+  const withoutProvider = createMagenticMcpServer(client);
   const plain = await connect(withoutProvider);
   t.after(plain.close);
   const before = new Set((await plain.client.listTools()).tools.map((tool) => tool.name));
-  assert.equal(before.has("semantic_search"), false);
-  assert.equal(before.has("ask_conversations"), false);
+  assert.equal(before.has("semantic_search"), false, "embeddings need a provider, so this one waits for one");
+  assert.equal(before.has("ask_conversations"), true, "this one can run on the client's model, so it is always offered");
 
   // Registration only reads configuration; the provider package is not
   // imported until a tool is called, so this needs nothing installed.
-  const previous = process.env.LNKZ_LLM_PROVIDER;
-  process.env.LNKZ_LLM_PROVIDER = "ollama";
+  const previous = process.env.MAGENTIC_LLM_PROVIDER;
+  process.env.MAGENTIC_LLM_PROVIDER = "ollama";
   t.after(() => {
-    if (previous === undefined) delete process.env.LNKZ_LLM_PROVIDER;
-    else process.env.LNKZ_LLM_PROVIDER = previous;
+    if (previous === undefined) delete process.env.MAGENTIC_LLM_PROVIDER;
+    else process.env.MAGENTIC_LLM_PROVIDER = previous;
   });
 
-  const withProvider = createLnkzMcpServer(client);
+  const withProvider = createMagenticMcpServer(client);
   const configured = await connect(withProvider);
   t.after(configured.close);
   const after = new Set((await configured.client.listTools()).tools.map((tool) => tool.name));
   assert.ok(after.has("semantic_search"));
   assert.ok(after.has("ask_conversations"));
-  assert.equal(after.size, before.size + 2, "exactly two tools were added and none replaced");
+  assert.equal(after.size, before.size + 1, "configuring a provider adds semantic_search and nothing else");
 });

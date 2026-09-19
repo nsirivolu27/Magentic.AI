@@ -1,7 +1,7 @@
 import type { Conversation } from "../contract.js";
 import type { LnkzClientLike } from "../client.js";
 import { EmbeddingCache } from "./cache.js";
-import { chunkConversation, rankChunks, type Chunk, type ScoredChunk } from "./chunk.js";
+import { chunkConversation, lexicalOverlap, rankChunks, thin, type Chunk, type ScoredChunk } from "./chunk.js";
 import type { EmbeddingsLike, LlmConfig } from "./provider.js";
 
 /**
@@ -219,4 +219,76 @@ export function packSources(
     used += block.length;
   }
   return { sources, text: blocks.join("\n\n---\n\n"), usedChars: Math.min(used, maxContextChars) };
+}
+
+/**
+ * Retrieval without an embedding model.
+ *
+ * This is what makes ask_conversations work on an instance that configured no
+ * provider at all. The relay already maintains a keyword index and already
+ * returns a relevance score, so the candidate set costs one request. Chunks
+ * are then ordered by that score combined with plain term overlap.
+ *
+ * It is worse than embeddings, and the difference is exactly the case
+ * embeddings exist for: a question phrased in different words than the
+ * answer. Every result says which path produced it so nobody has to guess
+ * why recall felt thin.
+ */
+export async function retrieveLexically(
+  client: LnkzClientLike,
+  config: Pick<LlmConfig, "chunkChars" | "maxConversations">,
+  request: Pick<RetrievalRequest, "query" | "limit" | "perConversation" | "conversationIds">,
+): Promise<RetrievalResult> {
+  const ceiling = config.maxConversations;
+
+  let relevanceById = new Map<string, number>();
+  let candidateIds: string[];
+  if (request.conversationIds?.length) {
+    candidateIds = [...new Set(request.conversationIds)].slice(0, ceiling);
+  } else {
+    const { matches } = await client
+      .searchConversations({ query: request.query, limit: Math.min(50, ceiling) })
+      .catch(() => ({ matches: [] }));
+    relevanceById = new Map(matches.map((match) => [match.id, match.relevance]));
+    candidateIds = matches.map((match) => match.id).slice(0, ceiling);
+  }
+
+  const conversations = await readConversations(client, candidateIds);
+  const chunks = conversations.flatMap((conversation) =>
+    chunkConversation(conversation, config.chunkChars),
+  );
+
+  // The relay's own judgement is the larger half. Term overlap only orders
+  // chunks within a conversation the index already picked.
+  const scored = chunks
+    .map((chunk) => ({
+      ...chunk,
+      score: 0.6 * normalized(relevanceById.get(chunk.conversationId))
+        + 0.4 * lexicalOverlap(request.query, chunk.text),
+    }))
+    .filter((chunk) => chunk.score > 0)
+    .sort((left, right) => right.score - left.score);
+
+  return {
+    chunks: thin(scored, { limit: request.limit, perConversation: request.perConversation }),
+    usage: {
+      candidates: candidateIds.length,
+      conversationsRead: conversations.length,
+      chunks: chunks.length,
+      embedded: 0,
+      cached: 0,
+      batches: 0,
+    },
+  };
+}
+
+/**
+ * The relay does not promise a range for relevance, so squash whatever it
+ * gives into 0..1 rather than assuming. An absent score is treated as a weak
+ * match rather than as zero, because the relay returned the row at all.
+ */
+function normalized(relevance: number | undefined): number {
+  if (relevance === undefined || !Number.isFinite(relevance)) return 0.25;
+  if (relevance <= 0) return 0;
+  return relevance > 1 ? 1 : relevance;
 }

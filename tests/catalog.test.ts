@@ -3,9 +3,11 @@ import test from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { loadCatalog, resolve } from "../catalog/load.js";
 import { agentSchema, toPublicAgent } from "../catalog/schema.js";
-import { lnkzToolNames } from "../mcp.js";
+import { magenticToolNames } from "../mcp.js";
+import { defaultAgentsDirectory, selectAgent } from "../catalog/select.js";
 
 const SHIPPED = "agents";
 
@@ -29,7 +31,7 @@ const valid = {
 // ------------------------------------------------------------------ the tool universe
 
 test("the tool universe is read from the build, not from a list someone typed", () => {
-  const names = lnkzToolNames();
+  const names = magenticToolNames();
   assert.ok(names.length > 20, "the adapter registers a lot of tools and all of them should be here");
   assert.ok(names.includes("create_handoff"));
   assert.ok(names.includes("search_conversations"));
@@ -184,4 +186,47 @@ test("a read-only deployment publishes the tool list it will actually serve", ()
     assert.equal(locked.activeTools.has(write), false, `${write} is still advertised on a read-only host`);
   }
   assert.ok(locked.activeTools.has("list_conversations"));
+});
+
+// ------------------------------------------------------------------ choosing one agent
+
+test("selecting an agent narrows the tools and replaces the instructions", () => {
+  const catalog = loadCatalog({ directory: SHIPPED, allowWrites: true });
+  const selected = selectAgent(catalog, "handoff-desk", { allowWrites: true });
+  assert.equal(selected.options.allowWrites, true);
+  assert.equal(selected.options.tools, selected.entry.activeTools);
+  assert.equal(selected.options.instructions, selected.entry.definition.instructions);
+});
+
+test("selecting an agent cannot widen a read-only process", () => {
+  const catalog = loadCatalog({ directory: SHIPPED, allowWrites: false });
+  const selected = selectAgent(catalog, "conversation-relay", { allowWrites: false });
+  assert.equal(selected.options.allowWrites, false, "a read-only process stays read-only whatever the agent asked for");
+});
+
+test("an unknown agent name says which names exist", () => {
+  const catalog = loadCatalog({ directory: SHIPPED, allowWrites: true });
+  assert.throws(
+    () => selectAgent(catalog, "reader", { allowWrites: true }),
+    (error: Error) => /No agent named "reader"/.test(error.message) && /research-reader/.test(error.message),
+  );
+});
+
+test("the agents directory is found from the build, not the working directory", () => {
+  // A desktop MCP client spawns the adapter with its cwd set to wherever it
+  // likes. Resolving relative to cwd works by hand and fails from the client,
+  // which is the worse failure because it reads as bad configuration.
+  const repo = join(tmpdir(), "magentic repo away from cwd");
+  for (const entry of ["stdio.mjs", "http-main.mjs"]) {
+    const fromBundle = defaultAgentsDirectory(pathToFileURL(join(repo, "dist", entry)).href, {});
+    assert.equal(fromBundle, join(repo, "agents"));
+    assert.notEqual(fromBundle, join(process.cwd(), "agents"));
+  }
+});
+
+test("an explicit agents directory wins over the default", () => {
+  const directory = join(tmpdir(), "explicit agents");
+  const moduleUrl = pathToFileURL(join(tmpdir(), "other repo", "dist", "stdio.mjs")).href;
+  const explicit = defaultAgentsDirectory(moduleUrl, { MAGENTIC_AGENTS_DIR: directory });
+  assert.equal(explicit, directory);
 });

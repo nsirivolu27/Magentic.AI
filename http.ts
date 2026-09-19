@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { LnkzClient } from "./client.js";
-import { createLnkzMcpServer, type McpServerOptions } from "./mcp.js";
+import { createMagenticMcpServer, type McpServerOptions } from "./mcp.js";
 import { toPublicAgent, type CatalogEntry } from "./catalog/schema.js";
 import type { Catalog } from "./catalog/load.js";
 
@@ -200,7 +200,7 @@ async function handle(
         instructions: requested.definition.instructions,
       }
     : options;
-  const server = createLnkzMcpServer(new LnkzClient(baseUrl, apiKey), perRequest);
+  const server = createMagenticMcpServer(new LnkzClient(baseUrl, apiKey), perRequest);
 
   // Omitted rather than set to undefined. Stateless is the absence of a
   // session id generator, and under exactOptionalPropertyTypes an optional
@@ -270,53 +270,122 @@ function escapeHtml(value: string): string {
 
 /**
  * A page, because a hosted catalog nobody can look at is a catalog nobody
- * adopts. It is one static string with no script and no network calls: the
- * point is that someone handed a URL can see what is here and copy the
- * endpoint they want into their client.
+ * adopts. One static string, no script, no network: someone handed a URL can
+ * see what is here and copy the endpoint they want into their client.
+ *
+ * The colour, type and depth values are Magentic's, inlined rather than
+ * linked so this page has no runtime file dependency. brand/tokens.css is
+ * the source of truth and is right when the two diverge.
  *
  * The relay this server talks to is deliberately not printed, and is not
  * even passed in. Which relay an operator points at is their business, and
  * this page is public.
  */
 function indexPage(agents: readonly CatalogEntry[]): string {
-  const cards = agents.length
-    ? agents.map((entry) => {
+  const toolTotal = agents.reduce((sum, entry) => sum + entry.activeTools.size, 0);
+
+  const rows = agents.length
+    ? agents.map((entry, position) => {
         const { definition } = entry;
         const tools = [...entry.activeTools].sort();
-        return `<article>
-  <h2>${escapeHtml(definition.title)} <code>${escapeHtml(definition.name)}</code></h2>
-  <p>${escapeHtml(definition.description)}</p>
-  <p class="meta">${escapeHtml(definition.category)} &middot; v${escapeHtml(definition.version)} &middot; ${escapeHtml(definition.publisher)} &middot; ${entry.writesAllowed ? "read and write" : "read only"}</p>
-  <p class="endpoint"><code>${escapeHtml(entry.endpoint)}</code></p>
-  <details><summary>${tools.length} tools</summary><p class="tools">${tools.map((tool) => `<code>${escapeHtml(tool)}</code>`).join(" ")}</p></details>
+        const access = entry.writesAllowed ? "read + write" : "read";
+        // The first one leads. Equal weight on every row is how a list stops
+        // having a shape.
+        const lead = position === 0;
+        return `<article class="${lead ? "agent lead" : "agent"}">
+  <div class="agent-main">
+    <h2>${escapeHtml(definition.title)}<span class="ver">v${escapeHtml(definition.version)}</span></h2>
+    <p>${escapeHtml(definition.description)}</p>
+    <p class="endpoint"><code>${escapeHtml(entry.endpoint)}</code></p>
+  </div>
+  <div class="agent-meta">
+    <span class="count">${tools.length} tools</span>
+    <span>${access}</span>
+    <span>${escapeHtml(definition.publisher)}</span>
+  </div>
+  <details><summary>What it can do</summary><p class="tools">${tools.map((tool) => `<code>${escapeHtml(tool)}</code>`).join(" ")}</p></details>
 </article>`;
       }).join("\n")
-    : "<article><p>No agents are configured on this server. Every tool is still available at <code>/mcp</code>.</p></article>";
+    : `<article class="agent"><div class="agent-main"><h2>No agents configured</h2><p>Every tool this deployment has is still available at <code>/mcp</code>.</p></div></article>`;
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LNKZ MCP</title>
+<title>Magentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root { color-scheme: light dark; --edge: #8883; }
-body { margin: 0 auto; padding: 2rem 1rem 4rem; max-width: 46rem; font: 16px/1.6 system-ui, sans-serif; }
-h1 { margin-bottom: .25rem; font-size: 1.5rem; }
-.lede { margin-top: 0; opacity: .75; }
-article { border: 1px solid var(--edge); border-radius: .5rem; padding: 1rem 1.25rem; margin: 1rem 0; }
-h2 { font-size: 1.1rem; margin: 0 0 .5rem; }
-h2 code { font-size: .8rem; opacity: .6; font-weight: 400; }
-.meta { font-size: .85rem; opacity: .7; }
-.endpoint code { padding: .15rem .4rem; border: 1px solid var(--edge); border-radius: .25rem; }
-.tools code { display: inline-block; font-size: .8rem; margin: .1rem .2rem .1rem 0; opacity: .8; }
-footer { margin-top: 2rem; font-size: .9rem; opacity: .7; }
+:root {
+  --bg:#0A0610; --surface-1:#130D1C; --surface-2:#1B1327;
+  --line:#2C2140; --line-strong:#3E2F58;
+  --text:#F2EDF8; --text-2:#B0A4C4; --text-3:#8B7DA3;
+  --accent:#E84BA3; --on-accent:#12060E; --live:#34E0B0;
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:#FAF7FD; --surface-1:#FFFFFF; --surface-2:#F3EEFA;
+    --line:#E4DCF0; --line-strong:#CFC2E4;
+    --text:#140D1F; --text-2:#4E4361; --text-3:#6B5F80;
+    --accent:#B22273; --on-accent:#FFFFFF; --live:#0C8F70;
+  }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+.wrap { width:min(960px, 100% - 32px); margin:0 auto; padding:56px 0 72px; }
+.mark { font-family:var(--mono); font-size:13px; color:var(--text-3); letter-spacing:.02em; }
+.mark b { color:var(--text); font-weight:500; }
+.mark i { color:var(--accent); font-style:normal; }
+h1 { margin:14px 0 0; font-size:clamp(40px,9vw,64px); font-weight:600; letter-spacing:-.04em; line-height:.96; }
+.lede { margin:18px 0 0; max-width:34em; font-size:17px; line-height:1.6; color:var(--text-2); }
+.counts { display:flex; gap:32px; margin:28px 0 0; }
+.counts div { font-family:var(--mono); font-size:24px; font-weight:500; font-variant-numeric:tabular-nums; }
+.counts span { display:block; font-family:var(--sans); font-size:12px; font-weight:400; color:var(--text-3); }
+hr { border:0; border-top:1px solid var(--line); margin:40px 0 0; }
+.agent { padding:24px 0; border-bottom:1px solid var(--surface-2); display:grid; grid-template-columns:1fr auto; gap:8px 24px; }
+.agent.lead { padding-top:28px; }
+.agent-main h2 { margin:0; font-size:19px; font-weight:500; letter-spacing:-.01em; }
+.agent.lead .agent-main h2 { font-size:30px; font-weight:600; letter-spacing:-.025em; }
+.ver { margin-left:10px; font-family:var(--mono); font-size:12px; font-weight:400; color:var(--text-3); letter-spacing:0; }
+.agent-main p { margin:8px 0 0; max-width:52ch; font-size:14px; line-height:1.55; color:var(--text-2); }
+.agent.lead .agent-main p { font-size:15px; line-height:1.6; }
+.endpoint code { display:inline-block; margin-top:4px; padding:4px 8px; border:1px solid var(--line); border-radius:4px; font-family:var(--mono); font-size:12px; color:var(--text-2); }
+.agent-meta { text-align:right; font-family:var(--mono); font-size:12px; font-variant-numeric:tabular-nums; color:var(--text-3); display:flex; flex-direction:column; gap:3px; }
+.agent-meta .count { color:var(--text); }
+details { grid-column:1 / -1; margin-top:10px; }
+summary { font-size:13px; color:var(--text-3); cursor:pointer; }
+summary:hover { color:var(--text-2); }
+.tools { margin:10px 0 0; }
+.tools code { display:inline-block; margin:2px 4px 2px 0; padding:3px 7px; border-radius:4px; background:var(--surface-2); font-family:var(--mono); font-size:11px; color:var(--text-2); }
+footer { margin-top:44px; font-size:13px; line-height:1.7; color:var(--text-3); }
+footer code { font-family:var(--mono); font-size:12px; color:var(--text-2); }
+footer p { margin:0 0 10px; max-width:60ch; }
+.live { display:inline-flex; align-items:center; gap:8px; }
+.live i { width:6px; height:6px; border-radius:999px; background:var(--live); font-style:normal; }
+a { color:var(--accent); }
+:focus-visible { outline:3px solid color-mix(in srgb, var(--accent) 24%, transparent); outline-offset:2px; }
+@media (max-width:640px) {
+  .agent { grid-template-columns:1fr; }
+  .agent-meta { text-align:left; flex-direction:row; gap:14px; }
+}
 </style></head>
 <body>
-<h1>LNKZ MCP</h1>
-<p class="lede">Agents hosted here. Each is a fixed set of tools over one conversation relay. Point an MCP client at an endpoint below and send your own relay key as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
-${cards}
+<div class="wrap">
+<p class="mark"><b>magentic</b><i>.ai</i></p>
+<h1>Agents</h1>
+<p class="lede">Each one is a fixed set of tools over one conversation relay. Point an MCP client at an endpoint below and send your own relay key as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+<div class="counts">
+  <div>${agents.length}<span>hosted here</span></div>
+  <div>${toolTotal}<span>tools across them</span></div>
+</div>
+<hr>
+${rows}
 <footer>
-<p>Machine-readable catalog: <code>/agents</code> and <code>/agents/&lt;name&gt;</code>. Every tool this deployment has, unfiltered: <code>/mcp</code>. Liveness: <code>/health</code>.</p>
-<p>This server holds no credential. It reads nothing and writes nothing on its own behalf; each request acts as whoever sent the key.</p>
+<p class="live"><i></i> This server holds no credential. It reads nothing and writes nothing on its own behalf; each request acts as whoever sent the key.</p>
+<p>Machine-readable catalog at <code>/agents</code> and <code>/agents/&lt;name&gt;</code>. Every tool this deployment has, unfiltered, at <code>/mcp</code>. Liveness at <code>/health</code>.</p>
 </footer>
+</div>
 </body></html>`;
 }
