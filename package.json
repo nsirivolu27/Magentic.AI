@@ -15,7 +15,8 @@
     "start:http": "node --enable-source-maps ./dist/http-main.mjs",
     "test": "tsc -p tsconfig.test.json && node --test .testbuild/tests/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "agents": "node ./dist/list.mjs"
+    "agents": "node ./dist/list.mjs",
+    "seed:state": "tsc -p tsconfig.test.json && node .testbuild/workspaces/seed-state.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -28,13 +29,17 @@
   },
   "peerDependencies": {
     "@langchain/openai": "^0.6.0",
-    "@langchain/ollama": "^0.2.0"
+    "@langchain/ollama": "^0.2.0",
+    "@langchain/google-genai": "^0.2.0"
   },
   "peerDependenciesMeta": {
     "@langchain/openai": {
       "optional": true
     },
     "@langchain/ollama": {
+      "optional": true
+    },
+    "@langchain/google-genai": {
       "optional": true
     }
   }

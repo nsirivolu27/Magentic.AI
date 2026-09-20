@@ -45,7 +45,9 @@ test("using an old name warns once, naming its replacement", () => {
     (process.stderr as unknown as { write: typeof original }).write = original;
   }
   assert.equal(written.length, 1, "one warning per variable, not one per read");
-  assert.match(written[0], /LNKZ_MCP_SCOPES is deprecated; rename it to MAGENTIC_SCOPES\./);
+  const warning = written[0];
+  assert.ok(warning, "the deprecation warning must not be empty");
+  assert.match(warning, /LNKZ_MCP_SCOPES is deprecated; rename it to MAGENTIC_SCOPES\./);
 });
 
 test("every renamed setting maps a MAGENTIC_ name to an LNKZ_ name", () => {

@@ -128,7 +128,7 @@ function configOf(overrides: Partial<LlmConfig> = {}): LlmConfig {
 test("the integration is off unless an operator names a provider", () => {
   assert.equal(llmConfigFromEnv({}), undefined);
   assert.equal(llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "   " }), undefined);
-  assert.throws(() => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "anthropic" }), /openai or ollama/);
+  assert.throws(() => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "anthropic" }), /must be one of/);
 });
 
 test("numeric settings are clamped rather than trusted", () => {
@@ -470,4 +470,14 @@ test("the real server picks the tools up through surfaces, and only when configu
   assert.ok(after.has("semantic_search"));
   assert.ok(after.has("ask_conversations"));
   assert.equal(after.size, before.size + 1, "configuring a provider adds semantic_search and nothing else");
+});
+
+test("azure and google are configurable providers with their own defaults", () => {
+  const azure = llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "azure" });
+  assert.equal(azure?.provider, "azure");
+  const google = llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "google" });
+  assert.equal(google?.provider, "google");
+  assert.equal(google?.chatModel, "gemini-2.0-flash");
+  // A provider name nobody implemented is still refused.
+  assert.throws(() => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "bedrock" }), /must be one of/);
 });
