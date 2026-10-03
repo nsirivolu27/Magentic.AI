@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "workspaces": [
+    {
+      "workspaceId": "workspace",
+      "mode": "sample"
+    }
+  ]
+}

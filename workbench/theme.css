@@ -1,0 +1,202 @@
+/* Dark values for the legacy feature views: the development desk, pipelines,
+ * bots, chat transcript, email previews, MCP portal and Jira dialogs. The
+ * tokens they use come from styles.css. New pages do not add rules here. */
+
+button, a, summary, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, summary, input, select, textarea {
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+input, textarea, select { caret-color: var(--accent); }
+.mail-banner { background: var(--surface); border-color: var(--line); }
+.mail-banner-icon, .mail-placeholder-icon { background: var(--accent-soft); border-color: var(--line); color: var(--accent); }
+.mail-banner p, .mail-mode { color: var(--muted); }
+.mail-mode { border-color: var(--line); }
+.mail-folders button, .mail-folders span, .mail-list-heading, .mail-row-top, .mail-row time, .mail-row p, .mail-cancelled { color: var(--muted); }
+.mail-folders button:hover { background: var(--raised); color: var(--text); }
+.mail-folders button.selected { background: var(--accent-soft); color: var(--accent); }
+.mail-search, .mail-search input { color: var(--text); }
+.mail-row { background: var(--surface); border-top-color: var(--line); color: var(--text); }
+.mail-row:hover { background: var(--raised); }
+.mail-row.selected { background: var(--accent-soft); border-left-color: var(--accent); }
+.mail-row.unread strong { color: var(--text); }
+.mail-row.unread .mail-row-top span::before { background: var(--accent); }
+.mail-kind.invitation { background: #35244d; color: #d3b3ff; }
+.mail-kind.changes { background: #422439; color: #ffb3cb; }
+.mail-reader { background: var(--input); }
+.mail-delivery, .mail-envelope span, .mail-envelope strong, .mail-reader-footer { color: var(--muted); }
+.mail-letter { background: var(--surface); border-color: var(--line); }
+.mail-letter-brand { color: var(--text); border-color: var(--line); }
+.mail-letter .mail-body { color: var(--text); }
+.mail-letter .mail-invite-note { background: var(--raised); color: var(--muted); }
+.mail-placeholder p, .mail-placeholder>span:last-child { color: var(--muted); }
+.mcp-endpoint code { background: var(--input); border: 1px solid var(--line); color: var(--accent); }
+.mcp-tags, .mcp-connect-action small, .mcp-agent small, .mcp-withheld small { color: var(--muted); }
+.mcp-config, .mcp-response, .mcp-catalog, .mcp-agent, .mcp-withheld { border-color: var(--line); }
+.mcp-config { background: var(--surface); }
+.mcp-response { background: var(--input); }
+.mcp-response pre { color: var(--text); }
+.mcp-panel summary { color: var(--muted); padding: 5px 0; }
+.mcp-panel summary:hover { color: var(--accent); }
+.mcp-panel details[open] summary { color: var(--accent); }
+.local-workspaces { margin-bottom: 24px; padding: 20px; }
+.local-workspace-row, #create-workspace { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+.local-workspace-row > label { flex: 1; min-width: 200px; }
+#create-workspace { flex: 2; }
+#create-workspace label { flex: 1; min-width: 160px; }
+.local-workspaces .muted { margin: 12px 0; overflow-wrap: anywhere; }
+.local-workspaces pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pipeline-detail pre, .mcp-panel pre { font: 12px/1.7 ui-monospace, 'Cascadia Code', Consolas, monospace; }
+.local-workspaces { margin-bottom: 24px; padding: 16px 20px; }
+.local-workspace-row, #create-workspace { gap: 12px; align-items: center; }
+#create-workspace { align-items: end; }
+.local-workspaces select { background: var(--input); border-color: #4d4f5b; }
+.workspace-create summary:hover, .workspace-storage summary:hover { color: var(--text); }
+.developer-desk #other-panel { background: transparent; border: 0; padding: 0; }
+.desk-context-card h3, .desk-section-heading h3 { text-transform: none; letter-spacing: 0; }
+.desk-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }
+.desk-composer { padding: 24px; border-radius: 10px; border-color: var(--line); background: var(--surface); }
+.desk-composer h2 { font-size: 24px; margin: 8px 0 10px; }
+.desk-compose-footer span { color: var(--text); }
+.desk-context { display: block; }
+.desk-context-card { background: var(--surface); border-radius: 10px; padding: 18px; }
+.desk-context-card h3 { font-weight: 600; }
+.desk-phases li:not(:last-child)::after { background: var(--line); }
+.desk-phases li>span { background: var(--raised); border-color: var(--line); color: var(--muted); border-radius: 6px; }
+.desk-phases strong { font-size: 13px; }
+.desk-phases .desk-gate { color: var(--warning); }
+.desk-sessions { margin-top: 26px; }
+.desk-search { font-size: 12px; }
+.desk-filters { gap: 6px; }
+.desk-filters button { background: transparent; border-color: transparent; color: var(--muted); }
+.desk-filters button[aria-pressed=true] { background: var(--accent-soft); border-color: #633150; color: var(--accent); }
+.desk-session { padding: 16px 18px; border-radius: 8px; background: var(--surface); }
+.desk-session:hover { background: var(--raised); border-color: #646570; }
+.desk-session small { margin-top: 6px; font-size: 12px; }
+.desk-empty { border-radius: 8px; }
+.pipeline-intro p, .pipeline-disclosure, .pipeline-brief, .pipeline-event p,
+.pipeline-run small, .pipeline-run-heading small, .pipeline-stats small,
+.pipeline-track small, .pipeline-stage h3 small, .pipeline-stage>small,
+.pipeline-jira small, .pipeline-output small, .pipeline-event small,
+.pipeline-settings p, .pipeline-empty, .bot-timeline small { color: var(--muted); }
+.pipeline-chip { border-color: var(--line); background: var(--raised); color: var(--text); border-radius: 5px; }
+.pipeline-stats>div, .pipeline-run, .pipeline-stage, .bot-phase, .bot-timeline button {
+  background: var(--surface); border-color: var(--line); border-radius: 8px; color: var(--text);
+}
+.pipeline-stats strong { color: var(--text); }
+.pipeline-run:hover, .bot-timeline button:hover { background: var(--raised); }
+.pipeline-run.selected, .bot-timeline button[aria-pressed=true] { background: var(--accent-soft); border-color: #a65c90; }
+.pipeline-runs, .pipeline-detail details, .pipeline-jira, .pipeline-output,
+.pipeline-event, .pipeline-settings, .bot-project, .bot-result { border-color: var(--line); }
+.pipeline-track li { border-color: var(--line); }
+.pipeline-track li>span, .bot-facts span { background: var(--raised); color: var(--muted); }
+.pipeline-track .active, .pipeline-track .awaiting_review { border-color: var(--accent); }
+.pipeline-track .active>span, .pipeline-track .awaiting_review>span { background: var(--accent-soft); color: var(--accent); }
+.pipeline-track .complete, .bot-timeline .complete button { border-top-color: var(--positive); }
+.pipeline-track .complete>span { color: var(--positive); }
+.bot-timeline .active button, .bot-timeline .awaiting_review button { border-top-color: var(--accent); }
+.pipeline-detail summary, .pipeline-settings summary, .pipeline-new summary,
+.bot-project summary, .pipeline-panel legend { color: var(--text); }
+.pipeline-detail pre { background: var(--input); color: var(--text); }
+.pipeline-usage { background: var(--raised); color: var(--muted); }
+.pipeline-panel form label { color: var(--muted); }
+.pipeline-panel input:not([type=checkbox]), .pipeline-panel textarea, .pipeline-panel select,
+.chat-model-picker select { background: var(--input); color: var(--text); border-color: #4d4f5b; }
+.pipeline-panel .pipeline-config-stage { border-color: var(--line); border-radius: 8px; }
+.pipeline-disclosure { border-color: var(--accent); }
+.pipeline-empty>span, .bot-step { color: var(--accent); }
+.bot-project { border-radius: 8px; }
+.chat-toolbar, .chat-model-picker, .mcp-config { background: var(--surface); }
+.chat-orb { background: var(--accent-soft); color: var(--accent); border-color: #633150; box-shadow: none; border-radius: 14px; }
+.chat-model-dot { background: var(--positive); box-shadow: none; }
+.chat-starters button:hover:not(:disabled) { background: #2b2d35; border-color: #646570; transform: none; }
+.chat-starters span, .chat-message-content>strong { color: var(--text); font-size: 12px; }
+.chat-starters small { font-size: 12px; }
+.chat-avatar { border-color: #633150; color: var(--accent); }
+.user .chat-text { background: var(--raised); border-color: var(--line); }
+.chat-tool { background: var(--raised); border-color: var(--line); color: var(--muted); font-size: 11px; }
+.chat-composer { border-color: #4d4f5b; border-radius: 10px; }
+.chat-footnote, .chat-composer-actions small, .chat-model-picker small { font-size: 11px; }
+.chat-destination { color: var(--muted); }
+.chat-error, .chat-setup { background: #30232a; border-color: #6e4055; color: #f4b9ca; }
+.mail-banner p, .mail-letter .mail-body { color: var(--text); }
+@media (max-width: 1150px) {
+  .desk-layout { grid-template-columns: minmax(0, 1fr); }
+  .desk-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+}
+@media (max-width: 720px) {
+  .desk-context { display: block; }
+  .desk-composer { padding: 18px; }
+  .desk-compose-footer .primary { width: 100%; }
+  .desk-search { max-width: 100%; width: 100%; }
+  .local-workspaces .local-workspace-row>label { min-width: 0; flex-basis: 100%; }
+  .local-workspaces select { min-width: 0; width: 100%; }
+  .desk-session { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .desk-session-meta { text-align: left; }
+  .mcp-section-title { flex-wrap: wrap; }
+}
+.development-status { position: fixed; right: 18px; bottom: 16px; z-index: 20; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 36px); padding: 10px 14px; border: 1px solid #633150; border-radius: 12px; background: var(--surface); color: var(--muted); box-shadow: 0 6px 24px #0005; font-size: 12px; }
+.development-status button { font-size: 12px; }
+#jira-dialog { width: min(760px, calc(100vw - 32px)); }
+.jira-facts { display: grid; grid-template-columns: 135px minmax(0, 1fr); gap: 8px 16px; font-size: 13px; }
+.jira-facts dt { color: var(--muted); }
+.jira-facts dd { margin: 0; overflow-wrap: anywhere; }
+.jira-content { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--input); border: 1px solid var(--line); border-radius: 8px; padding: 16px; font-size: 13px; }
+.jira-saved-action { margin: 14px 0; }
+.jira-saved-action a { color: var(--accent); }
+.jira-warning { color: var(--warning); }
+@media (max-width: 600px) {
+ .jira-facts { grid-template-columns: 1fr; gap: 4px; } .jira-facts dd { margin-bottom: 8px; } .development-status { flex-wrap: wrap; } 
+}
+
+/* Development desk layout: starters, the work shell and its phases. */
+/* Starters stay compact so the user's brief remains the main working surface. */
+.playbook-section { margin: 20px 0 24px; }
+.playbook-section h3 { font-size: 14px; margin-bottom: 4px; text-transform: none; }
+.playbook-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.playbook-card { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 15px; border: 1px solid var(--line); border-radius: 9px; background: var(--input); color: var(--text); }
+.playbook-card small { color: var(--accent); font-size: 9px; letter-spacing: .1em; }
+.playbook-card strong { font-size: 14px; font-weight: 600; }
+.playbook-card span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.playbook-card:hover, .playbook-card[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.playbook-preview { margin-top: 12px; padding: 16px; border-left: 2px solid var(--accent); background: var(--input); border-radius: 0 8px 8px 0; font-size: 13px; }
+.playbook-preview h4 { font-size: 14px; margin: 0 0 8px; }
+.playbook-preview ul { padding-left: 18px; color: var(--muted); }
+.playbook-preview li + li { margin-top: 5px; }
+@media (max-width: 620px) { .playbook-grid { grid-template-columns: minmax(0, 1fr); } }
+
+
+/* Keep the work itself prominent as more integrations are added. */
+.work-shell { display: grid; grid-template-columns: 230px minmax(0,1fr); min-height: 530px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.work-list { border-right: 1px solid var(--line); padding: 18px 12px; background: #141519; }
+.work-list-heading, .work-agent-heading, .work-start-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.work-list-heading h2 { font-size: 16px; margin: 0; }
+.work-list .search { margin: 16px 0; width: 100%; }
+.work-list .search input { width: 100%; min-width: 0; }
+.work-item { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 12px; color: var(--text); margin: 4px 0; }
+.work-item strong { font-size: 13px; font-weight: 550; display: block; overflow-wrap: anywhere; }
+.work-item small { color: var(--muted); display: block; margin-top: 6px; }
+.work-item[aria-pressed=true] { background: var(--accent-soft); border-color: #633150; }
+.work-item:hover { background: var(--raised); }
+.work-main { min-width: 0; padding: 28px; }
+.work-title h2 { margin: 8px 0 12px; font-size: 23px; }
+.work-title > p:last-child { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.work-main label { display: block; margin: 14px 0; color: var(--text); font-size: 13px; }
+.work-main label input, .work-main label textarea, .work-main label select { display: block; width: 100%; margin-top: 7px; }
+.work-main details { border-top: 1px solid var(--line); padding: 12px 0; }
+.work-main summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.work-main details[open] > summary { color: var(--text); margin-bottom: 12px; }
+.work-context, .work-setup { margin-top: 24px; }
+.work-start-actions { justify-content: flex-start; flex-wrap: wrap; margin: 22px 0 12px; }
+.work-main pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; background: var(--input); padding: 14px; font-size: 12px; border-radius: 6px; }
+.work-main code, .work-main a { overflow-wrap: anywhere; }
+.work-main .muted { font-size: 12px; }
+.work-phases { padding: 0 0 18px; display: flex; flex-wrap: wrap; gap: 6px; list-style: none; border-bottom: 1px solid var(--line); margin: 24px 0; }
+.work-phases button { display: flex; gap: 6px; align-items: center; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; color: var(--muted); font-size: 12px; }
+.work-phases button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.work-agent-heading h3 { margin: 5px 0; text-transform: none; letter-spacing: normal; }
+.work-brief { white-space: pre-wrap; color: var(--muted); overflow-wrap: anywhere; }
+.work-next { padding: 16px; margin: 20px 0; background: var(--input); border: 1px solid var(--line); border-radius: 8px; }
+.work-next button + button { margin-left: 8px; }
+.work-result { margin: 18px 0; }
+@media (max-width: 1100px) { .work-shell { grid-template-columns: 190px minmax(0,1fr); } .work-main { padding: 20px; } }
+@media (max-width: 760px) { .work-shell { grid-template-columns: 1fr; } .work-list { border-right: 0; border-bottom: 1px solid var(--line); } #desk-session-list { max-height: 220px; overflow: auto; } .developer-desk .page { padding: 16px; } }

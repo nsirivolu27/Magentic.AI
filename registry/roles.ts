@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_WORKFLOW, WORKFLOW_ROLES } from "./workflow.js";
 
 /**
  * Who may do what, inside one workspace.
@@ -14,7 +15,7 @@ import { z } from "zod";
  * keeps working without inventing an approver for themselves.
  */
 
-export const ROLES = ["author", "approver", "admin"] as const;
+export const ROLES = WORKFLOW_ROLES;
 export type Role = typeof ROLES[number];
 
 export const membershipSchema = z.object({
@@ -41,13 +42,6 @@ export function memoryMembers(seed: readonly Membership[] = []): MemberDirectory
   };
 }
 
-/** What each role is allowed to do. Admin is author plus approver, nothing more. */
-const ALLOWED: Readonly<Record<Role, readonly Action[]>> = {
-  author: ["author", "submit"],
-  approver: ["approve", "request-changes", "retire"],
-  admin: ["author", "submit", "approve", "request-changes", "retire"],
-};
-
 export type Action = "author" | "submit" | "approve" | "request-changes" | "retire";
 
 export class PermissionError extends Error {}
@@ -63,6 +57,7 @@ export async function requirePermission(
   workspaceId: string,
   actor: string,
   action: Action,
+  requiredRole: Role = DEFAULT_WORKFLOW.roles[action],
 ): Promise<void> {
   if (!directory) return;
 
@@ -70,7 +65,7 @@ export async function requirePermission(
   if (!roles.length) {
     throw new PermissionError(`${actor} is not a member of workspace ${workspaceId}.`);
   }
-  if (!roles.some((role) => ALLOWED[role].includes(action))) {
+  if (!roles.includes(requiredRole) && !roles.includes("admin")) {
     throw new PermissionError(
       `${actor} holds ${roles.join(", ")} in ${workspaceId}, and none of those may ${action}.`,
     );

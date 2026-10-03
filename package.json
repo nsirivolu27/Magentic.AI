@@ -16,7 +16,15 @@
     "test": "tsc -p tsconfig.test.json && node --test .testbuild/tests/*.test.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "agents": "node ./dist/list.mjs",
-    "seed:state": "tsc -p tsconfig.test.json && node .testbuild/workspaces/seed-state.js"
+    "build:workbench": "node ./workbench/build.mjs",
+    "dev:workbench": "node ./workbench/dev.mjs",
+    "demo:workbench": "node ./dist/workbench/demo.mjs",
+    "seed:state": "tsc -p tsconfig.test.json && node .testbuild/workspaces/seed-state.js",
+    "build:desktop": "node ./workbench/desktop/build.mjs",
+    "build:vscode": "node ./extensions/vscode/build.mjs",
+    "ontology:mcp": "node ./dist/workbench/ontology-main.mjs",
+    "local:workbench": "node ./dist/workbench/local-main.mjs",
+    "test:mcp": "tsc -p tsconfig.test.json && node --test .testbuild/tests/workflow.test.js .testbuild/tests/mcp-portal.test.js .testbuild/tests/pipeline.test.js .testbuild/tests/bot-timeline.test.js .testbuild/tests/mcp-policy.test.js .testbuild/tests/local-session.test.js .testbuild/tests/local-workspaces.test.js .testbuild/tests/jira.test.js .testbuild/tests/jira-actions.test.js .testbuild/tests/jira-operations.test.js .testbuild/tests/jira-runtime.test.js .testbuild/tests/jira-api.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

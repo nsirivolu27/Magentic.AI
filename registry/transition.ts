@@ -1,6 +1,7 @@
 import type { AgentDefinition } from "../catalog/schema.js";
 import { hashDefinition, type RegistryRecord, type Status } from "./record.js";
-import { TRANSITIONS, type RegistryStore } from "./store.js";
+import type { RegistryStore } from "./store.js";
+import { DEFAULT_WORKFLOW, type Workflow } from "./workflow.js";
 import type { AuditSink } from "./audit.js";
 import { requirePermission, type MemberDirectory } from "./roles.js";
 
@@ -21,6 +22,7 @@ import { requirePermission, type MemberDirectory } from "./roles.js";
 export interface TransitionContext {
   store: RegistryStore;
   audit: AuditSink;
+  workflow?: Workflow;
   /**
    * Whether the author may approve their own definition. Off by default:
    * separation of duties is most of what review means, and a gate that one
@@ -44,7 +46,8 @@ export async function authorDraft(
   input: { workspaceId: string; definition: AgentDefinition; actor: string },
 ): Promise<RegistryRecord> {
   const { workspaceId, definition, actor } = input;
-  await requirePermission(context.members, workspaceId, actor, "author");
+  const workflow = context.workflow ?? DEFAULT_WORKFLOW;
+  await requirePermission(context.members, workspaceId, actor, "author", workflow.roles.author);
   const at = stamp(context);
   const existing = await context.store.get(workspaceId, definition.name);
 
@@ -116,12 +119,13 @@ export async function approve(
   input: { workspaceId: string; name: string; actor: string; note?: string },
 ): Promise<RegistryRecord> {
   const { workspaceId, name, actor } = input;
-  await requirePermission(context.members, workspaceId, actor, "approve");
+  const workflow = context.workflow ?? DEFAULT_WORKFLOW;
+  await requirePermission(context.members, workspaceId, actor, "approve", workflow.roles.approve);
   const record = await load(context, workspaceId, name);
 
-  if (record.status !== "review" && record.status !== "approved") {
-    throw new TransitionError(`"${name}" is ${record.status}; only a record in review can be approved.`);
-  }
+  // Adding another signature leaves the status alone. Requiring a self-loop
+  // here would make the default workflow unable to collect two approvals.
+  if (record.status !== "approved") checkTransition(workflow, record, "approved");
   if (!context.allowSelfApproval && actor === record.author) {
     throw new TransitionError(
       `${actor} authored "${name}" and cannot also approve it. Another approver has to sign.`,
@@ -159,14 +163,12 @@ async function move(
   input: { workspaceId: string; name: string; actor: string; to: Status; action: "submitted" | "changes-requested" | "retired"; note?: string },
 ): Promise<RegistryRecord> {
   const { workspaceId, name, actor, to } = input;
-  await requirePermission(context.members, workspaceId, actor, input.action === "submitted" ? "submit"
-    : input.action === "changes-requested" ? "request-changes" : "retire");
+  const workflow = context.workflow ?? DEFAULT_WORKFLOW;
+  const action = input.action === "submitted" ? "submit"
+    : input.action === "changes-requested" ? "request-changes" : "retire";
+  await requirePermission(context.members, workspaceId, actor, action, workflow.roles[action]);
   const record = await load(context, workspaceId, name);
-
-  if (!TRANSITIONS[record.status].includes(to)) {
-    const allowed = TRANSITIONS[record.status].join(", ") || "nothing";
-    throw new TransitionError(`"${name}" is ${record.status} and can only move to: ${allowed}.`);
-  }
+  checkTransition(workflow, record, to);
 
   const at = stamp(context);
   const updated: RegistryRecord = {
@@ -189,6 +191,14 @@ async function move(
     ...(input.note ? { note: input.note } : {}),
   });
   return updated;
+}
+
+function checkTransition(workflow: Workflow, record: RegistryRecord, to: Status): void {
+  const targets = workflow.transitions[record.status] ?? [];
+  if (!targets.includes(to)) {
+    const allowed = targets.join(", ") || "nothing";
+    throw new TransitionError(`"${record.definition.name}" is ${record.status} and can only move to: ${allowed}.`);
+  }
 }
 
 async function load(context: TransitionContext, workspaceId: string, name: string): Promise<RegistryRecord> {

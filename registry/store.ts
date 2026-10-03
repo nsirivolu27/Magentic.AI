@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { recordSchema, type RegistryRecord, type Status } from "./record.js";
+import { DEFAULT_WORKFLOW } from "./workflow.js";
 
 /**
  * Where registry records live.
@@ -145,8 +146,8 @@ function isMissing(error: unknown): boolean {
 
 /** Status values a record may move to from where it is now. */
 export const TRANSITIONS: Readonly<Record<Status, readonly Status[]>> = {
-  draft: ["review"],
-  review: ["draft", "approved"],
-  approved: ["retired"],
-  retired: [],
+  draft: DEFAULT_WORKFLOW.transitions.draft ?? [],
+  review: DEFAULT_WORKFLOW.transitions.review ?? [],
+  approved: DEFAULT_WORKFLOW.transitions.approved ?? [],
+  retired: DEFAULT_WORKFLOW.transitions.retired ?? [],
 };

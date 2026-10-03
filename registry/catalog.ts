@@ -4,6 +4,7 @@ import { magenticToolNames } from "../mcp.js";
 import type { CatalogEntry } from "../catalog/schema.js";
 import { isServable, type RegistryRecord } from "./record.js";
 import type { RegistryStore } from "./store.js";
+import { DEFAULT_WORKFLOW, loadWorkflow, type Workflow } from "./workflow.js";
 
 /**
  * Building a served catalog out of the registry.
@@ -24,6 +25,7 @@ export interface RegistryCatalogOptions {
   allowWrites: boolean;
   /** Signatures needed before a record is served. Two is the realistic federal default. */
   requiredApprovals?: number;
+  workflow?: Workflow;
   /** Tool names this build registers. Defaults to reading them from the build. */
   known?: readonly string[];
 }
@@ -44,7 +46,12 @@ export async function loadRegistryCatalog(
   workspaceId: string,
   options: RegistryCatalogOptions,
 ): Promise<RegistryCatalog> {
-  const required = options.requiredApprovals ?? 1;
+  // The legacy option still works without a workflow. It cannot lower the
+  // threshold of an explicitly supplied workspace policy.
+  const workflow = options.workflow ?? loadWorkflow({
+    ...DEFAULT_WORKFLOW,
+    requiredApprovals: options.requiredApprovals ?? DEFAULT_WORKFLOW.requiredApprovals,
+  });
   const known = new Set(options.known ?? magenticToolNames());
   const records = await store.list(workspaceId);
 
@@ -53,7 +60,7 @@ export async function loadRegistryCatalog(
   const withheld: Withheld[] = [];
 
   for (const record of records) {
-    const verdict = withholdReason(record, known, required);
+    const verdict = withholdReason(record, known, workflow);
     if (verdict) {
       withheld.push(verdict);
       continue;
@@ -79,7 +86,7 @@ export async function loadRegistryCatalog(
 function withholdReason(
   record: RegistryRecord,
   known: ReadonlySet<string>,
-  required: number,
+  workflow: Workflow,
 ): Withheld | undefined {
   const name = record.definition.name;
 
@@ -96,11 +103,11 @@ function withholdReason(
     return { name, reason: "not-approved", detail: `Status is ${record.status}.` };
   }
 
-  if (!isServable(record, required)) {
+  if (!isServable(record, workflow)) {
     return {
       name,
       reason: "approvals-stale",
-      detail: `Approved, but the definition changed after signing, or fewer than ${required} signature(s) match it.`,
+      detail: `Approved, but the definition changed after signing, or fewer than ${workflow.requiredApprovals} signature(s) match it.`,
     };
   }
 

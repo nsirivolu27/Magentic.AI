@@ -1,9 +1,11 @@
+import { readFileSync } from "node:fs";
 import { isAbsolute, resolve as resolvePath } from "node:path";
 import { setting } from "../env.js";
 import { catalogFor } from "../catalog/select.js";
 import type { Catalog } from "../catalog/load.js";
 import { loadRegistryCatalog, type Withheld } from "./catalog.js";
 import { fileStore } from "./store.js";
+import { DEFAULT_WORKFLOW, loadWorkflow, type Workflow } from "./workflow.js";
 
 /**
  * Which catalog this process serves, and where it came from.
@@ -29,6 +31,7 @@ export interface ResolvedCatalog {
   withheld: readonly Withheld[];
   /** The workspace being served, in workspace mode. */
   workspaceId?: string;
+  workflow?: Workflow;
 }
 
 /** Workspace mode is on when a registry directory is named. */
@@ -53,6 +56,24 @@ export function requiredApprovals(env: NodeJS.ProcessEnv = process.env): number 
   return declared;
 }
 
+export function resolveWorkflow(env: NodeJS.ProcessEnv = process.env): Workflow {
+  const declared = setting("MAGENTIC_WORKFLOW_FILE", env)?.trim();
+  if (!declared) {
+    const count = requiredApprovals(env);
+    return count === DEFAULT_WORKFLOW.requiredApprovals
+      ? DEFAULT_WORKFLOW
+      : loadWorkflow({ ...DEFAULT_WORKFLOW, requiredApprovals: count });
+  }
+
+  const path = resolvePath(process.cwd(), declared);
+  try {
+    return loadWorkflow(JSON.parse(readFileSync(path, "utf8")) as unknown);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`MAGENTIC_WORKFLOW_FILE ${path}: ${detail}`, { cause: error });
+  }
+}
+
 export async function resolveCatalog(
   moduleUrl: string,
   allowWrites: boolean,
@@ -60,6 +81,9 @@ export async function resolveCatalog(
 ): Promise<ResolvedCatalog> {
   const directory = registryDirectory(env);
   if (!directory) {
+    // An explicitly configured policy must fail at startup even in file
+    // mode. Legacy registry settings stay unused in this mode as before.
+    if (setting("MAGENTIC_WORKFLOW_FILE", env)?.trim()) resolveWorkflow(env);
     const catalog = catalogFor(moduleUrl, allowWrites, env);
     return { mode: "files", catalog, origin: "agent definition files", withheld: [] };
   }
@@ -72,9 +96,10 @@ export async function resolveCatalog(
     throw new Error("MAGENTIC_REGISTRY_DIR is set, so MAGENTIC_WORKSPACE must name the workspace this server hosts.");
   }
 
+  const workflow = resolveWorkflow(env);
   const catalog = await loadRegistryCatalog(fileStore(directory), workspaceId, {
     allowWrites,
-    requiredApprovals: requiredApprovals(env),
+    workflow,
   });
 
   return {
@@ -83,5 +108,6 @@ export async function resolveCatalog(
     origin: `registry ${directory}`,
     withheld: catalog.withheld,
     workspaceId,
+    workflow,
   };
 }

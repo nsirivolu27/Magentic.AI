@@ -1,5 +1,16 @@
 # Magentic
 
+## Developer workspace preview
+
+The optional workbench runs locally; its Ontology sample needs no LNKZ relay.
+See the [Foundry/Ontology guide](workbench/ONTOLOGY.md) for repository startup,
+VS Code MCP setup, and live-connection requirements. After building the
+workbench and configuring a workspace, `corepack pnpm ontology:mcp` starts
+the standalone read-only Ontology server. Application packaging is deferred
+while the API and agent loop is verified.
+
+The sections below describe the original relay adapter.
+
 Magentic is the Model Context Protocol server for the
 [LNKZ relay](https://github.com/nsirivolu27/LNKZ). It exposes conversation
 tools, resources and prompts to MCP clients, using the relay's authenticated
@@ -252,3 +263,84 @@ The relay does the fetching in every case. This adapter never dials a share
 link itself, which keeps the protocol allowlist, the credential check, the
 public-address requirement, the size cap and the timeout in one place rather
 than in two copies that drift.
+
+
+## Local workspace portal
+
+Run `pnpm build:workbench` and `pnpm demo:workbench`, then open
+`http://127.0.0.1:4173/`. The portal includes agent reviews, workflow policy,
+email previews, and an MCP inspector. The demo binds to loopback, uses public
+sample identities, and resets its in-memory data on restart. Email previews
+never send mail or grant membership.
+
+The **MCP** page connects to a real, read-only Streamable HTTP endpoint at
+`/api/mcp`. It supports initialization, tool discovery, and these tools:
+
+- `list_approved_agents`: metadata for definitions that pass the current gate.
+- `get_approved_agent`: the reviewed definition for a supplied `name`.
+- `get_workspace_policy`: the authenticated workspace's active policy.
+
+Every call checks current signatures and content hashes. Missing required
+tools, retirement, insufficient approvals, and edits withhold a definition.
+The portal also explains withheld records to workspace members. One sample
+agent starts fully approved; Research assistant still needs its second review.
+
+Use **Connect & inspect**, select a tool, and choose **Run tool** to see its
+actual protocol response. Connection settings show the local URL and selected
+public demo token. Native MCP clients use POST with a bearer token and accept
+`application/json, text/event-stream`; this endpoint uses stateless JSON
+responses and does not provide a persistent GET stream.
+
+These tools read configuration. They do not execute an agent or access LNKZ
+conversations. The existing relay adapter and its `/mcp/<name>` endpoints remain
+separate. A real deployment must supply `createWorkbenchServer` with its
+existing authentication callback, member directory, and persistent registry;
+the sample identity selector is only a local demo frontend. Credentials are
+not saved in browser storage. The workbench does not issue production tokens.
+
+### Live local development
+
+Run `corepack pnpm dev:workbench` with Node 22 to open the real local app at
+`http://127.0.0.1:4317/`. Source edits rebuild the UI and restart the backend.
+The page reloads automatically until you edit a form; after editing, use the
+**Reload latest build** button to avoid losing unsaved work. Development data
+lives in the ignored `.magentic-dev/data` directory and survives rebuilds.
+
+Use `--port=4318` to choose another port or `--data-dir=<directory>` to select
+a different development data directory. Stop with Ctrl+C so the backend can
+release its writer lock. A failed compilation leaves the last working server
+running. Backend edits interrupt running bots and chat, so finish important
+attempts before changing server code. This mode binds only to loopback.
+
+Within a workflow run, **Review Jira action** shows the exact proposed content
+and destination. Confirming **Save local preview** records it without sending
+anything. **Saved actions & evidence** shows persisted outcomes, including
+uncertain attempts. Standalone MCP can read these through `get_jira_actions`.
+Live Jira credentials and delivery are not enabled by development mode.
+
+### Persistent desktop workspaces
+
+The Windows desktop launcher now opens the local entry point by default.
+Create, select and reopen workspaces in the workspace panel. Pipeline runs,
+registry records and audit data are stored under the user's local application
+data directory. Browser requests use a temporary HttpOnly session cookie;
+standalone MCP clients use a separate credential bound to one workspace.
+
+Run `corepack pnpm build:workbench` followed by `corepack pnpm local:workbench`
+for the local browser entry point, or build the Windows package with
+`corepack pnpm build:desktop`. See [local mode](workbench/LOCAL-MODE.md) for
+storage, credentials, settings and recovery. The demo entry point remains
+available explicitly. Existing stages stay manual until bots are configured;
+Jira is a preview, and the local owner cannot approve their own work.
+
+### Bot timelines
+
+Local workspaces can attach an existing Git repository and assign a planner,
+coder, validator, or reviewer to each workflow phase. Bot attempts use a
+separate checkout and expose their progress, model calls, file proposals and
+check results in the timeline. Apply reviewed changes and hand off results
+without leaving your existing editor. See [bot timelines](workbench/BOT-TIMELINE.md)
+for execution boundaries and setup. Existing review gates remain enforced.
+
+For the current layer map, per-phase MCP tool controls, and repeatable build/test
+commands, see [architecture and verification](workbench/ARCHITECTURE.md).
