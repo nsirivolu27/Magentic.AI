@@ -683,7 +683,7 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
     async (uri) => jsonResource(uri, await client.listConversations({ limit: 25 })),
   );
 
-  const conversationTemplateOptions = {
+  const conversationTemplateOptions = (scheme: string) => ({
     // A list callback is what puts conversations in a client's resource
     // picker, so a person points at one by title instead of a model going
     // looking for it by id. The completion callback narrows that list as
@@ -694,7 +694,7 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
         const conversations = await suggestions.conversations().catch(() => []);
         return {
           resources: conversations.map((conversation) => ({
-            uri: `${SCHEME}://conversation/${conversation.id}`,
+            uri: `${scheme}://conversation/${conversation.id}`,
             name: conversation.title,
             description: `${conversation.source.provider} \u00b7 ${conversation.messageCount} messages \u00b7 ${shortId(conversation.id)}`,
             mimeType: "text/markdown",
@@ -714,7 +714,7 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
             .map((conversation) => conversation.id);
         },
       },
-  };
+  });
 
   const conversationConfig = {
     title: "Conversation",
@@ -746,7 +746,7 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
 
   server.registerResource(
     "conversation",
-    new ResourceTemplate(`${SCHEME}://conversation/{id}`, conversationTemplateOptions),
+    new ResourceTemplate(`${SCHEME}://conversation/{id}`, conversationTemplateOptions(SCHEME)),
     conversationConfig,
     readConversation,
   );
@@ -754,7 +754,7 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
   if (legacyUrisEnabled()) {
     server.registerResource(
       "conversation-legacy",
-      new ResourceTemplate(`${LEGACY_SCHEME}://conversation/{id}`, conversationTemplateOptions),
+      new ResourceTemplate(`${LEGACY_SCHEME}://conversation/{id}`, conversationTemplateOptions(LEGACY_SCHEME)),
       { ...conversationConfig, description: `${conversationConfig.description} Deprecated alias for ${SCHEME}://conversation/{id}.` },
       readConversation,
     );

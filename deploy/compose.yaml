@@ -1,0 +1,28 @@
+services:
+  mcp:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: magentic-mcp:local
+    init: true
+    restart: unless-stopped
+    environment:
+      LNKZ_BASE_URL: ${LNKZ_BASE_URL:?Set the HTTPS URL of your existing relay}
+      MAGENTIC_SCOPES: read
+      HOST: 0.0.0.0
+      PORT: "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
