@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { agentSchema, type AgentDefinition } from "../catalog/schema.js";
+import { DEFAULT_WORKFLOW, WORKFLOW_STATES, type Workflow } from "./workflow.js";
 
 /**
  * A definition as the registry holds it, rather than as a file holds it.
@@ -16,7 +17,7 @@ import { agentSchema, type AgentDefinition } from "../catalog/schema.js";
  * an immutable served catalog be true at the same time.
  */
 
-export const STATUSES = ["draft", "review", "approved", "retired"] as const;
+export const STATUSES = WORKFLOW_STATES;
 export type Status = typeof STATUSES[number];
 
 /**
@@ -76,7 +77,11 @@ function canonical(value: unknown): string {
  * signatures no longer match, and the record stops being servable without
  * anyone having to remember to reset its status.
  */
-export function isServable(record: RegistryRecord, requiredApprovals = 1): boolean {
+export function isServable(record: RegistryRecord, workflow: Workflow | number = DEFAULT_WORKFLOW): boolean {
+  // Numeric callers predate workflows. Keep their threshold, but never let
+  // an invalid count turn an unsigned record into a served definition.
+  const requiredApprovals = typeof workflow === "number" ? workflow : workflow.requiredApprovals;
+  if (!Number.isInteger(requiredApprovals) || requiredApprovals < 1 || requiredApprovals > 10) return false;
   if (record.status !== "approved") return false;
   // Distinct approvers, not signature count. Counting rows would let one
   // person sign twice and satisfy a two-person review, and a record written

@@ -1,0 +1,33 @@
+{
+  "name": "magentic-workspace",
+  "displayName": "Magentic Workspace",
+  "description": "Ask questions, propose code changes, and review diffs in your personal workspace using local Ollama.",
+  "version": "0.1.9",
+  "publisher": "magenticai",
+  "license": "MIT",
+  "engines": { "vscode": "^1.95.0" },
+  "categories": ["AI", "Other"],
+  "main": "./dist/extension.cjs",
+  "activationEvents": ["onView:magentic.workspace"],
+  "capabilities": { "untrustedWorkspaces": { "supported": "limited", "description": "Magentic can show its panel. Repository reads, model requests, edits and tasks require workspace trust." }, "virtualWorkspaces": false },
+  "extensionKind": ["workspace"],
+  "contributes": {
+    "commands": [
+      { "command": "magentic.open", "title": "Magentic: Open Coding Assistant", "icon": "media/toolbar.svg" },
+      { "command": "magentic.explainSelection", "title": "Magentic: Explain Selected Code" },
+      { "command": "magentic.proposeEdit", "title": "Magentic: Propose a Code Change" }
+    ],
+    "viewsContainers": { "activitybar": [{ "id": "magentic", "title": "Magentic", "icon": "media/icon.svg" }] },
+    "views": { "magentic": [{ "type": "webview", "id": "magentic.workspace", "name": "Coding Assistant" }] },
+    "menus": {
+      "editor/title": [{ "command": "magentic.open", "group": "navigation@20" }],
+      "editor/context": [{ "command": "magentic.explainSelection", "when": "editorHasSelection", "group": "magentic" }, { "command": "magentic.proposeEdit", "group": "magentic" }] },
+    "configuration": { "title": "Magentic", "properties": {
+      "magentic.model": { "type": "string", "default": "qwen2.5-coder:7b", "scope": "machine", "description": "Model name on the local model service (see magentic.modelUrl)." },
+      "magentic.modelUrl": { "type": "string", "default": "", "scope": "machine-overridable", "description": "Loopback address of the local model service speaking Ollama's chat API. Empty means http://127.0.0.1:11434. Point it at a local gateway to route through it." },
+      "magentic.guided": { "type": "boolean", "default": true, "description": "Explain actions and show beginner guidance." },
+      "magentic.workbenchUrl": { "type": "string", "default": "", "scope": "machine-overridable", "description": "Address of Magentic Developer on this machine, such as http://127.0.0.1:4173, to work with its approved assistants. Leave empty to use only the local model." },
+      "magentic.workbenchTokenFile": { "type": "string", "default": "", "scope": "machine-overridable", "description": "Path of the workbench's standalone client token (mcp-token). Leave empty for the default data directory." }
+    } }
+  }
+}

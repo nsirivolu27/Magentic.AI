@@ -1,0 +1,48 @@
+<header class="masthead">
+  <div class="brand"><svg aria-hidden="true" width="21" height="24" viewBox="0 0 24 24"><path fill="#ed80c6" d="m12 1 10 11-10 11L2 12Z"/><path fill="#be3c91" d="m12 1 10 11H12Z"/><path fill="#f6b4de" d="M2 12h10V1Z"/><path fill="#962769" d="M12 12h10L12 23Z"/></svg><strong>Magentic</strong><span id="version"></span></div>
+  <button id="new" class="quiet" title="Clear this task and start another">New task</button>
+</header>
+<main>
+  <div class="project-context"><span id="project-name">Open a repository</span><button id="open-file" class="quiet" title="Open the active file in your editor">No active file</button></div>
+  <div class="worker-row"><label for="worker">Worker</label><select id="worker" title="Who does the work: the local model, or an approved assistant from Magentic Developer"><option value="">Local model</option></select><span id="worker-note" class="muted"></span>
+    <span id="learning" class="learning" hidden><span id="learning-note" class="muted"></span><button id="learn-now" class="quiet" title="Run one learning cycle for this assistant's project in the workbench">Learn now</button></span></div>
+  <div id="stages" class="stages" role="group" aria-label="Work mode">
+    <button type="button" data-agent="understand" aria-pressed="true">Analyze</button>
+    <button type="button" data-agent="build" aria-pressed="false">Build</button>
+    <button type="button" data-agent="review" aria-pressed="false">Review</button>
+  </div>
+  <p id="trust" class="notice" role="alert" hidden>Open a trusted Git repository with at least one commit.</p>
+  <form id="composer">
+    <label id="request-label" for="prompt">Focus <span class="muted">optional</span></label>
+    <textarea id="prompt" rows="2" maxlength="4000" aria-describedby="mode-help" placeholder="A file, a bug, or something to investigate…"></textarea>
+    <div class="run-row"><span id="mode-help" class="muted">Read only</span><button id="send" class="primary" type="submit" disabled>Analyze code</button></div>
+  </form>
+  <section id="working" class="working" role="status" hidden><span id="progress">Reading code…</span><button id="stop" class="quiet">Stop</button></section>
+  <section id="empty" class="empty"><div class="code-symbol" aria-hidden="true">&lt;/&gt;</div><h1 id="empty-title">Understand the code.</h1><p id="empty-help">Find issues. Choose what to build next.</p></section>
+  <section id="proposal" class="proposal" aria-label="Proposed changes" hidden>
+    <div class="section-heading"><h2>Changes</h2><span id="file-count" class="muted"></span></div>
+    <div id="files"></div><p id="review-count" class="muted" role="status"></p>
+    <div class="actions"><button id="apply" class="primary">Apply changes</button><button id="discard" class="quiet">Discard</button></div>
+  </section>
+  <section id="result" class="result" aria-label="Latest result" aria-live="polite" hidden>
+    <div class="section-heading"><h2 id="result-title">Analysis</h2><span id="result-note" class="muted">AI findings</span></div>
+    <div id="result-body" class="report"></div>
+    <div class="result-actions"><button id="next-agent" class="secondary" hidden>Build from findings</button><button id="retry" class="secondary" hidden>Edit request</button></div>
+  </section>
+  <section id="checks" class="checks" hidden>
+    <div class="section-heading"><h2>Checks</h2><button id="task" class="quiet">Run checks…</button></div>
+    <p id="no-checks" class="muted">No tasks run this session.</p><div id="task-outcomes" role="status"></div>
+    <p id="task-note" class="muted" hidden>Past runs · details in terminal</p><button id="analyze-task" class="quiet" hidden>Investigate result</button>
+  </section>
+  <details id="history" class="history" hidden><summary id="history-label">Task history</summary><div id="messages"></div></details>
+  <footer><details class="settings"><summary>Workspace settings</summary>
+    <label>Repository<select id="folder"></select></label>
+    <label>Agent<select id="agent-select"></select></label><p id="agent-purpose" class="muted"></p>
+    <p id="connection" class="muted"></p><p id="workbench-note" class="muted"></p>
+    <div class="actions-row"><button id="settings" class="secondary">Model settings</button><button id="refresh-assistants" class="quiet">Refresh assistants</button></div>
+    <label class="check"><input id="include" type="checkbox" checked>Include active file &amp; selection</label>
+    <label class="check"><input id="guided" type="checkbox" checked>Show hints</label>
+    <details id="code-preview"><summary>Saved code preview</summary><pre><code id="active-code"></code></pre></details>
+    <p class="muted">Save files before analysis or checks.</p>
+  </details></footer>
+</main>
