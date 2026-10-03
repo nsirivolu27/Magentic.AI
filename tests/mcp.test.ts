@@ -236,6 +236,7 @@ test("publishes the preserved tool, resource, template, and prompt names", async
   const listed = resources.resources.filter((resource) => resource.uri.startsWith("magentic://conversation/"));
   assert.equal(listed.length, 1, "the one stubbed conversation should appear once");
   assert.equal(listed[0]?.uri, `magentic://conversation/${conversationId}`);
+  assert.equal(uris.filter((uri) => uri === `lnkz://conversation/${conversationId}`).length, 1, "the legacy picker entry must use its own scheme exactly once");
   assert.equal(listed[0]?.name, conversation.title, "the picker shows the title, not the id");
   assert.match(listed[0]?.description ?? "", /chatgpt/, "and enough to tell two apart");
   assert.equal(uris.length, 12, "the fixed five plus the one conversation, on both schemes, and nothing unaccounted for");

@@ -36,7 +36,7 @@ export interface ChatModelLike {
   invoke(input: string): Promise<{ content: unknown }>;
 }
 
-export type LlmProviderId = "openai" | "ollama";
+export type LlmProviderId = "openai" | "ollama" | "azure" | "google";
 
 export interface LlmConfig {
   provider: LlmProviderId;
@@ -61,7 +61,15 @@ export interface LlmConfig {
 const DEFAULTS = {
   openai: { chatModel: "gpt-4o-mini", embeddingModel: "text-embedding-3-small" },
   ollama: { chatModel: "llama3.1", embeddingModel: "nomic-embed-text" },
+  // Azure names a deployment rather than a model, so these defaults are the
+  // deployment names most people give theirs. Override them; a wrong
+  // deployment name is the usual first failure on Azure.
+  azure: { chatModel: "gpt-4o-mini", embeddingModel: "text-embedding-3-small" },
+  google: { chatModel: "gemini-2.0-flash", embeddingModel: "text-embedding-004" },
 } as const satisfies Record<LlmProviderId, { chatModel: string; embeddingModel: string }>;
+
+/** Every provider this build understands, for error messages and docs. */
+export const PROVIDERS = Object.keys(DEFAULTS) as LlmProviderId[];
 
 /**
  * Read the integration's configuration, or undefined when the operator has
@@ -70,10 +78,10 @@ const DEFAULTS = {
 export function llmConfigFromEnv(env: NodeJS.ProcessEnv = process.env): LlmConfig | undefined {
   const declared = (setting("MAGENTIC_LLM_PROVIDER", env) ?? "").trim().toLowerCase();
   if (!declared) return undefined;
-  if (declared !== "openai" && declared !== "ollama") {
-    throw new Error("MAGENTIC_LLM_PROVIDER must be openai or ollama.");
+  if (!(PROVIDERS as string[]).includes(declared)) {
+    throw new Error(`MAGENTIC_LLM_PROVIDER must be one of: ${PROVIDERS.join(", ")}.`);
   }
-  const provider: LlmProviderId = declared;
+  const provider = declared as LlmProviderId;
   const defaults = DEFAULTS[provider];
   const baseUrl = setting("MAGENTIC_LLM_BASE_URL", env)?.trim();
   if (baseUrl) assertPlainHttpUrl(baseUrl);
@@ -168,6 +176,23 @@ async function buildEmbeddings(config: LlmConfig): Promise<EmbeddingsLike> {
       ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
     });
   }
+  if (config.provider === "google") {
+    const module = await loadOptional("@langchain/google-genai", "@langchain/google-genai");
+    return construct<EmbeddingsLike>(module, "GoogleGenerativeAIEmbeddings", {
+      model: config.embeddingModel,
+      apiKey: requireKey("GOOGLE_API_KEY", "google"),
+    });
+  }
+  if (config.provider === "azure") {
+    const module = await loadOptional("@langchain/openai", "@langchain/openai");
+    return construct<EmbeddingsLike>(module, "AzureOpenAIEmbeddings", {
+      azureOpenAIApiDeploymentName: config.embeddingModel,
+      azureOpenAIApiKey: requireKey("AZURE_OPENAI_API_KEY", "azure"),
+      azureOpenAIApiInstanceName: requireAzureInstance(),
+      azureOpenAIApiVersion: azureApiVersion(),
+      batchSize: config.batchSize,
+    });
+  }
   const module = await loadOptional("@langchain/openai", "@langchain/openai");
   return construct<EmbeddingsLike>(module, "OpenAIEmbeddings", {
     model: config.embeddingModel,
@@ -189,6 +214,24 @@ async function buildChatModel(config: LlmConfig): Promise<ChatModelLike> {
       ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
     });
   }
+  if (config.provider === "google") {
+    const module = await loadOptional("@langchain/google-genai", "@langchain/google-genai");
+    return construct<ChatModelLike>(module, "ChatGoogleGenerativeAI", {
+      model: config.chatModel,
+      temperature: 0,
+      apiKey: requireKey("GOOGLE_API_KEY", "google"),
+    });
+  }
+  if (config.provider === "azure") {
+    const module = await loadOptional("@langchain/openai", "@langchain/openai");
+    return construct<ChatModelLike>(module, "AzureChatOpenAI", {
+      azureOpenAIApiDeploymentName: config.chatModel,
+      temperature: 0,
+      azureOpenAIApiKey: requireKey("AZURE_OPENAI_API_KEY", "azure"),
+      azureOpenAIApiInstanceName: requireAzureInstance(),
+      azureOpenAIApiVersion: azureApiVersion(),
+    });
+  }
   const module = await loadOptional("@langchain/openai", "@langchain/openai");
   return construct<ChatModelLike>(module, "ChatOpenAI", {
     model: config.chatModel,
@@ -201,7 +244,29 @@ async function buildChatModel(config: LlmConfig): Promise<ChatModelLike> {
 }
 
 function requireOpenAiKey(): string {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) throw new Error("OPENAI_API_KEY is required when MAGENTIC_LLM_PROVIDER is openai.");
+  return requireKey("OPENAI_API_KEY", "openai");
+}
+
+/** A provider's key, named in the error so the fix is the message. */
+function requireKey(variable: string, provider: LlmProviderId): string {
+  const key = process.env[variable]?.trim();
+  if (!key) throw new Error(`${variable} is required when MAGENTIC_LLM_PROVIDER is ${provider}.`);
   return key;
+}
+
+/**
+ * The Azure resource name, taken from the portal URL: the first label of
+ * <name>.openai.azure.com. Required, because unlike the other providers
+ * Azure has no shared endpoint to fall back to.
+ */
+function requireAzureInstance(): string {
+  const name = process.env.AZURE_OPENAI_INSTANCE?.trim();
+  if (!name) {
+    throw new Error("AZURE_OPENAI_INSTANCE is required when MAGENTIC_LLM_PROVIDER is azure. It is the first label of <name>.openai.azure.com.");
+  }
+  return name;
+}
+
+function azureApiVersion(): string {
+  return process.env.AZURE_OPENAI_API_VERSION?.trim() || "2024-10-21";
 }

@@ -17,6 +17,7 @@
     "*.ts",
     "llm/**/*.ts",
     "catalog/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "workbench/**/*.ts"
   ]
 }
