@@ -2,40 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#141519"><meta name="description" content="Magentic: operate AI assistants, model releases, evaluations and approvals.">
-  <title>Magentic</title><link rel="icon" href="/icon.svg"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/email.css"><link rel="stylesheet" href="/mcp.css"><link rel="stylesheet" href="/chat.css"><link rel="stylesheet" href="/pipeline.css"><link rel="stylesheet" href="/theme.css">
+  <meta name="theme-color" content="#102a43"><meta name="description" content="Magentic Operations: supervised AI workflows, review queues, releases and execution evidence.">
+  <title>Magentic</title><link rel="icon" href="/icon.svg"><link rel="manifest" href="/manifest.webmanifest"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/email.css"><link rel="stylesheet" href="/mcp.css"><link rel="stylesheet" href="/chat.css"><link rel="stylesheet" href="/pipeline.css"><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/agency.css">
 </head>
 <body>
-  <aside class="sidebar">
-    <a class="brand" href="#/workspace" aria-label="Magentic home"><span class="mark">m</span> magentic</a>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <button id="nav-backdrop" class="nav-backdrop" aria-label="Close navigation" hidden></button>
+  <aside class="sidebar" id="workspace-navigation" aria-label="Workspace navigation">
+    <div class="brand-row"><a class="brand" href="#/workspace" aria-label="Magentic home"><span class="mark">m</span><span>Magentic<small>OPERATIONS WORKSPACE</small></span></a><button id="nav-close" class="mobile-navigation-close" aria-label="Close navigation">×</button></div>
     <div class="workspace"><span class="workspace-icon">D</span><div>Demo workspace<small>DEMO DATA</small></div></div>
-    <div class="nav-label">WORKSPACE</div>
     <nav class="nav-list" aria-label="Primary">
-      <a class="nav" href="#/workspace" data-route="workspace"><span aria-hidden="true">▣</span> Workspace <span class="nav-count" id="nav-attention" hidden></span></a>
-      <a class="nav" href="#/assistants" data-route="assistants"><span aria-hidden="true">✦</span> Assistants</a>
+      <div class="nav-section-label">OPERATIONS</div>
+      <a class="nav" href="#/workspace" data-route="workspace"><span aria-hidden="true">▣</span> Work queue <span class="nav-count" id="nav-attention" hidden></span></a>
+      <a class="nav" href="#/desk" data-route="desk"><span aria-hidden="true">▤</span> Work items</a>
       <a class="nav" href="#/workflows" data-route="workflows"><span aria-hidden="true">⇢</span> Workflows</a>
-      <a class="nav" href="#/studio" data-route="studio"><span aria-hidden="true">◈</span> Model Studio</a>
-      <a class="nav" href="#/documents" data-route="documents"><span aria-hidden="true">▤</span> Documents</a>
+      <a class="nav" href="#/assistants" data-route="assistants"><span aria-hidden="true">✦</span> Assistants</a>
+      <a class="nav" href="#/documents" data-route="documents"><span aria-hidden="true">▤</span> Reference documents</a>
+      <div class="nav-section-label">ASSURANCE</div>
       <a class="nav" href="#/evaluations" data-route="evaluations"><span aria-hidden="true">◔</span> Evaluations</a>
-      <a class="nav" href="#/approvals" data-route="approvals"><span aria-hidden="true">✓</span> Approvals <span class="nav-count" id="nav-approvals" hidden></span></a>
-      <a class="nav" href="#/activity" data-route="activity"><span aria-hidden="true">◷</span> Activity</a>
+      <a class="nav" href="#/approvals" data-route="approvals"><span aria-hidden="true">✓</span> Release approvals <span class="nav-count" id="nav-approvals" hidden></span></a>
+      <a class="nav" href="#/activity" data-route="activity"><span aria-hidden="true">◷</span> Audit trail</a>
+      <a class="nav" href="#/workflow" data-route="workflow"><span aria-hidden="true">◇</span> Review policy</a>
+      <div class="nav-section-label">CONFIGURATION</div>
+      <a class="nav" href="#/studio" data-route="studio"><span aria-hidden="true">◈</span> Model Studio</a>
       <details class="advanced-nav"><summary>Advanced</summary>
-        <a class="nav" href="#/desk" data-route="desk"><span aria-hidden="true">⇢</span> Work desk</a>
         <a class="nav" href="#/pipelines" data-route="pipelines"><span aria-hidden="true">⇢</span> Automation setup</a>
-        <a class="nav" href="#/agents" data-route="agents"><span aria-hidden="true">▦</span> Agents</a>
-        <a class="nav" href="#/email" data-route="email"><span aria-hidden="true">✉</span> Email <span id="mail-badge" class="nav-mail-badge" hidden></span></a>
-        <a class="nav" href="#/mcp" data-route="mcp"><span aria-hidden="true">⌘</span> MCP</a>
-        <a class="nav" href="#/workflow" data-route="workflow"><span aria-hidden="true">⚖</span> Workflow policy</a>
+        <a class="nav" href="#/agents" data-route="agents"><span aria-hidden="true">▦</span> Agent registry</a>
+        <a class="nav" href="#/email" data-route="email"><span aria-hidden="true">✉</span> Notification previews <span id="mail-badge" class="nav-mail-badge" hidden></span></a>
+        <a class="nav" href="#/mcp" data-route="mcp"><span aria-hidden="true">⌘</span> MCP inspector</a>
       </details>
     </nav>
-    <div class="sidebar-note"><span class="status-dot"></span> Works beside your editor.<p>Context, agents, and reviewed handoffs in one workspace.</p></div>
+    <div class="sidebar-note"><span class="status-dot"></span> SUPERVISED BY PEOPLE<p>Review evidence before approving or executing work.</p></div>
     <label class="hints-switch"><input type="checkbox" id="hints-switch"> Show hints</label>
     <div class="identity"><label for="identity">Acting as</label><select id="identity"><option value="alex.writer">Alex · Author</option><option value="sam.reviewer">Sam · Reviewer</option><option value="jordan.reviewer">Jordan · Reviewer</option><option value="taylor.admin">Taylor · Admin</option></select><small>Demo identities</small></div>
   </aside>
-  <main>
-    <header class="topbar"><span id="crumbs-bar"><span class="slash" hidden>/</span><strong id="breadcrumb">Workspace</strong></span><div class="topbar-actions"><span id="workspace-status" class="workspace-status" role="status" aria-live="polite">Ready</span><button class="secondary small" id="refresh-workspace" aria-label="Refresh workspace">↻ Refresh</button><span class="demo-badge">DEMO</span></div></header>
+  <main id="main-content" tabindex="-1">
+    <header class="topbar"><div class="topbar-location"><button id="nav-toggle" class="mobile-navigation-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="workspace-navigation">☰</button><span class="product-location">Operations <span aria-hidden="true">/</span></span><span id="crumbs-bar"><strong id="breadcrumb">Work queue</strong></span></div><div class="topbar-actions"><span id="operator-context" class="operator-context"></span><span id="workspace-status" class="workspace-status" role="status" aria-live="polite">Ready</span><button class="secondary small" id="refresh-workspace" aria-label="Refresh workspace">↻ Refresh</button><span class="demo-badge">DEMO</span></div></header>
+    <div class="environment-banner" id="environment-banner" role="note"><strong>Demo environment</strong><span>Synthetic sample data only. No live agency service is connected.</span></div>
     <div class="page">
-      <div class="heading"><div><div class="crumbs" id="crumbs"></div><p class="eyebrow" hidden></p><h1 id="title">Workspace</h1><p class="lede" id="subtitle"></p></div><div class="page-actions" id="page-actions"></div><button class="primary" id="new-agent" hidden>New agent</button><button class="primary" id="new-invitation" hidden>Invite teammate</button></div>
+      <div class="heading"><div><div class="crumbs" id="crumbs"></div><p class="eyebrow" hidden></p><h1 id="title" tabindex="-1">Work queue</h1><p class="lede" id="subtitle"></p></div><div class="page-actions" id="page-actions"></div><button class="primary" id="new-agent" hidden>New agent</button><button class="primary" id="new-invitation" hidden>Invite teammate</button></div>
       <div id="notice" class="notice" role="status" aria-live="polite"></div>
       <section id="local-workspaces" class="panel local-workspaces" hidden aria-label="Local workspace management">
         <div class="local-workspace-row"><label>Workspace<select id="workspace-select" aria-label="Select workspace"></select></label>
@@ -43,11 +48,11 @@
         <details class="workspace-storage"><summary>Local storage and MCP connection</summary><p id="local-identity" class="muted"></p><p id="local-storage" class="muted"></p>
         <details><summary>Standalone MCP access</summary><p class="muted">The local owner cannot approve their own work. Review gates stay closed until an independent reviewer is available.</p><button id="local-mcp-access" class="secondary">Prepare connection settings</button><pre id="local-mcp-settings"></pre></details></details>
       </section>
-      <section id="view" class="view" aria-live="polite"><div class="loading">Loading workspace</div></section>
+      <section id="view" class="view"><div class="loading" role="status">Loading workspace</div></section>
       <section id="metrics" class="metrics" aria-label="Workspace summary" hidden></section>
       <section class="panel" id="agent-panel" hidden><div class="panel-toolbar"><div class="filters" role="group" aria-label="Filter by status"><button data-filter="all" class="selected">All agents</button><button data-filter="review">In review</button><button data-filter="draft">Drafts</button><button data-filter="approved">Approved</button><button data-filter="retired">Retired</button><button data-filter="needs-review">Needs approval</button><button data-filter="ready">Ready</button></div><label class="search"><span>⌕</span><input id="search" type="search" aria-label="Search agents" placeholder="Find an agent"></label></div><div id="records" class="records"><p class="empty">Loading…</p></div></section>
       <section id="other-panel" class="panel other" hidden></section>
-      <footer><span></span><span></span></footer>
+      <footer><span>Magentic Operations</span><span>Source-based status · explicit human review</span></footer>
     </div>
   </main>
   <dialog id="jira-dialog" aria-labelledby="jira-title"><div id="jira-dialog-content"></div></dialog>
