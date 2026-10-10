@@ -15,6 +15,8 @@ test("queue search, status filters, and refresh use actual snapshot data", async
   await page.goto("/#/workspace");
   await expect(page.getByRole("heading", { name: "Work queue", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Helpdesk assistant", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ New work item", exact: true })).toHaveCSS("background-color", "rgb(161, 0, 255)");
+  await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgb(21, 16, 25)");
   await expect(page.locator("#environment-banner")).toContainText("Synthetic sample data");
   await page.getByRole("searchbox", { name: "Search work queue" }).fill("not an actual item");
   await expect(page.getByRole("heading", { name: "No work matches these filters" })).toBeVisible();
