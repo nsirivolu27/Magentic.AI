@@ -15,7 +15,8 @@ configuration. This is an incremental interface migration, not a new backend.
   unmounts the React root before replacing its host, and filters survive refresh
   only within the current in-memory workspace/actor scope.
 - `agency.css` is the final visual layer over legacy feature sheets. It supplies
-  a light work surface, navy navigation, explicit state labels, visible focus,
+  a light work surface, Accenture-purple accents, near-black violet navigation,
+  explicit state labels, visible focus,
   reduced-motion/forced-color support, and a keyboard-contained mobile drawer.
 - Workflow-run URLs use `#/desk/<run-id>`. Legacy `#/tasks/<run-id>` links resolve
   to the same run; missing records do not silently open another record.
@@ -70,6 +71,12 @@ reference-context tests. They are outside this visual migration and should be
 tracked before a production release. Optional LangChain provider tests require
 their separate adapters; no live agency/model-provider integration is validated
 by these interface tests.
+
+GitHub Actions has also completed a frozen dependency installation and typecheck
+on Node 22.23.3. Its unit run reported 541 passes, the same three failed tests,
+three HTTP tests cancelled with a pending-promise/event-loop error, and two skips.
+The HTTP cancellations have not been diagnosed here. CI is not green, and its
+build step was skipped after the unit-test failure.
 
 ## Federal deployment boundary
 
