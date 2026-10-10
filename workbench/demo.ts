@@ -111,6 +111,7 @@ for (const [path, file, type] of [
   ["/", "index.html", "text/html; charset=utf-8"],
   ["/app.js", "app.js", "text/javascript; charset=utf-8"],
   ["/styles.css", "styles.css", "text/css; charset=utf-8"],
+  ["/agency.css", "agency.css", "text/css; charset=utf-8"],
   ["/pipeline.css", "pipeline.css", "text/css; charset=utf-8"],
   ["/chat.css", "chat.css", "text/css; charset=utf-8"],
   ["/theme.css", "theme.css", "text/css; charset=utf-8"],

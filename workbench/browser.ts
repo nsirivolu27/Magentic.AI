@@ -28,6 +28,8 @@ import { documentsPage } from "./documents-view.js";
 import { activityPage, approvalDetailPage, approvalsQueuePage, evaluationDetailPage, evaluationsListPage } from "./review-views.js";
 import { assistantDetailPage, assistantsListPage, WORKSPACE_ASSISTANT } from "./assistants-view.js";
 import { homeView, navCounts } from "./home-view.js";
+import { mountOperationsQueue } from "./operations-queue.js";
+import type { Root } from "react-dom/client";
 import { workflowPage } from "./workflow-view.js";
 import { WORKFLOW_TEMPLATES } from "./workflow-templates.js";
 import { hint, setHints } from "./ui.js";
@@ -44,7 +46,44 @@ let workspaceList: import("./workspace-directory.js").WorkspaceListing | undefin
 let workspaceRequestId = crypto.randomUUID();
 let refreshVersion = 0;
 let snapshot: Snapshot;
+let operationsRoot: Root | undefined;
 let filter = "all";
+node(".skip-link").addEventListener("click", event => { event.preventDefault(); node("main").focus(); });
+const mobileNavigation = window.matchMedia("(max-width: 800px)");
+function closeNavigation(): void {
+  document.body.classList.remove("navigation-open");
+  node("#workspace-navigation").removeAttribute("role");
+  node("#workspace-navigation").removeAttribute("aria-modal");
+  node("#nav-toggle").setAttribute("aria-expanded", "false");
+  node("#nav-backdrop").hidden = true;
+  node("main").inert = false;
+}
+node("#nav-toggle").addEventListener("click", () => {
+  document.body.classList.add("navigation-open");
+  node("#workspace-navigation").setAttribute("role", "dialog");
+  node("#workspace-navigation").setAttribute("aria-modal", "true");
+  node("#nav-toggle").setAttribute("aria-expanded", "true");
+  node("#nav-backdrop").hidden = false;
+  node("main").inert = true;
+  node("#nav-close").focus();
+});
+for (const id of ["#nav-close", "#nav-backdrop"]) node(id).addEventListener("click", () => {
+  closeNavigation(); node("#nav-toggle").focus();
+});
+node("#workspace-navigation").addEventListener("click", event => {
+  if (mobileNavigation.matches && (event.target as Element).closest("a.nav, a.brand")) closeNavigation();
+});
+node("#workspace-navigation").addEventListener("keydown", event => {
+  if (!mobileNavigation.matches || !document.body.classList.contains("navigation-open")) return;
+  if (event.key === "Escape") { closeNavigation(); node("#nav-toggle").focus(); return; }
+  if (event.key !== "Tab") return;
+  const controls = [...node("#workspace-navigation").querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')]
+    .filter(control => control.offsetParent !== null);
+  const first = controls[0], last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first && last) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last && first) { event.preventDefault(); first.focus(); }
+});
+mobileNavigation.addEventListener("change", () => closeNavigation());
 /**
  * Routing.
  *
@@ -61,6 +100,7 @@ function parseRoute(hash: string): Route {
   const [view = "workspace", id, sub] = path!.split("/").filter(Boolean);
   const query = new URLSearchParams(search);
   if (view === "chat") return { view: "assistants", id: WORKSPACE_ASSISTANT, query };
+  if (view === "tasks") return { view: "desk", ...(id ? { id } : {}), query };
   if (!PRIMARY_VIEWS.includes(view) && !LEGACY_VIEWS.includes(view)) return { view: "workspace", query };
   return { view, ...(id ? { id } : {}), ...(sub ? { sub } : {}), query };
 }
@@ -89,7 +129,7 @@ window.addEventListener("hashchange", () => {
   delete studioUi.confirm; delete studioUi.error;
   // A notice belongs to the action that produced it, not to the next page.
   notify("");
-  if (snapshot) render();
+  if (snapshot) { render(); node("#title").focus(); }
 });
 let sessionFilter: SessionFilter = "all";
 let sessionQuery = "";
@@ -155,7 +195,20 @@ async function refresh(): Promise<void> {
 }
 
 function render(): void {
+  operationsRoot?.unmount(); operationsRoot = undefined;
   watchSchedule();
+  if (view === "desk" && route.id === "new") { selectedRun = undefined; selectedPhase = undefined; }
+  if (view === "desk" && route.id && snapshot.pipelines?.runs.some(run => run.id === route.id)) {
+    if (selectedRun !== route.id) selectedPhase = undefined;
+    selectedRun = route.id;
+  }
+  node("#operator-context").textContent = `${snapshot.actor} · ${snapshot.roles.map(role => role === "approver" ? "Reviewer" : role === "admin" ? "Administrator" : role === "author" ? "Author" : role).join(", ") || "No assigned role"}`;
+  node("#operator-context").title = `${node("#operator-context").textContent} · Workspace: ${snapshot.workspaceId}`;
+  node("#environment-banner").innerHTML = snapshot.demo
+    ? "<strong>Demo environment</strong><span>Synthetic sample data only. No live agency service is connected.</span>"
+    : localMode ? "<strong>Local workspace</strong><span>Records are saved on this computer. Model inputs may leave it when a remote provider is selected.</span>"
+    : "<strong>Workspace session</strong><span>Verify deployment and data-handling settings before sensitive work.</span>";
+  node("#environment-banner").insertAdjacentHTML("beforeend", `<span class="mobile-operator-context">${escape(snapshot.workspaceId)} · ${escape(node("#operator-context").textContent ?? "")}</span>`);
   document.body.classList.toggle("developer-desk", view === "desk");
   renderWorkspaces();
   const primary = PRIMARY_VIEWS.includes(view);
@@ -183,6 +236,7 @@ function render(): void {
     node("#view").hidden = false;
     // A refused command is shown where the person is working, above the page it concerns.
     node("#view").innerHTML = (studioUi.error ? `<div class="inline-error" role="alert">${escape(studioUi.error)}</div>` : "") + page.body;
+    if (view === "workspace") operationsRoot = mountOperationsQueue(node("#operations-queue"), snapshot);
     if (view === "assistants" && route.id) { const transcript = document.querySelector(".chat-transcript"); if (transcript) transcript.scrollTop = transcript.scrollHeight; }
     return;
   }
@@ -193,7 +247,7 @@ function render(): void {
 /** The six primary pages, from the route and the snapshot. */
 function currentPage(): Page {
   switch (view) {
-    case "workspace": return { title: "Workspace", context: `${snapshot.workspaceId} · acting as ${snapshot.actor}`, body: hint("Each row is a project drawn as its chain of connections. Click any box to open it.") + homeView(snapshot) };
+    case "workspace": return { title: "Work queue", context: "Review what needs a person. Resolve blockers. Continue supervised work.", actions: snapshot.canAuthor ? '<button class="primary" data-work-new>+ New work item</button>' : "", body: hint("Open a work item to inspect its record, evidence, and next step. No action is executed from this queue.") + homeView(snapshot) };
     case "assistants":
       // The chat below an assistant always speaks as that assistant.
       if (route.id) { const wanted = route.id === WORKSPACE_ASSISTANT ? "" : route.id; if (chatState.profile !== wanted) { chatController?.abort(); chatState = { ...emptyChat(), models: chatState.models, options: chatState.options, selectedModel: chatState.selectedModel, profile: wanted }; } }
@@ -207,8 +261,8 @@ function currentPage(): Page {
   }
 }
 
-const PAGE_NAMES: Record<string, string> = { workspace: "Workspace", assistants: "Assistants", workflows: "Workflows", studio: "Model Studio", documents: "Documents", evaluations: "Evaluations", approvals: "Approvals", activity: "Activity",
-  desk: "Work desk", pipelines: "Automation setup", agents: "Agents", email: "Email", mcp: "MCP", workflow: "Workflow policy" };
+const PAGE_NAMES: Record<string, string> = { workspace: "Work queue", assistants: "Assistants", workflows: "Workflows", studio: "Model Studio", documents: "Reference documents", evaluations: "Evaluations", approvals: "Release approvals", activity: "Audit trail",
+  desk: "Work items", pipelines: "Automation setup", agents: "Agent registry", email: "Notification previews", mcp: "MCP inspector", workflow: "Review policy" };
 
 function setHeading(page: Page): void {
   node("#title").textContent = page.title;
@@ -253,7 +307,9 @@ function renderLegacy(): void {
   other.classList.toggle("mcp-panel", view === "mcp");
   other.classList.toggle("chat-panel", false);
   other.classList.toggle("pipeline-panel", view === "pipelines" || view === "desk");
-  if (view === "desk") other.innerHTML = workspaceView(snapshot.pipelines, snapshot.bots, snapshot.actor, snapshot.roles, sessionDraft, draftMaterials, selectedRun, selectedPhase, sessionQuery, snapshot.ontology);
+  if (view === "desk") other.innerHTML = route.id && route.id !== "new" && !snapshot.pipelines?.runs.some(run => run.id === route.id)
+    ? '<section class="panel"><div class="panel-body"><h2>Work item not found</h2><p>This record is not in the current workspace. It may have been removed or belong to another workspace.</p><a class="secondary" href="#/desk">Back to work items</a></div></section>'
+    : workspaceView(snapshot.pipelines, snapshot.bots, snapshot.actor, snapshot.roles, sessionDraft, draftMaterials, selectedRun, selectedPhase, sessionQuery, snapshot.ontology);
   if (view === "pipelines") other.innerHTML = pipelineView(snapshot.pipelines, snapshot.actor, snapshot.roles, selectedRun, pipelineDraft, snapshot.bots, selectedPhase, snapshot.jira);
   if (view === "mcp") other.innerHTML = mcpView(snapshot.mcp, inspector, new URL("/api/mcp", location.origin).href, snapshot.demo, snapshot.actor);
   if (view === "email") other.innerHTML = emailView(snapshot.mail, snapshot.actor, mailFolder, mailQuery, selectedMail);
@@ -929,7 +985,8 @@ function renderWorkspaces(): void {
   if (!localMode || !workspaceList) return;
   node("#local-workspaces").hidden = false;
   const entry = workspaceList.workspaces.find(item => item.id === selectedWorkspace);
-  node(".workspace").textContent = entry?.name ?? selectedWorkspace;
+  node(".workspace div").firstChild!.textContent = entry?.name ?? selectedWorkspace;
+  node(".workspace-icon").textContent = (entry?.name ?? selectedWorkspace).trim().charAt(0).toUpperCase() || "W";
   node("#workspace-select").innerHTML = workspaceList.workspaces.map(item => `<option value="${escape(item.id)}" ${item.id === selectedWorkspace ? "selected" : ""}>${escape(item.name)}</option>`).join("");
   node("#local-storage").textContent = `Saved on this computer · ${workspaceList.directory}`;
   node("#local-identity").textContent = `Local owner · Author and admin · Workspace: ${selectedWorkspace}`;
