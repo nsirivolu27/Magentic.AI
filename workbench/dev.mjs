@@ -17,7 +17,7 @@ const port = Number(options.get("port") ?? "4317");
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Port must be 1-65535.");
 const output = join(root, ".magentic-dev", "build");
 const data = resolve(root, options.get("data-dir") ?? ".magentic-dev/data");
-const assets = ["index.html", "styles.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"];
+const assets = ["index.html", "styles.css", "agency.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"];
 let child;
 let closing = false;
 let building = false;

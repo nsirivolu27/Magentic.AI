@@ -12,7 +12,7 @@ import { loadMcpToken } from "../workbench/local-session.js";
 
 const assets = mkdtempSync(join(tmpdir(), "magentic-workspace-assets-"));
 const source = fileURLToPath(new URL("../../workbench/", import.meta.url));
-for (const name of ["index.html", "styles.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"]) copyFileSync(join(source, name), join(assets, name));
+for (const name of ["index.html", "styles.css", "agency.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"]) copyFileSync(join(source, name), join(assets, name));
 writeFileSync(join(assets, "app.js"), "/* HTTP tests; the desktop smoke checks the real bundle. */");
 process.env.MAGENTIC_WORKBENCH_ASSETS = assets;
 test.after(() => rmSync(assets, { recursive: true, force: true }));

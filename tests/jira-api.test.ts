@@ -20,7 +20,7 @@ import type { JiraDelivery, PendingJiraAction } from "../workbench/jira.js";
 
 const assets = mkdtempSync(join(tmpdir(), "magentic-jira-api-assets-"));
 const source = fileURLToPath(new URL("../../workbench/", import.meta.url));
-for (const name of ["index.html", "styles.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"]) {
+for (const name of ["index.html", "styles.css", "agency.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"]) {
   copyFileSync(join(source, name), join(assets, name));
 }
 writeFileSync(join(assets, "app.js"), "/* Backend integration fixture. */");

@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "agents": "node ./dist/list.mjs",
     "build:workbench": "node ./workbench/build.mjs",
+    "test:ui": "playwright test --config tests/operations-ui.config.mjs",
     "dev:workbench": "node ./workbench/dev.mjs",
     "demo:workbench": "node ./dist/workbench/demo.mjs",
     "seed:state": "tsc -p tsconfig.test.json && node .testbuild/workspaces/seed-state.js",
@@ -28,10 +29,16 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "zod": "^3.25.28"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/node": "^25.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "axe-core": "^4.13.0",
     "esbuild": "^0.27.3",
     "typescript": "^5.9.3"
   },
