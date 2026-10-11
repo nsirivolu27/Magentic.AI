@@ -34,19 +34,20 @@ export function workflowPage(snapshot: WorkbenchSnapshot, stageParam: string | u
     : status("neutral", "No assistants assigned");
   const primary = viewer.author ? `<a class="primary" href="#/desk">Start a run</a>` : "";
   const templates = viewer.admin ? WORKFLOW_TEMPLATE_LIST.filter((template) => template.config.name !== config.name).map((template) => `<button data-confirm="workflow_template:${template.id}">Switch to ${escape(template.title)} template</button>`).join("") : "";
-  const overflow = menu([templates, `<a href="#/pipelines">Edit stages (advanced)</a>`, `<a href="#/desk">Open work desk</a>`].join(""));
+  const overflow = menu([`<a href="#/pipelines">Edit stages (advanced)</a>`, `<a href="#/desk">Open work desk</a>`].join(""));
   const pendingTemplate = WORKFLOW_TEMPLATE_LIST.find((template) => ui?.confirm === `workflow_template:${template.id}`);
   const confirmTemplate = pendingTemplate ? callout("warn", `Switch to the ${escape(pendingTemplate.title)} template?`, ` ${escape(pendingTemplate.summary)} It replaces the current ${plural(config.stages.length, "stage")} and their staffing; open runs keep what they started with. <span class="actions inline-actions"><button class="secondary small" data-workflow-template="${pendingTemplate.id}">Switch</button><button class="quiet small" data-cancel-confirm>Cancel</button></span>`) : "";
 
-  const chain = graph(stageNodes(snapshot), stage.id, { label: `${config.name} stages` });
+  const chain = graph(stageNodes(snapshot), stage.id, { label: "Workflow stages" });
   const body = `${confirmTemplate}${chain}${hint("Each box is a stage. A solid box is staffed by an approved assistant; a dashed box is done by hand. Click a stage to change who does it.")}
-    ${stagePanel(snapshot, stage, viewer.admin)}
+    ${viewer.admin && templates ? more("Choose a workflow template", `<div class="actions">${templates}</div>`) : ""}
+    ${stagePanel(snapshot, stage, viewer.admin, ui)}
     ${panel("Runs", runsBody(snapshot, runs), { count: runs.length ? `${plural(open.length, "open run")} · ${runs.length} total` : "" })}`;
   return { title: config.name, context: `${config.description} · ${plural(config.stages.length, "stage")} · ${plural(units.filter((unit) => unit.usable).length, "assistant")} available`,
     actions: `${headerStatus}${primary}${overflow}`, body };
 }
 
-function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean): string {
+function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean, ui?: StudioUi): string {
   const unit = stageUnit(snapshot, stage);
   const units = agenticUnits(snapshot);
   const usable = units.filter((item) => item.usable);
@@ -56,6 +57,10 @@ function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean): 
     : !unit ? status("bad", "Assistant missing")
     : `<a href="#/assistants/${unit.profile.id}">${escape(unit.profile.name)}</a> ${unit.usable ? status("ok", "Can work") : status("bad", "Cannot work")}${unit.release ? `<br><small class="text-3">release v${unit.release.version} · ${escape(unit.project?.name ?? "")}</small>` : ""}`;
   const state = unit && !unit.usable ? callout("bad", "This stage cannot run.", ` ${escape(unit.reason)} Assign another assistant or do the stage by hand.`) : "";
+  const key = `stage:${stage.id}`;
+  const draft = ui?.drafts[key] ?? {};
+  const assistantId = draft.assistantId ?? stage.assistantId ?? "";
+  const approval = draft.approval === undefined ? stage.approval : draft.approval === "true";
   const rows: [string, string][] = [
     ["Agentic unit", who],
     ["What it does", `<span class="text-2">${escape(stage.instructions)}</span>`],
@@ -65,12 +70,17 @@ function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean): 
     ["Jira status", escape(stage.jiraStatus)],
     ["Bot", bot],
   ];
-  const form = admin ? `<form id="workflow-stage" data-stage="${escape(stage.id)}" class="mt14">
+  const form = admin ? `<form id="workflow-stage" data-stage="${escape(stage.id)}" data-draft="${escape(key)}" class="mt14">
       <label class="field"><span>Who does this stage</span><select name="assistantId">
-        <option value="" ${stage.assistantId ? "" : "selected"}>${escape(stage.agent)} · by hand</option>
-        ${usable.map((item) => `<option value="${item.profile.id}" ${stage.assistantId === item.profile.id ? "selected" : ""}>${escape(item.profile.name)} · v${item.release?.version ?? "?"} ${escape(item.project?.name ?? "")}</option>`).join("")}
-        ${unit && !unit.usable ? `<option value="${unit.profile.id}" selected disabled>${escape(unit.profile.name)} · cannot work</option>` : ""}
+        <option value="" ${assistantId ? "" : "selected"}>${escape(stage.agent)} · by hand</option>
+        ${usable.map((item) => `<option value="${item.profile.id}" ${assistantId === item.profile.id ? "selected" : ""}>${escape(item.profile.name)} · v${item.release?.version ?? "?"} ${escape(item.project?.name ?? "")}</option>`).join("")}
+        ${unit && !unit.usable && assistantId === unit.profile.id ? `<option value="${unit.profile.id}" selected disabled>${escape(unit.profile.name)} · cannot work</option>` : ""}
       </select><small>Only active assistants on an approved release are offered. A run that is already open keeps the staffing it started with.</small></label>
+      <div class="field-row">
+        <label class="field"><span>Stage instructions</span><textarea name="instructions" rows="3" required maxlength="4000">${escape(draft.instructions ?? stage.instructions)}</textarea></label>
+        <label class="field"><span>Requested context</span><textarea name="context" rows="3" maxlength="2000">${escape(draft.context ?? stage.context)}</textarea></label>
+      </div>
+      <label class="field"><span><input type="checkbox" name="approval" ${approval ? "checked" : ""}> Require human review before advancing</span></label>
       <div class="actions"><button type="submit" class="secondary">Save</button></div></form>`
     : `<p class="text-3 mt10 fine">An admin assigns assistants to stages.</p>`;
   return `<section class="panel section"><div class="panel-head"><h2>${index}. ${escape(stage.name)}</h2><span class="count">${stage.assistantId ? "Staffed by an assistant" : "Done by hand"}</span></div><div class="panel-body">${state}${detail(rows, true)}${form}</div></section>`;

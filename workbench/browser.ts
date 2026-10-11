@@ -20,6 +20,7 @@ import { DEVELOPMENT_PLAYBOOKS, playbookBrief, type SessionDraft } from "./playb
 import type { SessionFilter } from "./desk-view.js";
 import { workspaceView, workList, workProgress } from "./workspace-view.js";
 import { materialsSchema, FEDERAL_SERVICE_STARTER, type Material } from "./materials.js";
+import { configureStage } from "./guided-stages.js";
 import { jiraReviewView, jiraHistoryView, type JiraReview, type JiraHistory } from "./jira-view.js";
 import { pipelineView } from "./pipeline-view.js";
 import type { PipelineSnapshot, PipelineConfig } from "./pipeline.js";
@@ -725,7 +726,7 @@ document.addEventListener("input", (event) => {
   const form = input.closest<HTMLFormElement>("form[data-draft]");
   if (!form || !input.name) return;
   const key = form.dataset.draft!;
-  studioUi.drafts[key] = { ...studioUi.drafts[key], [input.name]: input.value };
+  studioUi.drafts[key] = { ...studioUi.drafts[key], [input.name]: input.type === "checkbox" ? String(input.checked) : input.value };
 });
 document.addEventListener("change", (event) => {
   const input = event.target as HTMLSelectElement;
@@ -871,22 +872,23 @@ function pipelineAction(action: string, note?: string): Promise<void> {
   if (!run) return Promise.resolve();
   return pipelineCommand({ action, runId: run.id, expectedRevision: run.revision, ...(note ? { note } : {}) });
 }
-// Staffing a stage is a configure command with one field changed. The
-// engine refuses an assistant that cannot work, and says so on the page.
+// Edit one stage without rewriting other stages or existing runs. The engine
+// still checks admin permissions, version conflicts and assistant eligibility.
 document.addEventListener("submit", (event) => {
   const target = event.target as HTMLFormElement;
   if (target.id !== "workflow-stage" || !snapshot.pipelines) return;
   event.preventDefault();
   if (busy) return;
-  const stageId = target.dataset.stage;
-  const assistantId = String(new FormData(target).get("assistantId") ?? "");
-  const config = structuredClone(snapshot.pipelines.config);
-  config.stages = config.stages.map((stage) => {
-    if (stage.id !== stageId) return stage;
-    const { assistantId: _previous, ...rest } = stage;
-    return assistantId ? { ...rest, assistantId } : rest;
-  });
-  void workflowCommand({ action: "configure", expectedVersion: snapshot.pipelines.version, config });
+  const data = new FormData(target);
+  try {
+    const config = configureStage(snapshot.pipelines.config, target.dataset.stage ?? "", {
+      assistantId: String(data.get("assistantId") ?? ""),
+      instructions: String(data.get("instructions") ?? ""),
+      context: String(data.get("context") ?? ""),
+      approval: data.has("approval"),
+    });
+    void workflowCommand({ action: "configure", expectedVersion: snapshot.pipelines.version, config }, target.dataset.draft);
+  } catch (error) { studioUi.error = (error as Error).message; render(); }
 });
 async function documentCommand(data: unknown, message: string): Promise<void> {
   lock(true);
@@ -930,12 +932,13 @@ async function scheduleCommand(data: unknown): Promise<void> {
   catch (error) { studioUi.error = (error as Error).message; render(); }
   finally { lock(false); }
 }
-async function workflowCommand(data: unknown): Promise<void> {
+async function workflowCommand(data: unknown, draftKey?: string): Promise<void> {
   if (snapshot.bots?.busy) { studioUi.error = "A bot is working. Stop it or wait before changing the workflow."; render(); return; }
   lock(true);
   try {
     await api("/api/pipeline", data);
     pipelineDraft = undefined; delete studioUi.error;
+    if (draftKey) delete studioUi.drafts[draftKey];
     // The scheduler may have queued work for the new stage; read everything back.
     await refresh(); notify("Workflow updated.");
   } catch (error) { studioUi.error = (error as Error).message; render(); }
