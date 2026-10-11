@@ -1,8 +1,10 @@
 # LangChain in the adapter
 
 **Status: built and optional. `ask_conversations` works with no provider at all when the client supports sampling; `semantic_search` needs one.** No LangChain package is
-installed by this repository, nothing imports one at the top level, and the
-adapter typechecks, tests, bundles and runs without any of them.
+required by this repository at runtime, nothing imports one at the top level,
+and the adapter typechecks, tests, bundles and runs without any of them.
+Package managers such as pnpm may automatically install optional peers in a
+development checkout; that does not enable a provider or send any data.
 
 ## Where it lives, and why not in LNKZ
 
@@ -78,9 +80,20 @@ name until the first tool call on a machine that actually has the package.
 
 `tests/langchain-contract.test.ts` is that check. It constructs the real
 classes through the same variable-specifier import the product uses and
-asserts they satisfy `EmbeddingsLike` and `ChatModelLike`. It skips when the
+asserts Ollama, OpenAI, Google and Azure satisfy `EmbeddingsLike` and
+`ChatModelLike`. It skips when the
 package is absent, naming the install command, and runs for real the moment
-someone installs one. Nothing in it reaches the network.
+someone installs one. An installed package with a broken import fails the
+test rather than being silently skipped. Nothing in it reaches the network.
+
+The optional peer ranges align with LangChain core 1.x: core `^1.2.17`,
+Ollama `^1.3.0`, OpenAI `^1.6.2` (also used by Azure), and Google GenAI
+`^2.3.2`. Use the repository's Node 22 runtime and pinned pnpm version.
+The lockfile records the exact versions, and `.npmrc` enables strict peer
+checking so incompatible provider/core pairs fail installation instead of
+producing a warning that can be missed. This updates the previous 0.x adapter
+ranges; an existing deployment should reinstall from the new lockfile rather
+than retaining those older adapters alongside core 1.x.
 
 ## The optimizations, and what each one is for
 
