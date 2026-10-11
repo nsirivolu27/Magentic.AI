@@ -179,6 +179,12 @@ async function handle(
     body = await readJson(request);
   } catch (error) {
     const tooLarge = error instanceof Error && error.message === "too-large";
+    if (tooLarge) {
+      // Do not leave a partially read upload on a keep-alive connection.
+      // Discard remaining input without buffering it; close after sending 413.
+      response.setHeader("connection", "close");
+      request.resume();
+    }
     json(response, tooLarge ? 413 : 400, {
       error: tooLarge ? "Request body is too large." : "Malformed JSON request.",
     });
@@ -232,7 +238,9 @@ function bearer(request: IncomingMessage): string | undefined {
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
-  for await (const chunk of request) {
+  // Returning early from the default iterator destroys IncomingMessage.
+  // Keep it intact so an oversized upload receives the rejection response.
+  for await (const chunk of request.iterator({ destroyOnReturn: false })) {
     const buffer = chunk as Buffer;
     size += buffer.length;
     // Checked as it arrives rather than after. A cap enforced once the body is

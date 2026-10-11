@@ -100,3 +100,20 @@ test("workflow settings are per stage, retain unchecked drafts, and are admin on
   assert.match(page.body, /Check the interface/);
   assert.doesNotMatch(page.body, /name="approval" checked/);
 });
+
+test("stage drafts render checked and unchecked review settings and escape text", () => {
+  const snapshot = fixture();
+  snapshot.roles = ["admin"];
+  const ui = emptyStudioUi();
+  ui.drafts["stage:design"] = {
+    approval: "true",
+    instructions: '</textarea><script>not executable</script>',
+    context: '<img src=x onerror="bad">',
+  };
+  const body = workflowPage(snapshot, "design", ui).body;
+  assert.match(body, /name="approval" checked/);
+  assert.match(body, /&lt;\/textarea&gt;&lt;script&gt;not executable&lt;\/script&gt;/);
+  assert.match(body, /&lt;img src=x onerror=&quot;bad&quot;&gt;/);
+  assert.doesNotMatch(body, /<script>|<img src=x/);
+  assert.doesNotMatch(workflowPage({ ...snapshot, roles: ["author"] }, "design", ui).body, /id="workflow-stage"|Choose a workflow template/);
+});

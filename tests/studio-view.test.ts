@@ -14,6 +14,10 @@ import { memoryPipelines, DEFAULT_PIPELINE } from "../workbench/pipeline.js";
 import { assistantGuards, studioAssistants } from "../workbench/assistant-resolver.js";
 import { agenticUnits, runNodes, stageNodes } from "../workbench/units.js";
 import { workflowPage } from "../workbench/workflow-view.js";
+import { operationsQueue, filterQueue } from "../workbench/operations-model.js";
+import { OperationsQueue } from "../workbench/operations-queue.js";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 /**
  * The pages are pure functions of the workspace snapshot. These tests drive
@@ -185,8 +189,80 @@ test("workspace home lists what needs attention and links each item to its place
   assert.doesNotMatch(html, /Getting started|class="checklist"/);
   assert.match(html, /Agentic units/);
   assert.match(html, /Repo bot/);
-  assert.match(html, /Nothing needs your attention/);
+  assert.match(html, /id="operations-queue"/);
+  assert.match(html, /Connected workspace/);
+  assert.match(renderToStaticMarkup(createElement(OperationsQueue, { snapshot: snapshotWith(f.live) })), /Nothing needs your attention/);
   assert.match(homeView(snapshotWith(f.empty)), /Create a model project/);
+});
+
+test("operations queue prioritizes actionable reviews and never invites self approval", () => {
+  const f = fixtures();
+  const reviewer = operationsQueue(snapshotWith(f.pending, "sam", ["approver"]));
+  assert.equal(reviewer.length, 1);
+  assert.equal(reviewer[0]!.state, "review");
+  assert.equal(reviewer[0]!.href, `#/approvals/${f.release.id}`);
+  const requester = operationsQueue(snapshotWith(f.pending, "alex", ["admin"]));
+  assert.equal(requester[0]!.state, "waiting", "admin does not bypass independent review");
+  assert.equal(requester[0]!.action, "Inspect release");
+  const explicitException = { ...f.pending, releases: f.pending.releases.map(r => ({ ...r, allowSelfApproval: true })) };
+  const exception = operationsQueue(snapshotWith(explicitException, "alex", ["admin"]))[0]!;
+  assert.equal(exception.state, "review");
+  assert.match(exception.detail, /self-approval enabled/, "explicit exceptions must not be presented as independent-review assurance");
+  const alreadySigned = { ...f.pending, releases: f.pending.releases.map(r => ({ ...r, approvals: [{ actor: "sam", at: r.requestedAt, contentHash: r.contentHash }] })) };
+  assert.equal(operationsQueue(snapshotWith(alreadySigned, "sam", ["approver"]))[0]!.state, "waiting");
+  assert.equal(operationsQueue(snapshotWith(f.failed))[0]!.state, "blocked");
+  assert.equal(operationsQueue(snapshotWith(f.running))[0]!.state, "active");
+  assert.equal(operationsQueue(snapshotWith(f.defined))[0]!.state, "ready");
+});
+
+test("new releases and training remain visible even when an earlier release is live", () => {
+  const f = fixtures();
+  const concurrent = { ...f.live, releases: [...f.live.releases, { ...f.release, id: "22222222-2222-4222-8222-222222222222", version: 2, approvals: [] }] };
+  const queue = operationsQueue(snapshotWith(concurrent, "sam", ["approver"]));
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0]!.state, "review");
+  assert.match(queue[0]!.title, /release v2/);
+  const training = { ...f.live, jobs: [...f.live.jobs, { ...f.running.jobs[0]!, id: "33333333-3333-4333-8333-333333333333" }] };
+  const active = operationsQueue(snapshotWith(training));
+  assert.equal(active.length, 1);
+  assert.equal(active[0]!.state, "active");
+  assert.equal(active[0]!.href, `#/studio/${f.project.id}/train`);
+});
+
+test("queue search filters actual records and distinguishes missing data from an empty queue", () => {
+  const f = fixtures();
+  const queue = operationsQueue(snapshotWith(f.failed));
+  assert.equal(filterQueue(queue, "blocked", "  ALEX ").length, 1);
+  assert.equal(filterQueue(queue, "review", "").length, 0);
+  assert.equal(filterQueue(queue, "all", "not a real work item").length, 0);
+  const escaped = { ...f.defined, projects: f.defined.projects.map(p => ({ ...p, name: '<script>alert("x")</script>' })) };
+  const markup = renderToStaticMarkup(createElement(OperationsQueue, { snapshot: snapshotWith(escaped) }));
+  assert.doesNotMatch(markup, /<script>/);
+  assert.match(markup, /&lt;script&gt;/);
+  assert.match(markup, /scope="col"/);
+  const { studio: _, ...withoutStudio } = snapshotWith(f.empty);
+  const unavailable = renderToStaticMarkup(createElement(OperationsQueue, { snapshot: withoutStudio }));
+  assert.match(unavailable, /Model project data is unavailable/);
+  assert.doesNotMatch(unavailable, /Nothing needs your attention/);
+});
+
+test("workflow queue links to the correct run and honors independent reviewers", () => {
+  const f = fixtures(), engine = memoryPipelines();
+  engine.execute(W, "taylor", ["admin"], { action: "configure", expectedVersion: 1,
+    config: { ...DEFAULT_PIPELINE, stages: [{ ...DEFAULT_PIPELINE.stages[0]!, approval: true }] } }, 2);
+  engine.execute(W, "alex", ["author"], { action: "start", requestId: "11111111-1111-4111-8111-111111111111", title: "Route an inquiry", brief: "Inspect the supplied evidence." }, 2);
+  let run = engine.snapshot(W).runs[0]!;
+  const withRun = (actor: string, roles: ("author" | "approver" | "admin")[]) => ({ ...snapshotWith(f.empty, actor, roles), pipelines: engine.snapshot(W) });
+  assert.equal(operationsQueue(withRun("alex", ["author"]))[0]!.href, `#/desk/${run.id}`);
+  engine.execute(W, "alex", ["author"], { action: "complete", runId: run.id, expectedRevision: run.revision, note: "Drafted the inquiry response." }, 2);
+  assert.equal(operationsQueue(withRun("alex", ["admin"]))[0]!.state, "waiting");
+  assert.equal(operationsQueue(withRun("sam", ["approver"]))[0]!.state, "review");
+  run = engine.snapshot(W).runs[0]!;
+  engine.execute(W, "sam", ["approver"], { action: "approve", runId: run.id, expectedRevision: run.revision }, 2);
+  assert.equal(operationsQueue(withRun("sam", ["approver"]))[0]!.state, "waiting");
+  run = engine.snapshot(W).runs[0]!;
+  engine.execute(W, "jordan", ["approver"], { action: "approve", runId: run.id, expectedRevision: run.revision }, 2);
+  assert.deepEqual(operationsQueue(withRun("sam", ["approver"])), [], "completed runs leave the operational queue");
 });
 
 test("assistants never offer an unapproved or retired release", () => {

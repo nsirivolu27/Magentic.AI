@@ -29,7 +29,7 @@ const ENTRY = fileURLToPath(new URL("../workbench/local-main.js", import.meta.ur
 function assetDir(): string {
   const source = fileURLToPath(new URL("../../workbench/", import.meta.url));
   const out = mkdtempSync(join(tmpdir(), "magentic-assets-"));
-  for (const name of ["index.html", "styles.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"]) {
+  for (const name of ["index.html", "styles.css", "agency.css", "pipeline.css", "chat.css", "theme.css", "mcp.css", "email.css", "manifest.webmanifest", "icon.svg"]) {
     try { copyFileSync(join(source, name), join(out, name)); } catch { writeFileSync(join(out, name), ""); }
   }
   writeFileSync(join(out, "app.js"), "/* not bundled in tests */\n");
