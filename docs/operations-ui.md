@@ -20,6 +20,12 @@ configuration. This is an incremental interface migration, not a new backend.
   reduced-motion/forced-color support, and a keyboard-contained mobile drawer.
 - Workflow-run URLs use `#/desk/<run-id>`. Legacy `#/tasks/<run-id>` links resolve
   to the same run; missing records do not silently open another record.
+- Admin stage settings preserve unsaved instructions, context, staffing, and
+  checked/unchecked review gates across navigation and refresh. Saves use the
+  existing configure command; other stages and already-open runs stay unchanged.
+- Scheduled stage prompts receive the exact saved reference excerpts as JSON
+  data, with requested stage context. Source URLs remain explicitly unfetched;
+  references cannot grant tools or change human approval requirements.
 
 The queue offers navigation, not approval or execution shortcuts. Release
 eligibility uses the existing release policy helper; workflow review eligibility
@@ -55,7 +61,8 @@ corepack pnpm test:ui
 Browser tests start disposable demo and local servers on ports 4173 and 4174.
 They cover search/filter refresh, work-item creation, exact/deprecated/missing
 deep links, existing feature navigation, keyboard skip/focus behavior, mobile
-overflow, and the local workspace/session disclosure. The two queue views
+overflow, local workspace/session disclosure, and per-stage settings (drafts,
+admin authorization, saving, and existing-run policy snapshots). The two queue views
 (desktop and mobile) are audited with axe-core's WCAG A/AA rules. These automated
 checks are not a manual accessibility audit or a Section 508 certification.
 
@@ -64,19 +71,17 @@ Chromium. `PLAYWRIGHT_LOW_MEMORY=1` adds single-process testing flags; run test
 names individually with `--grep` in that mode to avoid sharing browser contexts.
 These options affect tests only, not application behavior.
 
-The untouched base commit had four failing unit tests. This change restores
-workflow review attention/legacy routing; three pre-existing failures remain:
-the workflow-stage settings label/template test and two scheduled-document
-reference-context tests. They are outside this visual migration and should be
-tracked before a production release. Optional LangChain provider tests require
-their separate adapters; no live agency/model-provider integration is validated
-by these interface tests.
+Regression coverage includes the previously incomplete stage-settings form,
+missing scheduled reference/context inputs, and the Node 22 HTTP teardown
+cancellations. Oversized uploads still enforce the one-million-byte cap while
+preserving the 413 response; remaining input is discarded without buffering and
+the connection closes. Tests check the response body and a subsequent health
+request, without disabling authentication or relaxing the body limit.
 
-GitHub Actions has also completed a frozen dependency installation and typecheck
-on Node 22.23.3. Its unit run reported 541 passes, the same three failed tests,
-three HTTP tests cancelled with a pending-promise/event-loop error, and two skips.
-The HTTP cancellations have not been diagnosed here. CI is not green, and its
-build step was skipped after the unit-test failure.
+Optional LangChain provider tests require their separate adapters. No live
+agency/model-provider integration is validated by these interface tests. The
+latest GitHub Actions result on the pull request is the authoritative CI status;
+local browser checks do not replace it.
 
 ## Federal deployment boundary
 

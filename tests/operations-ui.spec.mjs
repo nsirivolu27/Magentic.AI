@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { randomUUID } from "node:crypto";
 const axe = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 async function accessibility(page) {
   // The workbench has no frames. Audit its document directly without opening
@@ -17,6 +18,8 @@ test("queue search, status filters, and refresh use actual snapshot data", async
   await expect(page.getByRole("link", { name: "Helpdesk assistant", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "+ New work item", exact: true })).toHaveCSS("background-color", "rgb(161, 0, 255)");
   await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgb(21, 16, 25)");
+  await expect(page.locator(".brand .mark")).toHaveCSS("background-color", "rgb(161, 0, 255)");
+  await expect(page.locator(".topbar")).toHaveCSS("box-shadow", /rgb\(161, 0, 255\)/);
   await expect(page.locator("#environment-banner")).toContainText("Synthetic sample data");
   await page.getByRole("searchbox", { name: "Search work queue" }).fill("not an actual item");
   await expect(page.getByRole("heading", { name: "No work matches these filters" })).toBeVisible();
@@ -116,4 +119,59 @@ test("local workspace preserves its identity and discloses remote model data han
   await page.getByRole("button", { name: "Refresh workspace", exact: true }).click();
   await expect(page.locator(".workspace-icon")).toBeVisible();
   await expect(page.locator(".workspace small")).toBeVisible();
+});
+
+test("workflow settings preserve unchecked drafts, save one stage, and freeze existing runs", async ({ page }) => {
+  await page.goto("/#/workflows");
+  await expect(page.locator("#workflow-stage")).toHaveCount(0);
+  const initial = await page.request.get("/api/workspace", { headers: { authorization: "Bearer alex.writer" } });
+  expect(initial.ok()).toBe(true);
+  const before = await initial.json();
+  const config = before.pipelines.config;
+  const stage = config.stages.find(item => item.approval);
+  expect(stage).toBeTruthy();
+  const other = config.stages.find(item => item.id !== stage.id);
+  const denied = await page.request.post("/api/pipeline", {
+    headers: { authorization: "Bearer alex.writer" },
+    data: { action: "configure", expectedVersion: before.pipelines.version, config },
+  });
+  expect(denied.ok()).toBe(false);
+  expect((await denied.json()).error).toMatch(/admin/i);
+  const requestId = randomUUID();
+  const started = await page.request.post("/api/pipeline", {
+    headers: { authorization: "Bearer alex.writer" },
+    data: { action: "start", requestId, title: "Synthetic settings freeze check", brief: "Preserve this work item's saved review policy." },
+  });
+  expect(started.ok()).toBe(true);
+  const startedRun = (await started.json()).runs.find(run => run.requestId === requestId);
+  expect(startedRun).toBeTruthy();
+  await page.getByRole("combobox", { name: "Acting as" }).selectOption("taylor.admin");
+  await expect(page.locator("#operator-context")).toContainText("Administrator");
+  await page.goto(`/#/workflows/${stage.id}`);
+  const form = page.locator("#workflow-stage");
+  await expect(form).toBeVisible();
+  await form.getByRole("textbox", { name: "Stage instructions", exact: true }).fill("Check the synthetic intake against the saved evidence.");
+  await form.getByRole("textbox", { name: "Requested context", exact: true }).fill("Frozen reference excerpts");
+  await form.getByRole("checkbox").uncheck();
+  const definition = page.getByRole("list", { name: "Workflow stages", exact: true });
+  await definition.locator(`a[href="#/workflows/${other.id}"]`).click();
+  await definition.locator(`a[href="#/workflows/${stage.id}"]`).click();
+  await page.getByRole("button", { name: "Refresh workspace", exact: true }).click();
+  await expect(form.getByRole("checkbox")).not.toBeChecked();
+  await expect(form.getByRole("textbox", { name: "Stage instructions", exact: true })).toHaveValue("Check the synthetic intake against the saved evidence.");
+  await expect(form.getByRole("textbox", { name: "Requested context", exact: true })).toHaveValue("Frozen reference excerpts");
+  await form.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator("#notice")).toHaveText("Workflow updated.");
+  const saved = await page.request.get("/api/workspace", { headers: { authorization: "Bearer taylor.admin" } });
+  expect(saved.ok()).toBe(true);
+  const after = await saved.json();
+  expect(after.pipelines.config.stages.find(item => item.id === stage.id)).toEqual({
+    ...stage, instructions: "Check the synthetic intake against the saved evidence.", context: "Frozen reference excerpts", approval: false,
+  });
+  expect(after.pipelines.config.stages.filter(item => item.id !== stage.id)).toEqual(config.stages.filter(item => item.id !== stage.id));
+  expect(after.pipelines.runs.find(run => run.id === startedRun.id).config).toEqual(startedRun.config);
+  await page.reload();
+  await page.getByRole("combobox", { name: "Acting as" }).selectOption("taylor.admin");
+  await expect(form.getByRole("checkbox")).not.toBeChecked();
+  await expect(form.getByRole("textbox", { name: "Requested context", exact: true })).toHaveValue("Frozen reference excerpts");
 });
