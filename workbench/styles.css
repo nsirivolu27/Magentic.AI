@@ -1,3 +1,29 @@
+/* Local fonts keep the workspace usable without an external font service.
+ * Source: adobe-fonts/source-sans, tag 2.045R-ro/1.095R-it.
+ * Redistribution terms are in SourceSansPro-LICENSE.txt.
+ */
+@font-face {
+  font-family: "Source Sans Pro";
+  src: url("/SourceSansPro-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  src: url("/SourceSansPro-Semibold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  src: url("/SourceSansPro-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 /* Magentic workbench design system.
  *
  * One file owns the tokens, the application shell and the primitives every
@@ -32,8 +58,8 @@
   --info: #9ec2f2;
   --info-soft: #1f2a3b;
   --focus: #f2a2dc;
-  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", monospace;
+  --font: "Source Sans Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Cascadia Code", "JetBrains Mono", "IBM Plex Mono", ui-monospace, Consolas, "SF Mono", monospace;
   --radius: 6px;
   --radius-lg: 8px;
   --sidebar: 228px;
@@ -62,7 +88,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 a { color: inherit; }
-code, pre, .hash, .mono { font-family: var(--mono); font-size: 12px; }
+code, pre, .hash, .mono { font-family: var(--mono); font-size: 12px; font-variant-ligatures: none; line-height: 1.6; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

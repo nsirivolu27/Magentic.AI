@@ -20,10 +20,13 @@
     "test:ui": "playwright test --config tests/operations-ui.config.mjs",
     "dev:workbench": "node ./workbench/dev.mjs",
     "demo:workbench": "node ./dist/workbench/demo.mjs",
+    "demo:agents": "node ./dist/workbench/agent-demo.mjs",
     "seed:state": "tsc -p tsconfig.test.json && node .testbuild/workspaces/seed-state.js",
     "build:desktop": "node ./workbench/desktop/build.mjs",
     "build:vscode": "node ./extensions/vscode/build.mjs",
     "ontology:mcp": "node ./dist/workbench/ontology-main.mjs",
+    "ontology:ingest": "node ./dist/workbench/ontology-ingest-main.mjs",
+    "company:workbench": "node ./dist/workbench/company-main.mjs",
     "local:workbench": "node ./dist/workbench/local-main.mjs",
     "test:mcp": "tsc -p tsconfig.test.json && node --test .testbuild/tests/workflow.test.js .testbuild/tests/mcp-portal.test.js .testbuild/tests/pipeline.test.js .testbuild/tests/bot-timeline.test.js .testbuild/tests/mcp-policy.test.js .testbuild/tests/local-session.test.js .testbuild/tests/local-workspaces.test.js .testbuild/tests/jira.test.js .testbuild/tests/jira-actions.test.js .testbuild/tests/jira-operations.test.js .testbuild/tests/jira-runtime.test.js .testbuild/tests/jira-api.test.js"
   },

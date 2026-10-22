@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "name": "OpenFEMA disaster declarations",
+  "status": "public-dataset",
+  "description": "Disaster Declarations Summaries from the OpenFEMA API (public domain), one row per designated area, linked to a State reference table. Design for Foundry Ontology Manager and input for ontology:ingest.",
+  "objectTypes": [
+    {
+      "apiName": "Declaration",
+      "primaryKey": "id",
+      "properties": {
+        "id": "string",
+        "disasterNumber": "integer",
+        "state": "string",
+        "declarationType": "string",
+        "declarationDate": "timestamp",
+        "incidentType": "string",
+        "declarationTitle": "string",
+        "designatedArea": "string",
+        "fipsStateCode": "string",
+        "fipsCountyCode": "string"
+      },
+      "links": [
+        { "apiName": "state", "targetType": "State", "foreignKey": "state" }
+      ]
+    },
+    {
+      "apiName": "State",
+      "primaryKey": "state",
+      "properties": {
+        "state": "string",
+        "name": "string",
+        "fipsStateCode": "string"
+      },
+      "links": []
+    }
+  ]
+}

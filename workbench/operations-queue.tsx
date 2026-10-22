@@ -19,6 +19,8 @@ export function OperationsQueue({ snapshot }: { snapshot: WorkbenchSnapshot }) {
     setFilter(nextFilter); setQuery(nextQuery);
   };
   const counts = (key: QueueFilter) => key === "all" ? items.length : items.filter(item => item.state === key).length;
+  // A workspace with no runs and no projects at all is a first visit, not a quiet day.
+  const fresh = !items.length && !(snapshot.pipelines?.runs.length) && !(snapshot.studio?.projects.length) && snapshot.canAuthor;
   return <section className="operations-queue" aria-labelledby="queue-title">
     <div className="queue-heading">
       <div><p className="section-kicker">YOUR OPERATIONAL PICTURE</p><h2 id="queue-title">Work requiring attention</h2>
@@ -53,17 +55,27 @@ export function OperationsQueue({ snapshot }: { snapshot: WorkbenchSnapshot }) {
         <thead><tr><th scope="col">Work item</th><th scope="col">Current phase</th><th scope="col">Status</th><th scope="col">Owner</th><th scope="col"><span className="visually-hidden">Next action</span></th></tr></thead>
         <tbody>{visible.map(item => <tr key={item.id}>
           <td><small className="queue-kind">{item.kind}</small><a className="queue-item-title" href={item.href}>{item.title}</a><p>{item.detail}</p></td>
-          <td>{item.phase}</td><td><span className={`queue-state ${item.state}`}><span aria-hidden="true">{item.state === "blocked" ? "!" : item.state === "review" ? "◇" : item.state === "active" ? "◐" : "○"}</span>{QUEUE_LABELS[item.state]}</span></td>
-          <td className="queue-owner">{item.owner}</td><td><a className="queue-action" href={item.href}>{item.action} <span aria-hidden="true">→</span></a></td>
+          <td data-label="Current phase">{item.phase}</td><td data-label="Status"><span className={`queue-state ${item.state}`}><span aria-hidden="true">{item.state === "blocked" ? "!" : item.state === "review" ? "◇" : item.state === "active" ? "◐" : "○"}</span>{QUEUE_LABELS[item.state]}</span></td>
+          <td className="queue-owner" data-label="Owner">{item.owner}</td><td><a className="queue-action" href={item.href}>{item.action} <span aria-hidden="true">→</span></a></td>
         </tr>)}</tbody>
       </table>
     </div>
-    {!visible.length && <div className="queue-empty"><span aria-hidden="true">{items.length ? "⌕" : "✓"}</span>
+    {!visible.length && (fresh
+      ? <div className="queue-empty queue-fresh"><span aria-hidden="true">◆</span>
+        <h3>Nothing here yet</h3>
+        <p>This workspace has no runs or projects. Three steps get the first result on this board.</p>
+        <ol className="queue-first-steps">
+          <li><a href="#/chat">Connect a model</a><small>Ollama on this computer, or a provider key</small></li>
+          <li><a href="#/workflows">Start a workflow run</a><small>The run appears here with its current stage</small></li>
+          <li><a href="#/studio">Create a model project</a><small>Train, evaluate and approve an assistant</small></li>
+        </ol>
+      </div>
+      : <div className="queue-empty"><span aria-hidden="true">{items.length ? "⌕" : "✓"}</span>
       <h3>{items.length ? "No work matches these filters" : modelUnavailable ? "No work items in the available data" : "Nothing needs your attention"}</h3>
       <p>{items.length ? "Try a different status, owner, or search term." : "Completed work remains in its detail pages and audit trail."}</p>
       {items.length ? <button type="button" className="secondary" onClick={() => change("all", "")}>Clear filters</button>
         : snapshot.canAuthor ? <a className="primary" href="#/desk">Start a work item</a> : <a className="secondary" href="#/activity">Inspect activity</a>}
-    </div>}
+    </div>)}
     <div className="queue-footnote"><span aria-hidden="true">◇</span> Review eligibility is derived from the current records. Opening an item never bypasses its approval policy.</div>
   </section>;
 }

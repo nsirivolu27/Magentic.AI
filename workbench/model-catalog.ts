@@ -70,9 +70,9 @@ const openaiResponse = z.object({ output: z.array(z.object({ type: z.string(), c
 const claudeResponse = z.object({ content: z.array(textBlock) });
 const geminiResponse = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string() }) })) });
 
-function cloudModel(
+export function cloudModel(
   provider: CloudProvider, model: string, key: string, request: typeof fetch,
-  azure?: { instance: string; apiVersion: string }, gateway?: { baseUrl: string },
+  azure?: { instance: string; apiVersion: string }, gateway?: { baseUrl: string }, maxOutputTokens = 4096,
 ): AgentModel {
   return {
     async invoke(prompt, options) {
@@ -82,11 +82,11 @@ function cloudModel(
       if (provider === "openai") {
         url = "https://api.openai.com/v1/responses";
         headers.Authorization = `Bearer ${key}`;
-        body = { model, input: prompt, store: false, max_output_tokens: 4096, text: { format: { type: "json_object" } } };
+        body = { model, input: prompt, store: false, max_output_tokens: maxOutputTokens, text: { format: { type: "json_object" } } };
       } else if (provider === "anthropic") {
         url = "https://api.anthropic.com/v1/messages";
         headers = { ...headers, "x-api-key": key, "anthropic-version": "2023-06-01" };
-        body = { model, max_tokens: 4096, messages: [{ role: "user", content: prompt }] };
+        body = { model, max_tokens: maxOutputTokens, messages: [{ role: "user", content: prompt }] };
       } else if (provider === "azure") {
         // The deployment name is part of the path, and the key is a header
         // rather than a bearer token. The instance is fixed at configuration
@@ -94,17 +94,17 @@ function cloudModel(
         url = `https://${azure!.instance}.openai.azure.com/openai/deployments/${encodeURIComponent(model)}`
           + `/chat/completions?api-version=${encodeURIComponent(azure!.apiVersion)}`;
         headers = { ...headers, "api-key": key };
-        body = { max_tokens: 4096, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } };
+        body = { max_tokens: maxOutputTokens, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } };
       } else if (provider === "gateway") {
         // The address was checked at configuration time (gatewayProblem), so a
         // model choice in the browser cannot point the request elsewhere.
         url = gatewayCompletionsUrl(gateway!.baseUrl);
         if (key) headers.Authorization = `Bearer ${key}`;
-        body = { model, max_tokens: 4096, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } };
+        body = { model, max_tokens: maxOutputTokens, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } };
       } else {
         url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
         headers.Authorization = `Bearer ${key}`;
-        body = { model, max_tokens: 4096, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } };
+        body = { model, max_tokens: maxOutputTokens, messages: [{ role: "user", content: prompt }], response_format: { type: "json_object" } };
       }
       // Fixed endpoints and rejected redirects keep a browser's model choice
       // from sending server credentials to a caller-controlled address.
@@ -166,7 +166,9 @@ export function withCloudModels(base: ChatConfiguration, env?: NodeJS.ProcessEnv
       });
       continue;
     }
-    for (const [model, label] of config.models) cloud.push({
+    const declared = setting(`MAGENTIC_${provider.toUpperCase()}_MODELS`, env)?.split(",").map(value => value.trim()).filter(Boolean).slice(0, 50);
+    const offered = declared?.length ? declared.map(model => [model, model] as const) : config.models;
+    for (const [model, label] of offered) cloud.push({
       id: `${provider}/${model}`, label, provider: config.label, available: Boolean(keys[provider]),
       local: false, detail: keys[provider] ? "API key configured · account model access still applies."
         : `Set ${config.key} on the server and restart to connect this provider.`,
@@ -183,12 +185,13 @@ export function withCloudModels(base: ChatConfiguration, env?: NodeJS.ProcessEnv
       local = [{ id: base.model, label: base.model, provider: base.provider, local: base.provider === "ollama", available: false,
         detail: "The configured model service is unavailable. Start it and refresh models." }];
     }
-    return [...local, ...cloud];
+    return [...local.map(option => ({ ...option, outputLimit: base.outputLimit === true })),
+      ...cloud.map(option => ({ ...option, outputLimit: true }))];
   }
   return {
     provider: base.provider, model: base.model, modelOptions,
     listModels: async () => (await modelOptions()).filter((model) => model.available).map((model) => model.id),
-    async loadModel(id = base.model) {
+    async loadModel(id = base.model, options) {
       const option = cloud.find((model) => model.id === id);
       if (!option) {
         // An id naming a cloud provider that is not among the options is a
@@ -201,14 +204,19 @@ export function withCloudModels(base: ChatConfiguration, env?: NodeJS.ProcessEnv
           const config = providers[prefix as CloudProvider];
           throw new Error(`${id} is not available on this server. Set ${config.key} and its provider settings, then restart.`);
         }
-        return base.loadModel(id);
+        let names: string[];
+        try { names = base.listModels ? await base.listModels() : [base.model]; }
+        catch { throw new Error("The configured model service is unavailable. Refresh models before trying again."); }
+        if (!names.includes(id)) throw new Error("The selected model is no longer available. Refresh models and choose a connected model.");
+        if (options?.maxOutputTokens !== undefined && !base.outputLimit) throw new Error("This provider does not support an adjustable output cap. Use its default.");
+        return base.loadModel(id, options);
       }
       if (!option.available) throw new Error(option.detail);
       const slash = id.indexOf("/");
       const provider = id.slice(0, slash) as CloudProvider;
       return cloudModel(provider, id.slice(slash + 1), keys[provider], request,
         provider === "azure" ? { instance: azure.instance, apiVersion: azure.apiVersion } : undefined,
-        provider === "gateway" ? { baseUrl: gateway.baseUrl } : undefined);
+        provider === "gateway" ? { baseUrl: gateway.baseUrl } : undefined, options?.maxOutputTokens);
     },
   };
 }

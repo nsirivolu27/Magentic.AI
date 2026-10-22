@@ -9,6 +9,7 @@ if (process.platform !== "win32" || process.version !== "v22.23.2") {
   throw new Error("Build this Windows preview with Node 22.23.2; the bundled license matches that runtime.");
 }
 const repo = fileURLToPath(new URL("../../", import.meta.url));
+const version = JSON.parse(await readFile(join(repo, "package.json"), "utf8")).version;
 const desktop = fileURLToPath(new URL("./", import.meta.url));
 const output = join(repo, "dist", "desktop");
 const destination = join(output, `Magentic-Developer-${Date.now()}`);
@@ -28,7 +29,10 @@ const adapterDir = join(destination, "app", "node_modules", "@langchain", "ollam
 await mkdir(adapterDir, { recursive: true });
 const adapter = await build({ ...options, stdin: { contents: 'export { ChatOllama } from "@langchain/ollama";', resolveDir: repo, sourcefile: "desktop-ollama.ts" }, outfile: join(adapterDir, "index.mjs") });
 await writeFile(join(adapterDir, "package.json"), JSON.stringify({ name: "@langchain/ollama", type: "module", exports: "./index.mjs" }));
-for (const name of ["Start-Magentic.ps1", "Install.ps1", "Install.cmd", "README.txt"]) await copyFile(join(desktop, name), join(destination, name));
+for (const name of ["Start-Magentic.ps1", "Install.ps1", "Install.cmd", "Uninstall.ps1", "Uninstall.cmd", "README.txt", "RELEASE-NOTES.txt"]) await copyFile(join(desktop, name), join(destination, name));
+// The installer shows this version in Apps & features and the launcher logs it,
+// so a support request can name the exact package and runtime.
+await writeFile(join(destination, "version.json"), JSON.stringify({ name: "Magentic Developer", version, runtime: process.version, built: new Date().toISOString() }, null, 2));
 await mkdir(join(destination, "licenses"));
 await copyFile(join(desktop, "licenses", "Node-LICENSE.txt"), join(destination, "licenses", "Node-LICENSE.txt"));
 // Bundled dependencies still need their notices even though their package
@@ -66,7 +70,7 @@ async function hashFiles(folder) {
 }
 await hashFiles(destination);
 await writeFile(join(destination, "checksums.json"), JSON.stringify(checksums, null, 2));
-const zip = join(output, "Magentic-Developer-Windows.zip");
+const zip = join(output, `Magentic-Developer-${version}-Windows.zip`);
 const quote = value => "'" + value.replaceAll("'", "''") + "'";
 execFileSync("powershell.exe", ["-NoProfile", "-Command", `Compress-Archive -LiteralPath ${quote(destination)} -DestinationPath ${quote(zip)} -Force`], { windowsHide: true, stdio: "inherit" });
 console.log(`Desktop package: ${zip}`);

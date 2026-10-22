@@ -62,9 +62,9 @@ export function developmentAgentConfig(config: PipelineConfig): PipelineConfig {
   const next = structuredClone(config);
   for (const stage of next.stages) {
     const profile = PHASE_PROFILES[stage.id];
-    // Custom phases retain their policy. Applying the starter must not guess
-    // which capabilities an unrelated phase should receive.
-    if (!profile) continue;
+    // Starters fill manual phases. Existing agents and approved assistants
+    // already have deliberate roles and must keep their policies.
+    if (!profile || stage.assistantId || (stage.bot && stage.bot.kind !== "manual")) continue;
     stage.bot = { ...DEFAULT_BOT_POLICY, ...stage.bot, kind: BOT_PROFILE_KINDS[profile], profile };
   }
   return next;

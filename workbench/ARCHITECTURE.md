@@ -565,6 +565,27 @@ rest of the workspace still loads.
 quality evaluators, dataset uploads larger than the request body, per project
 membership, and any deployment work.
 
+## Agent Studio tests
+
+A saved agent carries no version of its own; `agentHash` in
+`agent-tests-model.ts` fingerprints the fields that change its behaviour
+(name, purpose, model, instructions, policy) so a test result can say which
+version it exercised. `agent-tests.ts` keeps test cases and runs per
+workspace, one JSON file under `agent-tests/` written through `atomicJson`,
+memory only in the scripted demo. A run builds a one stage trial run in
+memory and executes `runBotWorker` with the agent's policy against the
+attached repository: the same worker, tools, limits and required read rule a
+stage would use, with nothing written to the workflow. The worker logs
+`Source read`, `Source empty` and `Source missing` after each file read, and
+the run rebuilds structured tool calls from that log rather than trusting the
+answer. Execution status, provider reported usage and a reviewer's verdict are
+three separate fields; a run that finished can still be reviewed as a fail, and
+a run that failed offers no review. Refusals come before any model call and
+name the fix: stale configuration version, unconnected model, missing or empty
+source, a source named for an agent that cannot read files. Roles are checked
+on the server: authors and admins write and run tests, approvers and admins
+review, every command is scoped to the caller's workspace.
+
 ## Workbench interface
 
 The browser application is six pages over one snapshot. `GET /api/workspace`

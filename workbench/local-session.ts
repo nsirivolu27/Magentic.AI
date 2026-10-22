@@ -58,6 +58,8 @@ export interface LocalSessionOptions {
   actor: string;
   /** The loopback port, for Host and Origin checks. Set once bound. */
   port?: number;
+  managedLogin?: boolean;
+  authorizeChatMcp?: (request: IncomingMessage) => boolean;
   /** How long after arming the UI may claim its session. Default 60s. */
   bootstrapWindowMs?: number;
   now?: () => number;
@@ -169,12 +171,13 @@ export function createLocalSession(options: LocalSessionOptions): LocalSession {
 
       // Browser writes require our origin. A standalone MCP client has no
       // browser origin, so its separately scoped credential authenticates it.
-      const standalone = (path === "/api/mcp" || path === "/api/pipeline-mcp") && bearerWorkspace(request) !== undefined;
+      const standalone = (path === "/api/chat-mcp" && options.authorizeChatMcp?.(request)) || (path === "/api/mcp" || path === "/api/pipeline-mcp") && (options.managedLogin ? request.headers.authorization?.startsWith("Bearer ") : bearerWorkspace(request) !== undefined);
       if (method !== "GET" && method !== "HEAD" && !originAllowed(origin, port) && !(origin === undefined && standalone)) {
         return { status: 403, message: "Cross-site requests are not accepted." };
       }
       // A foreign page must not claim the bootstrap cookie through navigation.
-      if ((origin !== undefined && !originAllowed(origin, port)) || request.headers["sec-fetch-site"] === "cross-site") {
+      const loginReturn = options.managedLogin && method === "GET" && (path === "/login" || path === "/");
+      if (!loginReturn && ((origin !== undefined && !originAllowed(origin, port)) || request.headers["sec-fetch-site"] === "cross-site")) {
         return { status: 403, message: "Cross-site requests are not accepted." };
       }
 
@@ -182,7 +185,7 @@ export function createLocalSession(options: LocalSessionOptions): LocalSession {
       // was told to open; if the window is open and nobody has claimed a
       // session yet, this response carries one. After that the window closes
       // and later arrivals get nothing.
-      if (method === "GET" && path === "/" && !browserAuthenticated(request)) {
+      if (!options.managedLogin && method === "GET" && path === "/" && !browserAuthenticated(request)) {
         if (!taken && now() < armedUntil) {
           taken = true;
           armedUntil = 0;

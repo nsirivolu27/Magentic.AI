@@ -91,3 +91,18 @@ classification, retention, or accessibility-certification claim. Agency-specific
 identity, permissions, records policy, hosting accreditation, and manual
 accessibility validation must be designed and verified separately before use with
 sensitive or production agency data.
+
+## Agent Studio
+
+Agent Studio lives under Configuration at `#/agent-studio`; older `#/team`
+links resolve there. It shows the current workflow staffing and reusable agents.
+An admin can create an agent from a job template, choose its model and explicit
+repository read tools, save it, and assign a copy to a stage for future runs.
+The existing versioned pipeline command enforces roles and refuses stale saves.
+Unsaved tool choices and their original version survive navigation.
+
+Import creates a new identity; export copies only the saved definition. Neither
+grants execution rights or produces an approved release. Running workflows,
+review gates and Model Studio release signatures retain their existing rules.
+Repository execution requires local mode with an attached repository and a
+configured model. The sample-data preview demonstrates configuration only.

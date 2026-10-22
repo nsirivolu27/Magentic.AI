@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "workspaces": [
+    {
+      "workspaceId": "REPLACE_WITH_COMPANY_WORKSPACE_ID",
+      "mode": "foundry",
+      "ontology": "REPLACE_WITH_ONTOLOGY_RID",
+      "baseUrl": "https://your-environment.palantirfoundry.com",
+      "tokenSetting": "MAGENTIC_FOUNDRY_TOKEN_COMPANY",
+      "objectTypes": [
+        {
+          "apiName": "Company",
+          "properties": [
+            "companyId",
+            "name"
+          ],
+          "links": []
+        },
+        {
+          "apiName": "Workflow",
+          "properties": [
+            "workflowId",
+            "companyId",
+            "name",
+            "version"
+          ],
+          "links": [
+            {
+              "apiName": "company",
+              "targetType": "Company"
+            }
+          ]
+        },
+        {
+          "apiName": "Agent",
+          "properties": [
+            "agentId",
+            "companyId",
+            "name",
+            "model",
+            "releaseId",
+            "status"
+          ],
+          "links": [
+            {
+              "apiName": "company",
+              "targetType": "Company"
+            }
+          ]
+        },
+        {
+          "apiName": "Run",
+          "properties": [
+            "runId",
+            "companyId",
+            "workflowId",
+            "agentId",
+            "status",
+            "startedAt"
+          ],
+          "links": [
+            {
+              "apiName": "company",
+              "targetType": "Company"
+            },
+            {
+              "apiName": "workflow",
+              "targetType": "Workflow"
+            },
+            {
+              "apiName": "agent",
+              "targetType": "Agent"
+            }
+          ]
+        },
+        {
+          "apiName": "Evidence",
+          "properties": [
+            "evidenceId",
+            "companyId",
+            "runId",
+            "title",
+            "sourceUri",
+            "contentHash",
+            "retrievedAt"
+          ],
+          "links": [
+            {
+              "apiName": "company",
+              "targetType": "Company"
+            },
+            {
+              "apiName": "run",
+              "targetType": "Run"
+            }
+          ]
+        },
+        {
+          "apiName": "Approval",
+          "properties": [
+            "approvalId",
+            "companyId",
+            "runId",
+            "reviewerId",
+            "decision",
+            "contentHash",
+            "decidedAt"
+          ],
+          "links": [
+            {
+              "apiName": "company",
+              "targetType": "Company"
+            },
+            {
+              "apiName": "run",
+              "targetType": "Run"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

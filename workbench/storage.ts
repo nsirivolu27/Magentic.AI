@@ -1,3 +1,4 @@
+import { automationRecordSchema, type AutomationRecord } from "./automation-schema.js";
 import { closeSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
@@ -114,6 +115,7 @@ const documentSchema = z.object({
   // written before Jira actions existed still loads, which is why the
   // storage version did not have to change.
   jiraActions: z.array(jiraActionSchema).max(500).default([]),
+  automationActions: z.array(automationRecordSchema).max(500).default([]),
 }).strict();
 
 /**
@@ -130,6 +132,7 @@ export interface WorkspaceState {
   config: PipelineConfig; version: number; runs: PipelineRun[];
   /** Durable Jira actions. Absent in documents written before they existed. */
   jiraActions?: PendingJiraAction[];
+  automationActions?: AutomationRecord[];
 }
 export interface WorkspaceDocument extends WorkspaceState { storageVersion: number; workspaceId: string }
 
@@ -148,6 +151,16 @@ function assertCoherent(document: WorkspaceDocument, workspace: string): void {
 
   if (document.workspaceId !== workspace) {
     fail(`it is labelled ${document.workspaceId}.`);
+  }
+
+  const automationIds = new Set<string>();
+  const automationKeys = new Set<string>();
+  for (const action of document.automationActions ?? []) {
+    const run = document.runs.find(item => item.id === action.runId);
+    if (action.workspaceId !== workspace || !run || !run.config.stages.some(stage => stage.id === action.stageId)) fail("Automation action references another workspace or stage.");
+    if (automationIds.has(action.id) || automationKeys.has(action.dedupeKey)) fail("Duplicate automation action.");
+    if ((action.status === "running") === Boolean(action.finishedAt)) fail("Automation action has an inconsistent finish time.");
+    automationIds.add(action.id); automationKeys.add(action.dedupeKey);
   }
 
   const seenActionIds = new Set<string>();
@@ -338,7 +351,7 @@ export function fileWorkspaceStore(directory: string): WorkspaceStore {
       // an optional property.
       const data = document.data as unknown as WorkspaceDocument;
       assertCoherent(data, workspace);
-      return { config: data.config, version: data.version, runs: data.runs, jiraActions: data.jiraActions ?? [] };
+      return { config: data.config, version: data.version, runs: data.runs, jiraActions: data.jiraActions ?? [], automationActions: data.automationActions ?? [] };
     },
 
     commit(workspace, state) {
