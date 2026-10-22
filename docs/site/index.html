@@ -150,7 +150,7 @@
 
 
   <nav class="section-nav" aria-label="Presentation sections">
-    <a href="#demo">01 / Workflow demo</a><a href="#architecture">02 / Engineering</a><a href="#submission">03 / Submission</a>
+    <a href="#demo">01 / Workflow demo</a><a href="#architecture">02 / Engineering</a><a href="#security">03 / Company security</a><a href="#submission">04 / Submission</a>
   </nav>
   <section id="demo" aria-labelledby="demo-heading">
     <div class="eyebrow">01 / An internal documentation request</div>
@@ -310,22 +310,34 @@
       <ol><li><code>browser.ts</code> renders the workspace and submits an action to the HTTP API.</li>
       <li><code>server.ts</code> resolves identity, verifies workspace membership and validates the payload.</li>
       <li><code>pipeline.ts</code> checks the run revision, stage, role and approval rules before updating state.</li>
-      <li><code>scheduler.ts</code> and <code>stage-agent.ts</code> execute approved assistant stages using their granted MCP tools.</li>
+      <li><code>scheduler.ts</code> runs approved assistant stages with saved references. Local repository agents use <code>bot-worker.ts</code> with explicit tool policies.</li>
       <li><code>storage.ts</code> persists workspace state. Drafts, evidence and content hashes remain available for review.</li></ol>
     </details>
   </section>
 
-  <section id="trust">
-    <div class="eyebrow">Why teams can trust it</div>
-    <h2>The rules live on the server, not in the interface</h2>
-    <ol class="rules">
-      <li><span class="n">01</span><span>Nobody approves their own work. Owner and author are locked out of their own gate.</span></li>
-      <li><span class="n">02</span><span>Change an approved output and every signature on it is void. Review again or ship nothing.</span></li>
-      <li><span class="n">03</span><span>An agent that was told to read a source and did not is failed, with the missing file named.</span></li>
-      <li><span class="n">04</span><span>An agent version with no passing test cannot be assigned to a stage.</span></li>
-      <li><span class="n">05</span><span>Credentials stay behind server-side settings or the configured encrypted connection vault. They are not part of the workflow evidence.</span></li>
-      <li><span class="n">06</span><span>Outbound reads are https only, size capped, time capped, and checked against what was asked for.</span></li>
-    </ol>
+  <section id="security" aria-labelledby="security-heading">
+    <div class="eyebrow">03 / Company security</div>
+    <h2 id="security-heading">The right access.<br>At every handoff.</h2>
+    <p class="muted">A team console: choose a company, assemble its agents into a workflow, then check the configuration before handoff. Select a stage to see the application control and its proposed AWS protection.</p>
+    <div class="request-path" aria-label="Team console navigation"><span>Company + team</span><b aria-hidden="true">→</b><span>Tools + agents</span><b aria-hidden="true">→</b><span>Workflow + controls</span><b aria-hidden="true">→</b><span>Review + readiness</span></div>
+    <div class="architecture-switch security-switch" role="group" aria-label="Company security stages">
+      <button class="btn" data-security="identity" aria-pressed="true" aria-controls="security-detail">01 Sign in</button>
+      <button class="btn" data-security="read" aria-pressed="false" aria-controls="security-detail">02 Read</button>
+      <button class="btn" data-security="draft" aria-pressed="false" aria-controls="security-detail">03 Draft</button>
+      <button class="btn" data-security="approve" aria-pressed="false" aria-controls="security-detail">04 Approve</button>
+      <button class="btn" data-security="audit" aria-pressed="false" aria-controls="security-detail">05 Audit</button>
+    </div>
+    <div id="security-detail" class="security-detail" aria-live="polite" aria-atomic="true"></div>
+    <noscript><p>Enable JavaScript for the stage explorer, or read the security guide below.</p></noscript>
+    <p class="small">Illustrative control walkthrough. No authentication, AWS request or security test runs here. AWS protections require deployment and validation; they are not active in this local preview.</p>
+    <details class="presenter-runbook"><summary>Before a company goes live</summary>
+      <ol><li>Review agent assignments, model choices, references, tool permissions and execution limits. Current workflow checks report blockers; they do not deploy infrastructure.</li>
+      <li>Separate production and development accounts; scope operator, worker and deployment roles.</li>
+      <li>Test tenant isolation, denied tools, provider destinations and independent approvals.</li>
+      <li>Review vulnerabilities, rehearse incident containment and restore a workspace from backup.</li>
+      <li>Agree on data retention, region and provider use. Cloud hosting alone does not establish compliance.</li></ol>
+    </details>
+    <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/docs/aws-security.md" target="_blank" rel="noopener">Read the security control map ↗</a>
   </section>
 
   <section id="data">
@@ -361,7 +373,7 @@ corepack pnpm demo:agents</pre><span class="small">Open the printed URL. No prov
   </section>
 
   <section id="submission">
-    <div class="eyebrow">03 / Submission package</div>
+    <div class="eyebrow">04 / Submission package</div>
     <h2>What to inspect. What remains.</h2>
     <div class="submission-grid">
       <div><h3>Evidence you can reproduce</h3><p class="muted">Latest local application verification: October 22, 2026. These results describe the working prototype, not hosted CI or a live-provider accuracy benchmark.</p>

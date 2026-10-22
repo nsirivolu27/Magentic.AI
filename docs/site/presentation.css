@@ -53,6 +53,16 @@ details p, details ol { margin-top: 12px; color: var(--fg-2); font-size: 14px; }
 .architecture-detail nav { display: grid; align-content: start; }
 .architecture-detail nav a { display: flex; justify-content: space-between; gap: 10px; padding: 13px 0; border-bottom: 1px solid var(--line); text-decoration: none; font-size: 12px; overflow-wrap: anywhere; }
 .stack-strip { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--fg-2); font: 12px var(--font-mono); }
+.security-detail { display: grid; gap: 24px; padding: clamp(20px, 3vw, 32px); border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface-strong); }
+.security-detail h3 { font-size: clamp(22px, 3vw, 28px); }
+.security-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.security-columns > div { display: grid; align-content: start; gap: 12px; }
+.security-columns > div + div { border-left: 1px dashed var(--line-strong); padding-left: 28px; }
+.security-columns p, .security-example p { font-size: 15px; line-height: 1.7; color: var(--fg-2); }
+.security-example { display: grid; gap: 8px; border-left: 2px solid var(--accent); padding-left: 16px; }
+.security-example h4 { font-size: 14px; }
+.security-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+#security > .btn { justify-self: start; white-space: normal; }
 .submission-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .submission-grid > div { display: grid; align-content: start; gap: 20px; min-width: 0; }
 .submission-grid ul { padding-left: 18px; margin: 0; color: var(--fg-2); font-size: 15px; }
@@ -63,6 +73,8 @@ details p, details ol { margin-top: 12px; color: var(--fg-2); font-size: 14px; }
 .num span { font-size: 12px; }
 .btn { height: auto; min-height: 44px; padding-block: 10px; }
 @media (max-width: 760px) {
+  .security-columns { grid-template-columns: 1fr; gap: 20px; }
+  .security-columns > div + div { border-left: 0; border-top: 1px dashed var(--line-strong); padding-left: 0; padding-top: 20px; }
   .demo-layout, .architecture-detail, .submission-grid { grid-template-columns: 1fr; }
   #demo-steps { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
   #demo-steps button { font-size: 12px; gap: 6px; padding: 10px; }

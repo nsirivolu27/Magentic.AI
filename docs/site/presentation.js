@@ -92,9 +92,9 @@ const layers = {
     boundary: "A hosted rollout still needs operational design for durable shared storage, backups, isolation and recovery.",
     files: ["workbench/server.ts", "workbench/pipeline.ts", "workbench/storage.ts", "registry/record.ts"] },
   execution: { title: "Models draft; granted tools supply context", stack: "MCP SDK · Ollama / configured providers · bounded execution",
-    detail: "Approved assistant stages resolve their release before running. The scheduler connects stage agents to their granted workspace MCP tools. Local repository agents use a separate worker path with explicit policies.",
+    detail: "Approved assistant stages resolve their release before running with saved references. Local repository agents use a separate worker path with explicit MCP tool policies.",
     boundary: "An agent has no blanket company role. Missing model connectivity or invalid release evidence blocks execution.",
-    files: ["workbench/scheduler.ts", "workbench/stage-agent.ts", "workbench/pipeline-mcp.ts", "workbench/bot-worker.ts"] },
+    files: ["workbench/scheduler.ts", "workbench/bot-schema.ts", "workbench/pipeline-mcp.ts", "workbench/bot-worker.ts"] },
   company: { title: "Membership before access", stack: "Clerk Organizations · workspace roles · configured integrations",
     detail: "Company sign-in resolves organization membership, then workspace roles. Stripe entitlement is separate from membership. Documents, workflow state and receipts are scoped to the authenticated workspace.",
     boundary: "Slack supports company audit messages and updates only. Reviewed Lambda invocation and evidence connectors need separate configuration.",
@@ -110,3 +110,77 @@ document.querySelectorAll("[data-layer]").forEach(button => button.addEventListe
 byId("print-presentation").addEventListener("click", () => window.print());
 renderDemo();
 renderLayer("frontend");
+
+const securityStages = {
+  identity: {
+    title: "An employee joins the right workspace.",
+    built: "Clerk membership selects the company. The server maps its roles before allowing workspace actions.",
+    aws: "Use IAM Identity Center and MFA for cloud operators; scoped IAM roles and temporary STS credentials for services. Keep production in a separate AWS account.",
+    example: "A matching company email alone does not grant access. An unknown role receives no workspace permissions.",
+    proof: "Revoke membership and confirm the employee loses access. Test service roles against actions they must not perform.",
+  },
+  read: {
+    title: "The request uses company-scoped evidence.",
+    built: "Workspace membership is checked before protected reads. Repository agents have explicit tool allowlists and call budgets.",
+    aws: "Place services in private VPC subnets with restricted security groups and controlled egress. Encrypt stored evidence; use S3 Block Public Access and versioning where S3 is selected.",
+    example: "A request for another company's records must be denied. An agent cannot add a tool by asking for it in its prompt.",
+    proof: "Test cross-company requests, denied tools and public network access. Review which model providers can receive evidence.",
+  },
+  draft: {
+    title: "The agent drafts without gaining authority.",
+    built: "The configured execution path produces a draft for review. Model output does not grant workspace roles or approval rights.",
+    aws: "Protect web ingress with HTTPS and WAF. Keep provider credentials in Secrets Manager with scoped KMS access. Isolate hosted execution workers and enforce per-company usage limits.",
+    example: "An instruction hidden in an SOP cannot authorize a deployment. Retrieved text is evidence, not permission.",
+    proof: "Exercise malicious references, secret leakage and budget limits. WAF does not replace tool authorization or prevent all prompt injection.",
+  },
+  approve: {
+    title: "A reviewer checks the exact output.",
+    built: "Gated handoffs reject the run owner and output author as approvers. Approvals bind to content; edits require fresh review.",
+    aws: "Separate reviewer and infrastructure deployment authority. Use a scoped OIDC deployment role, reviewed release changes and Inspector scanning for supported workloads.",
+    example: "Changing an approved answer invalidates its review evidence. An administrator cannot bypass the workflow's independent-review rule.",
+    proof: "Try self-approval, duplicate approval and an edited draft. Verify an unrelated repository cannot assume the deployment role.",
+  },
+  audit: {
+    title: "The company can investigate and recover.",
+    built: "Workflow history records the handoff. Company Slack messages require an administrator preview and retain delivery receipts; Slack is not an approval channel.",
+    aws: "Combine application events with CloudTrail, CloudWatch, GuardDuty and Security Hub CSPM. Protect log retention, test AWS Backup restores and rehearse incident response; use Session Manager for restricted host access.",
+    example: "A delivered Slack message does not prove approval. CloudTrail records AWS activity, not every action inside Magentic.",
+    proof: "Trigger an alert, revoke a credential and restore a workspace. Check its references, approvals and audit history after recovery.",
+  },
+};
+
+function renderSecurity(key) {
+  const stage = securityStages[key];
+  document.querySelectorAll("[data-security]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.security === key)));
+  // Only authored presentation text is rendered here; no company data is loaded.
+  const panel = byId("security-detail");
+  panel.replaceChildren();
+  function text(parent, tag, value, className) {
+    const element = document.createElement(tag);
+    element.textContent = value;
+    if (className) element.className = className;
+    parent.append(element);
+    return element;
+  }
+  text(panel, "h3", stage.title);
+  const columns = document.createElement("div");
+  columns.className = "security-columns";
+  panel.append(columns);
+  for (const [label, detail] of [["Built into Magentic", stage.built], ["AWS design · not deployed", stage.aws]]) {
+    const column = document.createElement("div");
+    columns.append(column);
+    text(column, "h4", label, "artifact-label");
+    text(column, "p", detail);
+  }
+  const scenario = document.createElement("div");
+  scenario.className = "security-example";
+  panel.append(scenario);
+  text(scenario, "h4", "The boundary in practice");
+  text(scenario, "p", stage.example);
+  const details = document.createElement("details");
+  panel.append(details);
+  text(details, "summary", "How to verify it");
+  text(details, "p", stage.proof);
+}
+document.querySelectorAll("[data-security]").forEach(button => button.addEventListener("click", () => renderSecurity(button.dataset.security)));
+renderSecurity("identity");

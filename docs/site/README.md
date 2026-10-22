@@ -22,7 +22,8 @@ You can also open `index.html` directly. No installation, build, API key or exte
 4. Revise the sample draft. Both simulated signatures clear. Review again to enable Handoff. These controls illustrate the rule; they are not backend authentication or real signatures.
 5. Open Audit. Explain the separate company Slack message preview and delivery receipts. No message is sent by this website.
 6. Switch the architecture panels to explain frontend state, backend policy, model/tool execution and company access. Each panel links to implementation files on `codex/published-main-preview`.
-7. Close with the verification results and current limits. Print/save PDF captures the currently selected walkthrough and architecture panels alongside the static content.
+7. Open Company security. Select Sign in, Read, Draft, Approve and Audit to compare built-in controls with proposed AWS protections. Expand "How to verify it" for each stage. These examples run no authentication or security checks and connect to no cloud services.
+8. Close with the verification results and current limits. Print/save PDF captures the currently selected walkthrough, architecture and security panels alongside the static content.
 
 ## Real application demonstration
 
