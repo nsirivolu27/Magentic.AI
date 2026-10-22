@@ -8,6 +8,8 @@
 
 A supervised workflow workspace for teams that may use AI only with a chain of custody. Built as a one person project for the Virginia Tech x Accenture Federal Services Build Challenge. Pitch on November 20, 2026.
 
+Website: [Magentic Build Challenge](https://claude.ai/artifact/M7Nbm6cZLEwNfBZjvX3kcq). The same page is [`docs/site/index.html`](docs/site/index.html) in this repository; open it from a local checkout to view it offline.
+
 <p>
   <img alt="version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-6457e0?style=flat-square">
   <img alt="724 tests, 0 failed" src="https://img.shields.io/badge/tests-724%20run%20%C2%B7%200%20failed-2ea44f?style=flat-square">
