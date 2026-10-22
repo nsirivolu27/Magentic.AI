@@ -1,159 +1,82 @@
-# Magentic: Build Challenge submission
+<p align="center">
+  <img src="docs/images/supervised-stage.svg" alt="One workflow stage in Magentic: an agent drafts, evidence is attached, a person reviews, an independent reviewer signs a content hash, the stage locks" width="100%">
+</p>
 
-Virginia Tech x Accenture Federal Services Build Challenge. Final projects and
-pitches on November 20, 2026. Repository: nsirivolu27/Magentic.AI, branch
-`codex/published-main-preview`.
+# Magentic
 
-This document is the reading guide for reviewers: what the product is, what
-works today, the engineering decisions behind it, how it is built and
-verified, and what is left before the pitch. Every claim points at a file, a
-test or a ticket, so it can be checked rather than believed.
+**AI drafts. People decide. Every approval is a signature over a content hash.**
 
-## The problem
+A supervised workflow workspace for teams that may use AI only with a chain of custody. Built as a one person project for the Virginia Tech x Accenture Federal Services Build Challenge. Pitch on November 20, 2026.
 
-Delivery teams in federal work are allowed to use AI only where every output
-has a chain of custody: which sources it came from, who produced it, who
-reviewed it, and proof that nothing changed after the review. Most AI tools
-give a chat box and leave that chain to the person. Magentic puts the chain in
-the software.
+<p>
+  <img alt="version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-6457e0?style=flat-square">
+  <img alt="724 tests, 0 failed" src="https://img.shields.io/badge/tests-724%20run%20%C2%B7%200%20failed-2ea44f?style=flat-square">
+  <img alt="typecheck clean" src="https://img.shields.io/badge/typecheck-clean-2ea44f?style=flat-square">
+  <img alt="TypeScript on Node 22" src="https://img.shields.io/badge/TypeScript-Node%2022-3178c6?style=flat-square">
+  <img alt="Windows installer" src="https://img.shields.io/badge/Windows-installer-0078d4?style=flat-square">
+  <img alt="lowest contrast 5.0 to 1" src="https://img.shields.io/badge/contrast-5.0%3A1%20minimum-6457e0?style=flat-square">
+</p>
 
-## What Magentic is
+## The thirty second version
 
-A supervised AI workflow workspace. A workflow is a sequence of stages
-(intake, discovery, design, build, review, release). An agent can draft a
-stage; a person reads the draft next to the evidence it used, edits the
-handoff, and an independent reviewer signs it. Nothing advances, publishes or
-trains on its own. It runs on a laptop with a local model, or against a
-company server with sign in and tenant isolation. It ships as an installable
-Windows application.
+- **Problem.** In federal delivery, an AI output is usable only if you can show where it came from, who reviewed it, and that nothing changed afterwards. Chat tools leave that to the person.
+- **Answer.** Magentic puts the chain of custody in the software. An agent drafts a stage, the evidence sits beside the draft, a person edits, a second person signs, and the server refuses anything that skips a step.
+- **Shape.** One TypeScript process, a browser window, files on disk. Runs on a laptop with a local model or on a company server with tenants. Ships as a Windows installer.
 
-## What works today
+## By the numbers
 
-| Area | What a person can do | Where to look |
+| Source files | Test files | Lines | Tests | Failures | Jira epics | Jira stories | Lowest contrast |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 116 | 103 | 27,800 | 724 | 0 | 7 | 40 | 5.0:1 |
+
+Counts are from the workbench on branch `codex/published-main-preview`; six tests are skipped because they need a live model.
+
+## What a person can do today
+
+| Area | Outcome | Proof |
 |---|---|---|
-| Workflows | Start a run; see per run the current stage, who is responsible, the output state and the next action | `workbench/workflow-view.ts`, `output-review.ts` |
-| Output review | Read the evidence (sources read, tool calls, checks), the agent's original output, edit the handoff, see the approval state, in one grid on the Workflows page and the work item page | `workbench/output-review.ts`, `tests/output-review.test.ts` |
-| Approval gates | Independent reviewer signatures over a content hash; owner and output author can never approve their own stage; a changed output invalidates the signatures | `workbench/pipeline.ts`, `tests/workspace-focus.test.ts` |
-| Agent Studio | Create an agent from an honest template, grant it read only repository tools with call limits, save test cases bound to the agent's configuration hash, run them, record execution, automated checks and human review as three separate facts, assign to a stage only after a passing test | `workbench/agent-studio-view.ts`, `agent-tests.ts`, `tests/agent-assignment-gate.test.ts` |
-| Model Studio | Train, evaluate, approve and assign an assistant through six stages grouped as development, live tests and release | `workbench/guided-stages.ts`, `studio-view.ts` |
-| Zenfluence | Read a Jira ticket or Confluence page from the company project and attach a reviewed, hashed snapshot to a run; read only, never writes to Atlassian | `workbench/zenfluence.ts`, `docs/zenfluence.md` |
-| Chat and connections | Local Ollama or provider keys; the first run explains what to set up instead of failing | `workbench/model-setup.ts`, `chat-connections-view.ts` |
-| Windows application | Bundled Node runtime, Edge app window, installer with a SHA256 manifest, Apps and features entry, uninstaller that keeps data, release notes, update feed check | `workbench/desktop/` |
-| Standalone MCP | The same workflow operations and read only tools for any MCP client, scoped to the workspace | `workbench/pipeline-mcp.ts`, `mcp-portal.ts` |
+| Workflows | Start a run and see, per run, the stage, the owner, the output state and the one next action | [`workflow-view.ts`](workbench/workflow-view.ts) |
+| Output review | Evidence, original output, edited handoff and approval state in one grid | [`output-review.ts`](workbench/output-review.ts), [test](tests/output-review.test.ts) |
+| Approval gates | Independent signatures over a content hash; owner and author can never approve their own stage | [`pipeline.ts`](workbench/pipeline.ts), [test](tests/workspace-focus.test.ts) |
+| Agent Studio | Build an agent, grant read only tools with limits, save tests bound to its version, assign to a stage only after a pass | [`agent-tests.ts`](workbench/agent-tests.ts), [gate test](tests/agent-assignment-gate.test.ts) |
+| Model Studio | Train, evaluate, approve and assign an assistant through six guided stages | [`guided-stages.ts`](workbench/guided-stages.ts) |
+| Zenfluence | Attach a reviewed, hashed snapshot of a Jira ticket or Confluence page; read only | [`zenfluence.ts`](workbench/zenfluence.ts), [guide](docs/zenfluence.md) |
+| Windows app | Installer with SHA256 manifest, Apps and features entry, uninstaller that keeps data, update feed check | [`workbench/desktop`](workbench/desktop) |
+| MCP server | The same operations for any MCP client, scoped to one workspace | [`pipeline-mcp.ts`](workbench/pipeline-mcp.ts) |
 
-Size: 116 source files in the workbench, 103 test files, about 27,800 lines
-across the two. Verification at the time of writing: typecheck clean, 724
-tests, 718 passed, 0 failed, 6 skipped (the skipped ones need a live model),
-build and workbench build clean.
+## Rules the server enforces
 
-## What never weakens
+Shown in the interface and refused by the server when a client skips the interface.
 
-Enforced on the server, not only shown in the interface:
+1. Every API call is checked for current membership of the workspace it names.
+2. An agent that must read a source and does not is failed; the evidence block lists each file as read, empty or missing.
+3. Approvals sign a content hash. Change the content and the signatures stop counting.
+4. An agent version with no passing test cannot be assigned to a stage (HTTP 409).
+5. Credentials are setting names in configuration, never values. Nothing echoes a key to a page or a log.
+6. Outbound reads are https only, size capped, time capped, redirects refused, and checked against what was asked for.
 
-- Authentication and tenant isolation on the company server; every API call is
-  checked for current membership of the workspace it names.
-- Source checks: an agent that must read a source and does not is failed, and
-  the evidence block shows exactly which files were read, empty or missing.
-- Release signatures: approvals sign a content hash; if the content changes the
-  signatures stop counting.
-- Approval gates: a single local owner cannot approve their own gated stage.
-- Credentials are setting names in configuration files, never values; nothing
-  echoes a key back to a page or a log.
-- Every limit the interface shows (tool allowlist, call budget, timeout,
-  passing test before assignment) is refused by the server when a client
-  skips the interface.
+## How it is built
 
-## Engineering decisions and trade offs
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Browser window, loopback server with HTTP API, zod schemas, pipeline engine, bot runtime and MCP server, workspace folder on disk, and outbound connections to models, Atlassian, the company server and the Windows package" width="100%">
+</p>
 
-**One process, one loopback server, files on disk.** No database, no queue,
-no container. A workspace is a directory of JSON documents with a storage
-version and atomic writes. This keeps the Windows package to a bundled Node
-runtime and a browser window, and makes "where is my data" a one line answer.
-The cost is no concurrent multi user editing on the local app; the company
-server handles that with per tenant storage.
+Four decisions worth asking about:
 
-**Schemas at every boundary.** Every request body, stored document and
-configuration file is parsed with zod before use. Unknown fields are refused,
-not ignored. This is why a configuration written by a newer version is
-refused with a message instead of being silently rewritten.
-
-**String templated views with one React component.** Pages are functions
-that return HTML strings, which makes them trivial to test (render, assert on
-the markup) and keeps the bundle small. The work queue, the one interactive
-list with filters and search, is a React component. This was a deliberate
-choice against a full framework for a product whose value is in the engine,
-not the view layer.
-
-**Honest states over optimistic ones.** Every page shows seven states
-explicitly: loading, empty, error, not connected, not assigned, blocked,
-awaiting approval, each with the one step that resolves it. A stopped local
-model is a setup notice with the install link and the pull command, not a
-red error.
-
-**Design tokens, measured.** One token sheet (`workbench/agency.css`) carries
-every colour, radius, control height and easing. Contrast is measured on the
-rendered pages, not read from the sheet: the lowest ratio in the product is
-5.0:1. Layout is checked at 360 px on every route and keyboard focus is
-visible on every control.
-
-**Agents are tested like code.** A saved test case is bound to the hash of
-the agent configuration it was written against. Editing the agent marks the
-results out of date; the agent cannot be assigned to a stage until a test
-passes on the current version. Execution success, automated checks and human
-review are recorded separately, because a draft can run cleanly and still be
-wrong.
+- **Files, not a database.** A workspace is a folder of JSON with a storage version and atomic writes. The Windows package is a bundled runtime and a browser window, nothing to install beside it.
+- **Schemas at every boundary.** Request bodies, stored documents and configuration files are parsed with zod. A file written by a newer version is refused with a message, never rewritten in silence.
+- **Views as functions.** Pages return HTML strings, so a view test renders a page for owner, reviewer and viewer and asserts on the words each one may see. The one interactive list is a React component.
+- **Honest states.** Every page shows loading, empty, error, not connected, not assigned, blocked and awaiting approval, each with the one step that resolves it. A stopped local model is a setup notice, not a red error.
 
 ## How the work is run
 
-Every change follows the same path, and the path is the point:
+Every change takes the same path: a Jira story with acceptance criteria, a written plan, code in an isolated copy with new tests only, four verification scripts with counts recorded, a diff on the story before anything is applied, hash checked writes, then a second verification on Windows and a look at the result at 1440 and 360 px.
 
-1. Brief: a Jira story with goal, routes touched, constraints, acceptance.
-2. Plan: files, tests to add, risks, as a comment on the story.
-3. Build in an isolated copy of the tree; new tests only, existing tests are
-   never edited to pass.
-4. Verify: `typecheck`, `test`, `build`, `build:workbench`; counts recorded.
-5. Diff review: the patch is attached to the story before anything is applied.
-6. Apply: every target file's hash is checked before the write and after it.
-7. Verify on Windows with the same four scripts; counts recorded separately.
-8. Look at it live at 1440 and 360 px; screenshots on the story.
+Seven delivery epics and forty stories carry that trail. Decisions that need a product owner (code signing, Foundry tenant, design system path) are their own tickets with the options written out, so nothing blocks in silence.
 
-The Jira project (KAN) holds the plan: seven delivery epics (Windows
-application, design system, workflows and output review, Agent Studio, Model
-Studio, Zenfluence, parked decisions) with forty stories, each with
-acceptance criteria and a comment trail of what was built, what was measured
-and what is still open. Decisions that need a product owner are their own
-tickets, with the options written out, so nothing blocks silently.
+## Verify it in ten minutes
 
-## Testing approach
-
-- Engine tests drive the real pipeline, approvals and bot runtime in memory;
-  agent tests run the real worker against a temporary Git checkout with a
-  scripted model, so a source read is a real file read.
-- View tests render pages for owner, reviewer and read only viewer and assert
-  on the words and controls each one may see.
-- HTTP tests start the server on a random port and check membership, role
-  and refusal paths with real requests.
-- Package tests guard the Windows scripts (shared names, no administrator
-  rights, release notes for the shipped version) because the scripts
-  themselves cannot run on the test machine.
-- Browser checks (route walk at 360 px, keyboard walk, contrast measurement,
-  reduced motion) run against the seeded demo and are kept as scripts.
-
-## Security posture
-
-- Loopback only by default; the local app never opens a public listener.
-- Session credential claimed by the first window; MCP credentials are per
-  workspace and revocable.
-- Outbound reads (Atlassian, update feed) are https only, size capped, time
-  capped, redirects refused, and the response is checked against what was
-  asked for (project key, space id, version).
-- Imported text is scanned for credential patterns before it is stored.
-- The package installer verifies every file against a SHA256 manifest and
-  installs under the current user without administrator rights.
-
-## Run it
-
-Windows PowerShell, in the repository folder:
+Windows PowerShell, in the repository folder, Node 22:
 
 ```
 corepack enable
@@ -165,42 +88,34 @@ corepack pnpm build:workbench
 node .\workbench\dev.mjs --port=4182
 ```
 
-Then open http://127.0.0.1:4182. Without Ollama the chat page explains the
-setup; with it, a workflow draft runs end to end on a local model. The Windows
-package is `corepack pnpm build:desktop` (Node 22.23.2), then `Install.cmd`
-in the output folder.
+Then open `http://127.0.0.1:4182` and try three things:
 
-## Known limits
+1. Open a run on Workflows. The evidence block names every source as read, empty or missing, and the approval block shows who may sign and who may not.
+2. In Agent Studio, change a tested agent and try to assign it. The control is disabled and the API answers 409.
+3. Stop Ollama and open Chat. You get the setup steps, not an error.
 
-- The package is not code signed yet; SmartScreen warns on first run.
-- Updates are detected, not installed; uninstall and reinstall keeps data.
-- Confluence reads need a Confluence space on the Atlassian site; Jira reads
-  work without one.
-- Email and Jira delivery from workflows remain previews.
-- Reviewer enrollment on the local app is not implemented; the company server
-  provides the independent reviewers.
+The installer is `corepack pnpm build:desktop`, then `Install.cmd` in the output folder.
 
-## Before November 20
+## The road to November 20
 
-1. Windows verification of the current tree and the first installable package.
-2. Live Zenfluence read against the company Jira project.
-3. Update install and rollback scripts; code signing decision.
-4. Pitch demo path: install, connect Ollama, run one workflow with an agent
-   draft, review it, approve it with a second account, attach a Jira ticket
-   as evidence.
+<p align="center">
+  <img src="docs/images/road-to-november.svg" alt="Timeline from kickoff through output review, Agent Studio, design system, Windows app and Zenfluence, with Windows verification and the November 20 pitch still ahead" width="100%">
+</p>
 
-## What this project demonstrates
+| Remaining | Status |
+|---|---|
+| Windows verification of the current tree and the first installable package | queued |
+| Live Zenfluence read against the company Jira project | credentials pending |
+| Update install and rollback scripts; code signing decision | in progress |
+| Pitch path: install, connect a model, draft, review, approve with a second account, attach a Jira ticket | scripted |
 
-- Designing a system around a non negotiable (auditable human approval) and
-  keeping it intact through forty tickets of change.
-- Full stack ownership: engine, HTTP API, MCP server, interface, Windows
-  packaging, release pipeline, documentation.
-- Verification discipline: 724 tests, measured accessibility, hash checked
-  deployment of every change, counts recorded per environment.
-- Product judgement: honest states, honest templates, no publish button where
-  one would be a lie, decisions surfaced as tickets instead of assumed.
-- Working the way a delivery team works: Jira epics and stories with
-  acceptance criteria, a written plan before code, a diff before an apply.
+## What this shows
 
-Built by a Virginia Tech CMDA student as a one person team during the Build
-Challenge. Questions and a walkthrough on request.
+- Full stack ownership: engine, HTTP API, MCP server, interface, Windows packaging, release workflow, documentation.
+- A non negotiable (auditable human approval) kept intact through forty tickets of change.
+- Verification as a habit: 724 tests, measured contrast and keyboard order, hash checked writes, counts recorded per environment.
+- Delivery team practice as a team of one: epics, stories with acceptance criteria, plan before code, diff before apply.
+
+## About
+
+Built by a Virginia Tech CMDA student, class of 2027. Walkthrough and source tour on request through the repository contact.
