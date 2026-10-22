@@ -25,6 +25,12 @@ Approvals bind to the reviewed content. Editing that content invalidates its app
 | Identity | Clerk Organizations — company membership and workspace roles |
 | Storage & tooling | Atomic JSON files, pnpm, esbuild, Node tests, Playwright |
 
+## Security
+
+- **Implemented:** company roles, workspace access checks, agent tool allowlists, request validation, and content-bound approval gates.
+- **AWS deployment design:** IAM/STS, private VPC networking, WAF, KMS/Secrets Manager, CloudTrail/CloudWatch, threat detection, vulnerability scanning, and tested recovery. These cloud controls are proposed, not yet deployed.
+- **Evidence and rollout checks:** [Security controls and AWS architecture](docs/aws-security.md).
+
 ## Example company workflow
 
 **Documentation request → SOP reference → agent draft → evidence review → independent approval → handoff**

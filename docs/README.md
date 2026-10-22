@@ -35,6 +35,7 @@ External services need real credentials and permissions. Synthetic examples and 
 
 ## Implementation and design
 
+- [Security controls and AWS design](aws-security.md): implemented application controls, proposed cloud protections and verification evidence.
 - [Architecture and verification](../workbench/ARCHITECTURE.md): engine and MCP design; early milestone descriptions are historical where newer company or packaging code supersedes them.
 - [Bot timeline](../workbench/BOT-TIMELINE.md): repository execution and evidence.
 - [Design tokens](design-tokens.md) and [UI components](ui-components.md): interface conventions.
