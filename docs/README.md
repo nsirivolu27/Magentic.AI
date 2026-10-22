@@ -26,9 +26,9 @@ The current onboarding page is `/#/onboarding`. It shows the selected workspace'
 | [Company Slack](slack.md) | Reviewed audit summaries, team updates and delivery receipts |
 | [Automation units](automation-units.md) | Reviewed AWS Lambda invocation and delivery receipts |
 | [Relay adapter](relay-adapter.md) | The original standalone conversation-relay MCP interface |
-| [Relay catalog](https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/CATALOG.md) | Hosted definitions and relay MCP endpoints |
-| [Local relay setup](https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/LOCAL.md) | Running the separate relay and its adapter; not the workspace quick start |
-| [LangChain](https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/LANGCHAIN.md) | Optional model/adapter integration |
+| [Relay catalog](catalog.md) | Hosted definitions and relay MCP endpoints |
+| [Local relay setup](local.md) | Running the separate relay and its adapter; not the workspace quick start |
+| [LangChain](langchain.md) | Optional model/adapter integration |
 | [Adapter deployment](../deploy/README.md) | Relay-adapter containers and hosting boundaries |
 
 External services need real credentials and permissions. Synthetic examples and fixture tests do not prove a live connection.
@@ -38,7 +38,7 @@ External services need real credentials and permissions. Synthetic examples and 
 - [Architecture and verification](../workbench/ARCHITECTURE.md): engine and MCP design; early milestone descriptions are historical where newer company or packaging code supersedes them.
 - [Bot timeline](../workbench/BOT-TIMELINE.md): repository execution and evidence.
 - [Design tokens](design-tokens.md) and [UI components](ui-components.md): interface conventions.
-- [Workflow map](https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/WORKFLOW-MAP.md): design direction, including work originally marked as planned.
+- [Workflow map](workflow-map.md): design direction, including work originally marked as planned.
 - [Internal documentation plan](internal-documentation-plan.md): use-case planning.
 - [Development handoff](assistant-handoff.md): a dated baseline, not the status of the current working tree.
 - [Challenge presentation](site/index.html): presentation material, separate from the engineering README.

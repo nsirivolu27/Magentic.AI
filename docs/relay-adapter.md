@@ -101,7 +101,7 @@ MAGENTIC_LLM_PROVIDER=ollama
 MAGENTIC_LLM_BASE_URL=http://127.0.0.1:11434
 ```
 
-`LANGCHAIN.md` explains why this lives in the adapter rather than in the
+[LangChain](langchain.md) explains why this lives in the adapter rather than in the
 relay, and what each per-query cost ceiling in `.env.example` bounds.
 
 ## Claude Desktop (stdio)
@@ -151,7 +151,7 @@ It also preserves the `magentic://connectors`, `magentic://stats`, `magentic://c
 ## Run it yourself
 
 Two terminals and no deployment: the relay on 3100, the adapter built from
-this checkout, and either your desktop client or a browser. `LOCAL.md` has
+this checkout, and either your desktop client or a browser. [Local setup](local.md) has
 the whole path, including the Claude Desktop entries and how to add an agent
 of your own. `corepack pnpm agents` prints what this checkout hosts without
 starting anything.
@@ -168,7 +168,7 @@ adapter: `conversation-relay` for passing conversations between people,
 An agent is configuration and nothing else: no relay, no key, no code. It
 narrows what this deployment offers and can never widen it, so
 `MAGENTIC_SCOPES=read` makes every agent read-only whatever its own scopes
-say. `CATALOG.md` has the record format and the rules.
+say. [Relay catalog](catalog.md) has the record format and the rules.
 
 ## Hosting it
 
