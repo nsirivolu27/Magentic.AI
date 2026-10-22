@@ -39,7 +39,7 @@ export function workflowPage(snapshot: WorkbenchSnapshot, stageParam: string | u
   const confirmTemplate = pendingTemplate ? callout("warn", `Switch to the ${escape(pendingTemplate.title)} template?`, ` ${escape(pendingTemplate.summary)} It replaces the current ${plural(config.stages.length, "stage")} and their staffing; open runs keep what they started with. <span class="actions inline-actions"><button class="secondary small" data-workflow-template="${pendingTemplate.id}">Switch</button><button class="quiet small" data-cancel-confirm>Cancel</button></span>`) : "";
 
   const chain = graph(stageNodes(snapshot), stage.id, { label: "Workflow stages" });
-  const body = `${confirmTemplate}${chain}${hint("Each box is a stage. A solid box is staffed by an approved assistant; a dashed box is done by hand. Click a stage to change who does it.")}
+  const body = `${confirmTemplate}${chain}${hint("Each box shows a stage's assignment and review gate. Inspect the stage before running it.")}
     ${viewer.admin && templates ? more("Choose a workflow template", `<div class="actions">${templates}</div>`) : ""}
     ${stagePanel(snapshot, stage, viewer.admin, ui)}
     ${panel("Runs", runsBody(snapshot, runs, ui), { count: runs.length ? `${plural(open.length, "open run")} · ${runs.length} total` : "" })}`;
@@ -53,7 +53,8 @@ function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean, u
   const usable = units.filter((item) => item.usable);
   const index = snapshot.pipelines!.config.stages.indexOf(stage) + 1;
   const bot = stage.bot && stage.bot.kind !== "manual" ? `${escape(stage.bot.kind)} bot · ${stage.bot.maxSteps} model calls · ${plural(stage.bot.allowedTools?.length ?? 0, "tool")}` : "No bot; the stage records what a person did";
-  const who = !stage.assistantId ? `${escape(stage.agent)} <span class="text-3">· by hand</span>`
+  const fallback = stage.bot && stage.bot.kind !== "manual" ? "Repository agent" : "By hand";
+  const who = !stage.assistantId ? `${escape(stage.agent)} <span class="text-3">· ${fallback}</span>`
     : !unit ? status("bad", "Assistant missing")
     : `<a href="#/assistants/${unit.profile.id}">${escape(unit.profile.name)}</a> ${unit.usable ? status("ok", "Can work") : status("bad", "Cannot work")}${unit.release ? `<br><small class="text-3">release v${unit.release.version} · ${escape(unit.project?.name ?? "")}</small>` : ""}`;
   const state = unit && !unit.usable ? callout("bad", "This stage cannot run.", ` ${escape(unit.reason)} Assign another assistant or do the stage by hand.`) : "";
@@ -72,7 +73,7 @@ function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean, u
   ];
   const form = admin ? `<form id="workflow-stage" data-stage="${escape(stage.id)}" data-draft="${escape(key)}" class="mt14">
       <label class="field"><span>Who does this stage</span><select name="assistantId">
-        <option value="" ${assistantId ? "" : "selected"}>${escape(stage.agent)} · by hand</option>
+        <option value="" ${assistantId ? "" : "selected"}>${escape(stage.agent)} · ${fallback}</option>
         ${usable.map((item) => `<option value="${item.profile.id}" ${assistantId === item.profile.id ? "selected" : ""}>${escape(item.profile.name)} · v${item.release?.version ?? "?"} ${escape(item.project?.name ?? "")}</option>`).join("")}
         ${unit && !unit.usable && assistantId === unit.profile.id ? `<option value="${unit.profile.id}" selected disabled>${escape(unit.profile.name)} · cannot work</option>` : ""}
       </select><small>Only active assistants on an approved release are offered. A run that is already open keeps the staffing it started with.</small></label>
@@ -83,7 +84,7 @@ function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean, u
       <label class="field"><span><input type="checkbox" name="approval" ${approval ? "checked" : ""}> Require human review before advancing</span></label>
       <div class="actions"><button type="submit" class="secondary">Save</button></div></form>`
     : `<p class="text-3 mt10 fine">An admin assigns assistants to stages.</p>`;
-  return `<section class="panel section"><div class="panel-head"><h2>${index}. ${escape(stage.name)}</h2><span class="count">${stage.assistantId ? "Staffed by an assistant" : "Done by hand"}</span></div><div class="panel-body">${state}${detail(rows, true)}${form}</div></section>`;
+  return `<section class="panel section"><div class="panel-head"><h2>${index}. ${escape(stage.name)}</h2><span class="count">${stage.assistantId ? "Staffed by an assistant" : fallback === "By hand" ? "Done by hand" : fallback}</span></div><div class="panel-body">${state}${detail(rows, true)}${form}</div></section>`;
 }
 
 function runsBody(snapshot: WorkbenchSnapshot, runs: PipelineRun[], ui?: StudioUi): string {

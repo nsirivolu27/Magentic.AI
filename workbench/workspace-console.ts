@@ -4,11 +4,16 @@ import { escape, status, table, cellLink } from "./ui.js";
 import { slackControls } from "./slack-view.js";
 import type { SlackPreview } from "./slack.js";
 
+export const WORKSPACE_TABS = ["work", "agents", "tools", "workflows", "readiness", "access"] as const;
+export function workspaceTab(query: URLSearchParams): typeof WORKSPACE_TABS[number] {
+  return WORKSPACE_TABS.find(tab => tab === query.get("tab")) ?? "work";
+}
+
 export function workspaceConsole(snapshot: WorkbenchSnapshot, company: boolean, query: URLSearchParams, preview?: SlackPreview): string {
   const admin = snapshot.roles.includes("admin");
-  const agents = query.get("tab") === "agents";
+  const tab = workspaceTab(query);
   const controls = query.get("controls");
-  const target = agents ? "#/workspace?tab=agents&controls=" : "#/workspace?controls=";
+  const target = tab === "work" ? "#/workspace?controls=" : `#/workspace?tab=${tab}&controls=`;
   const report = snapshot.deployment;
   const blocks = report ? report.blockers.length + report.stages.reduce((count, stage) => count + stage.blockers.length, 0) : undefined;
   const checks = controls === "deployment" ? `<section class="console-drawer" aria-labelledby="console-checks"><div class="console-row"><h2 id="console-checks">Workflow checks</h2><button class="secondary" data-deployment-refresh>Refresh</button><button class="secondary" data-deployment-export>Export report</button></div>
@@ -16,13 +21,13 @@ export function workspaceConsole(snapshot: WorkbenchSnapshot, company: boolean, 
     <ul class="console-checks">${report.blockers.map(item => `<li>${escape(item)}</li>`).join("")}${report.stages.map(stage => `<li><a href="#/workflows/${encodeURIComponent(stage.id)}">${escape(stage.name)}</a><span>${stage.blockers.length ? escape(stage.blockers.join(" ")) : stage.execution === "manual" ? "Human step" : "Configuration checked"}</span></li>`).join("")}</ul>
     <details><summary>Before rollout</summary><ul>${report.remainingChecks.map(item => `<li>${escape(item)}</li>`).join("")}</ul></details>` : '<p>Checks unavailable. Refresh to retry.</p>'}</section>` : "";
   return `<section class="workspace-console" aria-label="Workspace console"><div class="console-row">
-    <nav class="console-tabs" aria-label="Workspace views"><a href="#/workspace" ${agents ? "" : 'aria-current="page"'}>Work</a><a href="#/workspace?tab=agents" ${agents ? 'aria-current="page"' : ""}>Agents</a></nav>
+    <nav class="console-tabs" aria-label="Workspace views">${WORKSPACE_TABS.map(item => `<a href="#/workspace${item === "work" ? "" : "?tab=" + item}" ${tab === item ? 'aria-current="page"' : ""}>${item[0]!.toUpperCase() + item.slice(1)}</a>`).join("")}</nav>
     <span class="console-role">${escape(snapshot.roles.map(role => role === "approver" ? "Reviewer" : role === "admin" ? "Administrator" : "Author").join(" · "))}</span>
     <details class="console-menu"><summary>Controls</summary><nav aria-label="Workspace controls">
       <a href="${target}deployment">Workflow checks${blocks === undefined ? "" : ` · ${blocks} blocked`}</a>
       <a href="#/workflows">${admin ? "Stage assignments" : "View workflow"}</a><a href="#/connections">Model connections</a><a href="#/mcp">MCP access</a>
       <a href="${target}slack">Slack · audit &amp; messages</a><a href="${company ? "/companies" : "#/onboarding"}">${company ? "Company &amp; team" : "Access &amp; setup"}</a>
-    </nav></details></div>${controls ? `<a class="console-close" href="#/workspace${agents ? "?tab=agents" : ""}">Close controls</a>` : ""}${checks}
+    </nav></details></div>${controls ? `<a class="console-close" href="#/workspace${tab === "work" ? "" : "?tab=" + tab}">Close controls</a>` : ""}${checks}
     ${controls === "slack" ? slackControls(snapshot.slack, preview) : ""}</section>`;
 }
 

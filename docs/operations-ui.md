@@ -1,8 +1,25 @@
 # Internal-operator interface
 
-The workbench opens on a prioritized work queue instead of a collection of
-dashboard panels. Its navigation separates operations, assurance, and
-configuration. This is an incremental interface migration, not a new backend.
+The Workspace view opens on a prioritized work queue. The top-bar Services
+menu searches operations, assurance and configuration without a permanent
+sidebar. This is an incremental interface migration, not a new backend.
+
+## Team console
+
+- Work: personal or team queues, with reviews and blockers first.
+- Agents: saved configurations and assistants, with their assigned stages.
+- Tools: searchable services for building, connecting and coordinating work.
+- Workflows: stage assignments, models, execution limits and review gates;
+  open the canvas to assemble stages or the stage editor to adjust settings.
+- Readiness: refresh or export configuration checks before a supervised run.
+  Passing these checks does not deploy infrastructure or prove live execution.
+- Access: current identity, roles and company membership management. Local
+  mode remains a local owner; it does not simulate a company directory.
+
+The Services menu filters existing navigation links, preserves permission-hidden
+entries, supports Escape and keyboard focus containment, and closes on selection.
+Console tabs use shareable addresses under `#/workspace?tab=...`.
+Existing runs retain their saved configuration when the workflow is edited.
 
 ## Implementation
 
@@ -17,7 +34,7 @@ configuration. This is an incremental interface migration, not a new backend.
 - `agency.css` is the final visual layer over legacy feature sheets. It supplies
   a light work surface, Accenture-purple accents, near-black violet navigation,
   explicit state labels, visible focus,
-  reduced-motion/forced-color support, and a keyboard-contained mobile drawer.
+  reduced-motion/forced-color support, and a keyboard-contained Services menu.
 - Workflow-run URLs use `#/desk/<run-id>`. Legacy `#/tasks/<run-id>` links resolve
   to the same run; missing records do not silently open another record.
 - Admin stage settings preserve unsaved instructions, context, staffing, and

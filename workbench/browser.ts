@@ -8,7 +8,8 @@ import { chatConnectionsPage, type ConnectionFeedback } from "./chat-connections
 import type { ChatAccessSummary } from "./chat-access.js";
 import { accountPage, type AccountSummary } from "./account-view.js";
 import { workspaceSetupPage } from "./workspace-setup.js";
-import { workspaceConsole, workspaceAgents } from "./workspace-console.js";
+import { workspaceConsole, workspaceTab } from "./workspace-console.js";
+import { workspaceServiceView } from "./workspace-services.js";
 import type { SlackPreview, SlackReceipt } from "./slack.js";
 import type { DeploymentReport } from "./deployment-report.js";
 import type { OntologyCatalog } from "./ontology.js";
@@ -49,7 +50,7 @@ import { emptyStudioUi, studioListPage, studioProjectPage, type Page, type Studi
 import { documentsPage } from "./documents-view.js";
 import { activityPage, approvalDetailPage, approvalsQueuePage, evaluationDetailPage, evaluationsListPage } from "./review-views.js";
 import { assistantDetailPage, assistantsListPage, WORKSPACE_ASSISTANT } from "./assistants-view.js";
-import { homeView, navCounts } from "./home-view.js";
+import { navCounts } from "./home-view.js";
 import { mountOperationsQueue } from "./operations-queue.js";
 import type { Root } from "react-dom/client";
 import { workflowPage } from "./workflow-view.js";
@@ -104,16 +105,17 @@ node("#nav-toggle").addEventListener("click", () => {
   node("#nav-toggle").setAttribute("aria-expanded", "true");
   node("#nav-backdrop").hidden = false;
   node("main").inert = true;
-  node("#nav-close").focus();
+  filterServices();
+  node<HTMLInputElement>("#service-search").focus();
 });
 for (const id of ["#nav-close", "#nav-backdrop"]) node(id).addEventListener("click", () => {
   closeNavigation(); node("#nav-toggle").focus();
 });
 node("#workspace-navigation").addEventListener("click", event => {
-  if (mobileNavigation.matches && (event.target as Element).closest("a.nav, a.brand")) closeNavigation();
+  if ((event.target as Element).closest("a.nav, a.brand")) closeNavigation();
 });
 node("#workspace-navigation").addEventListener("keydown", event => {
-  if (!mobileNavigation.matches || !document.body.classList.contains("navigation-open")) return;
+  if (!document.body.classList.contains("navigation-open")) return;
   if (event.key === "Escape") { closeNavigation(); node("#nav-toggle").focus(); return; }
   if (event.key !== "Tab") return;
   const controls = [...node("#workspace-navigation").querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')]
@@ -123,6 +125,29 @@ node("#workspace-navigation").addEventListener("keydown", event => {
   else if (!event.shiftKey && document.activeElement === last && first) { event.preventDefault(); first.focus(); }
 });
 mobileNavigation.addEventListener("change", () => closeNavigation());
+function filterServices(): void {
+  const query = node<HTMLInputElement>("#service-search").value.trim().toLowerCase();
+  let matches = 0;
+  document.querySelectorAll<HTMLElement>(".service-group").forEach(group => {
+    let visible = 0;
+    group.querySelectorAll<HTMLAnchorElement>("a.nav").forEach(link => {
+      // Permission-hidden links stay hidden when the search is cleared.
+      const match = !link.hidden && (link.textContent ?? "").toLowerCase().includes(query);
+      link.dataset.searchHidden = String(!match);
+      if (match) visible++;
+    });
+    group.dataset.searchHidden = String(visible === 0);
+    matches += visible;
+  });
+  node("#service-results").textContent = query ? matches ? matches + " services found" : "No services found. Try agents, models or workflow." : "";
+  node("#service-search-clear").hidden = !query;
+}
+node("#service-search").addEventListener("input", filterServices);
+node("#service-search-clear").addEventListener("click", () => {
+  node<HTMLInputElement>("#service-search").value = "";
+  filterServices();
+  node("#service-search").focus();
+});
 /**
  * Routing.
  *
@@ -138,7 +163,7 @@ function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?");
   const [view = "base-chat", id, sub] = path!.split("/").filter(Boolean);
   const query = new URLSearchParams(search);
-  if (view === "deployments") { query.set("controls", "deployment"); return { view: "workspace", query }; }
+  if (view === "deployments") { query.set("tab", "readiness"); return { view: "workspace", query }; }
   if (view === "team") return { view: "agent-studio", ...(id ? { id } : {}), query };
   if (view === "tasks") return { view: "desk", ...(id ? { id } : {}), query };
   if (!PRIMARY_VIEWS.includes(view) && !LEGACY_VIEWS.includes(view)) return { view: "workspace", query };
@@ -171,6 +196,13 @@ window.addEventListener("hashchange", () => {
   // A notice belongs to the action that produced it, not to the next page.
   notify("");
   if (snapshot) { render(); node("#title").focus(); if (view === "agent-studio" || view === "canvas") void loadAgentModels(); if (view === "agent-studio") void loadAgentTests(); }
+});
+document.addEventListener("submit", event => {
+  const form = event.target as HTMLFormElement;
+  if (form.id !== "workspace-tool-search") return;
+  event.preventDefault();
+  const query = new URLSearchParams({ tab: "tools", q: String(new FormData(form).get("q") ?? "").trim() });
+  navigate("#/workspace?" + query.toString());
 });
 let sessionFilter: SessionFilter = "all";
 let sessionQuery = "";
@@ -287,7 +319,10 @@ function render(): void {
   node("#nav-approvals").textContent = String(counts.approvals); node("#nav-approvals").hidden = counts.approvals === 0;
   node("#nav-attention").textContent = String(counts.attention); node("#nav-attention").hidden = counts.attention === 0;
   document.querySelectorAll<HTMLAnchorElement>("a.nav[data-route]").forEach((link) => {
-    const active = link.dataset.route === (view === "chat" ? "base-chat" : view === "canvas" ? "workflows" : view);
+    const section = view === "workflows" || view === "onboarding" ? "workspace" : view === "chat" ? "base-chat" : view;
+    const tab = view === "workflows" ? "workflows" : view === "onboarding" ? "access" : workspaceTab(route.query);
+    const active = link.dataset.route === section
+      && (section !== "workspace" || (link.dataset.consoleTab ?? "work") === tab);
     link.classList.toggle("active", active);
     if (active) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
   });
@@ -338,9 +373,9 @@ function currentPage(): Page {
       const scope = snapshot.workspaceId + ":" + snapshot.actor;
       if (slackScope !== scope) { slackPreview = undefined; slackScope = scope; }
       return { title: "Workspace", context: workspaceList?.workspaces.find(item => item.id === snapshot.workspaceId)?.name ?? snapshot.workspaceId,
-        actions: snapshot.canAuthor ? '<button class="primary" data-work-new>+ New work item</button>' : "",
+        actions: snapshot.canAuthor && workspaceTab(route.query) === "work" ? '<button class="primary" data-work-new>+ New work item</button>' : "",
         body: workspaceConsole(snapshot, companyMode, route.query, slackPreview)
-          + (route.query.get("tab") === "agents" ? workspaceAgents(snapshot) : homeView(snapshot)) };
+          + workspaceServiceView(snapshot, companyMode, route.query) };
     }
     case "assistants":
       // The chat below an assistant always speaks as that assistant.
