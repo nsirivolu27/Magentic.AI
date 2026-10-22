@@ -5,6 +5,10 @@ import { canReviewTask } from "./employee-view.js";
 
 export type QueueState = "review" | "blocked" | "active" | "waiting" | "ready";
 export type QueueFilter = "all" | QueueState;
+export type QueueAudience = "team" | "mine";
+export function queueForAudience(items: QueueItem[], actor: string, audience: QueueAudience): QueueItem[] {
+  return audience === "team" ? items : items.filter(item => item.owner === actor || item.state === "review");
+}
 export interface QueueItem {
   id: string; title: string; kind: string; owner: string; state: QueueState;
   phase: string; detail: string; href: string; action: string;

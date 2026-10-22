@@ -7,6 +7,10 @@ import { installWorkforceAgents, workforceTemplates } from "./workforce-marketpl
 import { chatConnectionsPage, type ConnectionFeedback } from "./chat-connections-view.js";
 import type { ChatAccessSummary } from "./chat-access.js";
 import { accountPage, type AccountSummary } from "./account-view.js";
+import { workspaceSetupPage } from "./workspace-setup.js";
+import { workspaceConsole, workspaceAgents } from "./workspace-console.js";
+import type { SlackPreview, SlackReceipt } from "./slack.js";
+import type { DeploymentReport } from "./deployment-report.js";
 import type { OntologyCatalog } from "./ontology.js";
 import { contextMessages } from "./chat-settings.js";
 import type { RegistryRecord } from "../registry/record.js";
@@ -65,6 +69,8 @@ let workspaceList: import("./workspace-directory.js").WorkspaceListing | undefin
 let workspaceRequestId = crypto.randomUUID();
 let refreshVersion = 0;
 let snapshot: Snapshot;
+let slackPreview: SlackPreview | undefined;
+let slackScope = "";
 let chatAccess: ChatAccessSummary | undefined;
 let chatAccessError = "";
 let connectionFeedback: ConnectionFeedback | undefined;
@@ -126,12 +132,13 @@ mobileNavigation.addEventListener("change", () => closeNavigation());
  * the back button, a reload and a pasted link all land in the same place.
  */
 interface Route { view: string; id?: string; sub?: string; query: URLSearchParams }
-const PRIMARY_VIEWS = ["zenfluence", "canvas", "marketplace", "connections", "base-chat", "chat", "account", "agent-studio", "workspace", "assistants", "workflows", "studio", "documents", "evaluations", "approvals", "activity"];
+const PRIMARY_VIEWS = ["deployments", "onboarding", "zenfluence", "canvas", "marketplace", "connections", "base-chat", "chat", "account", "agent-studio", "workspace", "assistants", "workflows", "studio", "documents", "evaluations", "approvals", "activity"];
 const LEGACY_VIEWS = ["desk", "pipelines", "agents", "email", "mcp", "workflow", "chat"];
 function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?");
   const [view = "base-chat", id, sub] = path!.split("/").filter(Boolean);
   const query = new URLSearchParams(search);
+  if (view === "deployments") { query.set("controls", "deployment"); return { view: "workspace", query }; }
   if (view === "team") return { view: "agent-studio", ...(id ? { id } : {}), query };
   if (view === "tasks") return { view: "desk", ...(id ? { id } : {}), query };
   if (!PRIMARY_VIEWS.includes(view) && !LEGACY_VIEWS.includes(view)) return { view: "workspace", query };
@@ -295,7 +302,7 @@ function render(): void {
     node("#view").hidden = false;
     // A refused command is shown where the person is working, above the page it concerns.
     node("#view").innerHTML = (studioUi.error ? `<div class="inline-error" role="alert">${escape(studioUi.error)}</div>` : "") + page.body;
-    if (view === "workspace") operationsRoot = mountOperationsQueue(node("#operations-queue"), snapshot);
+    if (view === "workspace" && node("#operations-queue")) operationsRoot = mountOperationsQueue(node("#operations-queue"), snapshot);
     if (view === "base-chat" || view === "chat" || (view === "assistants" && route.id)) { const transcript = document.querySelector(".chat-transcript"); if (transcript) transcript.scrollTop = transcript.scrollHeight; }
     return;
   }
@@ -306,6 +313,7 @@ function render(): void {
 /** The six primary pages, from the route and the snapshot. */
 function currentPage(): Page {
   switch (view) {
+    case "onboarding": return workspaceSetupPage(snapshot, companyMode, workspaceList?.workspaces.find(item => item.id === snapshot.workspaceId)?.name);
     case "zenfluence": return zenfluence.page();
     case "base-chat":
     case "chat": {
@@ -326,7 +334,14 @@ function currentPage(): Page {
     case "marketplace": return workforceMarketplacePage(snapshot, workspaceList?.workspaces.find(item => item.id === selectedWorkspace)?.name ?? snapshot.workspaceId, route.id, route.query.get("group") ?? undefined, route.query.get("q") ?? "", route.query.get("library") === "1");
     case "agent-studio": return agentStudioPage(snapshot, route.id, route.query.get("preset"), agentModelScope === `${selectedWorkspace}:${snapshot.actor}` ? agentModels : [], studioUi,
       (["test", "workflow"].includes(route.sub ?? "") ? route.sub : "setup") as StudioSection, agentTestsScope === `${selectedWorkspace}:${snapshot.actor}` ? agentTests : undefined);
-    case "workspace": return { title: "Work queue", context: "Your next actions.", actions: snapshot.canAuthor ? '<button class="primary" data-work-new>+ New work item</button>' : "", body: hint("Open a work item to inspect its record, evidence, and next step. No action is executed from this queue.") + homeView(snapshot) };
+    case "workspace": {
+      const scope = snapshot.workspaceId + ":" + snapshot.actor;
+      if (slackScope !== scope) { slackPreview = undefined; slackScope = scope; }
+      return { title: "Workspace", context: workspaceList?.workspaces.find(item => item.id === snapshot.workspaceId)?.name ?? snapshot.workspaceId,
+        actions: snapshot.canAuthor ? '<button class="primary" data-work-new>+ New work item</button>' : "",
+        body: workspaceConsole(snapshot, companyMode, route.query, slackPreview)
+          + (route.query.get("tab") === "agents" ? workspaceAgents(snapshot) : homeView(snapshot)) };
+    }
     case "assistants":
       // The chat below an assistant always speaks as that assistant.
       if (route.id) prepareChat("workspace", route.id === WORKSPACE_ASSISTANT ? "" : route.id);
@@ -341,7 +356,7 @@ function currentPage(): Page {
   }
 }
 
-const PAGE_NAMES: Record<string, string> = { zenfluence: "Zenfluence", canvas: "Workflow canvas", marketplace: "Agent marketplace", connections: "Connections", "base-chat": "Chat", chat: "Chat", account: "Account & billing", "agent-studio": "Agent Studio", workspace: "Work queue", assistants: "Assistants", workflows: "Workflows", studio: "Model Studio", documents: "Reference documents", evaluations: "Evaluations", approvals: "Release approvals", activity: "Audit trail",
+const PAGE_NAMES: Record<string, string> = { deployments: "Workflow checks", onboarding: "Workspace setup", zenfluence: "Zenfluence", canvas: "Workflow canvas", marketplace: "Agent marketplace", connections: "Connections", "base-chat": "Chat", chat: "Chat", account: "Account & billing", "agent-studio": "Agent Studio", workspace: "Workspace", assistants: "Assistants", workflows: "Workflows", studio: "Model Studio", documents: "Reference documents", evaluations: "Evaluations", approvals: "Release approvals", activity: "Audit trail",
   desk: "Work items", pipelines: "Automation setup", agents: "Agent registry", email: "Notification previews", mcp: "MCP inspector", workflow: "Review policy" };
 
 function setHeading(page: Page): void {
@@ -467,6 +482,43 @@ document.addEventListener("click", async (event) => {
   const button = (event.target as Element).closest<HTMLElement>("button");
   if (!button || busy) return;
   if (!snapshot) { if (button.id === "refresh-workspace") void boot(); return; }
+  if (button.dataset.slackAction) {
+    if (button.dataset.slackAction === "cancel") { slackPreview = undefined; render(); return; }
+    const scope = snapshot.workspaceId + ":" + snapshot.actor;
+    lock(true);
+    try {
+      if (button.dataset.slackAction === "preview") {
+        const result = await api("/api/slack", { action: "preview", kind: node<HTMLSelectElement>("#slack-kind").value, note: node<HTMLTextAreaElement>("#slack-note").value }) as SlackPreview;
+        if (scope === snapshot.workspaceId + ":" + snapshot.actor) { slackPreview = result; slackScope = scope; render(); }
+      } else if (button.dataset.slackAction === "send" && slackPreview && slackScope === scope) {
+        const result = await api("/api/slack", { action: "send", previewId: slackPreview.id, expectedHash: slackPreview.hash }) as SlackReceipt;
+        if (scope !== snapshot.workspaceId + ":" + snapshot.actor) return;
+        slackPreview = undefined; await refresh();
+        notify(result.state === "sent" ? "Slack accepted the message." : "Delivery unconfirmed. Check Slack before creating another message.", result.state !== "sent");
+      }
+    } catch (error) { notify((error as Error).message, true); }
+    finally { lock(false); }
+    return;
+  }
+  if (button.hasAttribute("data-deployment-refresh") || button.hasAttribute("data-deployment-export")) {
+    const workspace = selectedWorkspace, actor = snapshot.actor;
+    lock(true);
+    try {
+      if (button.hasAttribute("data-deployment-refresh")) await refresh();
+      else {
+        const report = await api("/api/deployment-report", undefined, workspace) as DeploymentReport;
+        if (workspace !== selectedWorkspace || actor !== snapshot.actor || report.workspaceId !== snapshot.workspaceId) return;
+        const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
+        const link = document.createElement("a");
+        link.href = url; link.download = "magentic-deployment-report.json";
+        document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+        snapshot.deployment = report; render();
+        notify("Current report downloaded. No deployment was started.");
+      }
+    } catch (error) { notify((error as Error).message, true); }
+    finally { lock(false); }
+    return;
+  }
   if (button.id === "stop-chat") { chatController?.abort(); return; }
   if (button.id === "new-chat") { chatController?.abort(); chatState = resetChat(chatState); render(); return; }
   if (button.id === "refresh-models") { if (view === "agent-studio" || view === "canvas") void loadAgentModels(); else void loadChatModels(); return; }

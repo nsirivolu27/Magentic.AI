@@ -88,11 +88,26 @@ export function toolCallsFrom(events: readonly string[]): AgentTestRun["toolCall
   return calls.slice(0, 50);
 }
 
-/**
- * True when a saved test succeeded against the agent exactly as it is now.
- * An edit changes the hash, so an old pass never vouches for a new version.
- */
+export function blockingTestReviews(agent: AgentConfigurable, tests: Pick<AgentTestsSnapshot, "runs"> | undefined): AgentTestRun[] {
+  const current = agentHash(agent);
+  const reviewedCases = new Set<string>();
+  const blocked: AgentTestRun[] = [];
+  // A different prompt must not erase a rejection. Runs retain the case they
+  // exercised even when an author edits or deletes the saved test case.
+  for (const run of [...(tests?.runs ?? [])].reverse()) {
+    if (run.agentId !== agent.id || run.agentHash !== current || !run.review) continue;
+    const key = JSON.stringify([run.caseId, run.prompt, run.expected, run.source]);
+    if (reviewedCases.has(key)) continue;
+    reviewedCases.add(key);
+    if (run.review.verdict !== "pass" || run.status !== "succeeded") blocked.push(run);
+  }
+  return blocked;
+}
+
+// Execution alone remains sufficient for an unreviewed test, but it must
+// never override a recorded quality rejection of the same agent version.
 export function passedCurrentTest(agent: AgentConfigurable, tests: Pick<AgentTestsSnapshot, "runs"> | undefined): boolean {
   const current = agentHash(agent);
-  return (tests?.runs ?? []).some(run => run.agentId === agent.id && run.agentHash === current && run.status === "succeeded");
+  return (tests?.runs ?? []).some(run => run.agentId === agent.id && run.agentHash === current && run.status === "succeeded")
+    && blockingTestReviews(agent, tests).length === 0;
 }

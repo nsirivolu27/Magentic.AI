@@ -3,7 +3,7 @@
 ## Developer workspace preview
 
 The optional workbench runs locally; its Ontology sample needs no LNKZ relay.
-See the [Foundry/Ontology guide](workbench/ONTOLOGY.md) for repository startup,
+See the [Foundry/Ontology guide](../workbench/ONTOLOGY.md) for repository startup,
 VS Code MCP setup, and live-connection requirements. After building the
 workbench and configuring a workspace, `corepack pnpm ontology:mcp` starts
 the standalone read-only Ontology server. Application packaging is deferred
@@ -328,7 +328,7 @@ standalone MCP clients use a separate credential bound to one workspace.
 
 Run `corepack pnpm build:workbench` followed by `corepack pnpm local:workbench`
 for the local browser entry point, or build the Windows package with
-`corepack pnpm build:desktop`. See [local mode](workbench/LOCAL-MODE.md) for
+`corepack pnpm build:desktop`. See [local mode](../workbench/LOCAL-MODE.md) for
 storage, credentials, settings and recovery. The demo entry point remains
 available explicitly. Existing stages stay manual until bots are configured;
 Jira is a preview, and the local owner cannot approve their own work.
@@ -339,8 +339,8 @@ Local workspaces can attach an existing Git repository and assign a planner,
 coder, validator, or reviewer to each workflow phase. Bot attempts use a
 separate checkout and expose their progress, model calls, file proposals and
 check results in the timeline. Apply reviewed changes and hand off results
-without leaving your existing editor. See [bot timelines](workbench/BOT-TIMELINE.md)
+without leaving your existing editor. See [bot timelines](../workbench/BOT-TIMELINE.md)
 for execution boundaries and setup. Existing review gates remain enforced.
 
 For the current layer map, per-phase MCP tool controls, and repeatable build/test
-commands, see [architecture and verification](workbench/ARCHITECTURE.md).
+commands, see [architecture and verification](../workbench/ARCHITECTURE.md).

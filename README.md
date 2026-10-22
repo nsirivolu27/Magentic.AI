@@ -1,87 +1,115 @@
-<p align="center">
-  <img src="docs/images/supervised-stage.svg" alt="One workflow stage in Magentic: an agent drafts, evidence is attached, a person reviews, an independent reviewer signs a content hash, the stage locks" width="100%">
-</p>
+# Magentic.AI
 
-# Magentic
+**Full-stack engineering project: supervised AI workflows, company workspaces, and MCP integration.**
 
-**AI drafts. People decide. Every approval is a signature over a content hash.**
+Magentic turns an AI-assisted task into a recorded workflow: a person defines the work, an agent produces a draft with evidence, and an eligible reviewer approves the handoff. The repository contains the workspace application, execution engines, MCP interfaces, and packaging tools.
 
-A supervised workflow workspace for teams that may use AI only with a chain of custody. Built as a one person project for the Virginia Tech x Accenture Federal Services Build Challenge. Pitch on November 20, 2026.
+The engineering focus is controlling what an agent can access and do, preserving the evidence behind its output, and enforcing those rules on the server. Current status: a working prototype with local and company execution modes.
 
-Website: [Magentic Build Challenge](https://claude.ai/artifact/M7Nbm6cZLEwNfBZjvX3kcq). The same page is [`docs/site/index.html`](docs/site/index.html) in this repository; open it from a local checkout to view it offline.
+[Company workflow](#how-a-company-uses-it) · [Stack](#technology-stack) · [Run locally](#run-locally) · [Documentation](docs/README.md) · [Previous product narrative](docs/product-overview.md)
 
-<p>
-  <img alt="version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-6457e0?style=flat-square">
-  <img alt="724 tests, 0 failed" src="https://img.shields.io/badge/tests-724%20run%20%C2%B7%200%20failed-2ea44f?style=flat-square">
-  <img alt="typecheck clean" src="https://img.shields.io/badge/typecheck-clean-2ea44f?style=flat-square">
-  <img alt="TypeScript on Node 22" src="https://img.shields.io/badge/TypeScript-Node%2022-3178c6?style=flat-square">
-  <img alt="Windows installer" src="https://img.shields.io/badge/Windows-installer-0078d4?style=flat-square">
-  <img alt="lowest contrast 5.0 to 1" src="https://img.shields.io/badge/contrast-5.0%3A1%20minimum-6457e0?style=flat-square">
-</p>
+**Presentation and submission:** [open the website source](docs/site/index.html) or run `node docs/site/serve.mjs --port=4184` and visit [the local presentation](http://127.0.0.1:4184/). It includes a seven-step interactive walkthrough, a frontend/backend architecture explorer, and verification and limitation notes. The walkthrough uses synthetic records and simulated reviews; it makes no model or integration calls. See the [presenter guide](docs/site/README.md) for the live application demo and submission checklist.
 
-## The thirty second version
+**Workspace** groups team work, personal work and eligible reviews, plus the shared agent library and stage assignments. Its **Controls** menu holds workflow checks, model connections, MCP access and company messaging. Review stage bindings and blockers, then export a report through [Workflow checks](docs/workspace-deployments.md); this does not provision cloud resources. [Slack](docs/slack.md) supports administrator-reviewed audit summaries and team updates through a configured company webhook.
 
-- **Problem.** In federal delivery, an AI output is usable only if you can show where it came from, who reviewed it, and that nothing changed afterwards. Chat tools leave that to the person.
-- **Answer.** Magentic puts the chain of custody in the software. An agent drafts a stage, the evidence sits beside the draft, a person edits, a second person signs, and the server refuses anything that skips a step.
-- **Shape.** One TypeScript process, a browser window, files on disk. Runs on a laptop with a local model or on a company server with tenants. Ships as a Windows installer.
+## Engineering work demonstrated
 
-## By the numbers
+| Area | Implementation | Evidence |
+| --- | --- | --- |
+| Full-stack application development | TypeScript HTTP services, workspace UI, structured request validation, and persistent workflow state | [Server](workbench/server.ts), [browser](workbench/browser.ts), [storage](workbench/storage.ts) |
+| Company access and authorization | Clerk Organizations mapped to separate workspaces; current membership and effective roles checked by the backend | [Company access](workbench/company-access.ts), [isolation tests](tests/company-workspaces.test.ts) |
+| Agent execution | Bounded model/tool loops, explicit tool grants, source-read requirements, and reviewable proposals | [Worker](workbench/bot-worker.ts), [policy](workbench/bot-schema.ts), [runtime](workbench/bot-runtime.ts) |
+| Review and release controls | Versioned workflow configuration, content-bound approvals, and rejection of new assignments with unresolved quality reviews | [Pipeline](workbench/pipeline.ts), [assignment tests](tests/agent-quality-assignment.test.ts), [registry](registry/record.ts) |
+| Data integration | Typed ontology ingestion from CSV, link validation, source hashes, and read-only MCP access | [Ingestion](workbench/ontology-ingest.ts), [dataset tests](tests/ontology-dataset.test.ts), [ontology guide](workbench/ONTOLOGY.md) |
+| Testing and delivery | Node test suite, UI/accessibility test tooling, separate application builds, Windows packaging, and a VS Code extension | [Scripts](package.json), [tests](tests/), [desktop tooling](workbench/desktop/), [extension](extensions/vscode/) |
 
-| Source files | Test files | Lines | Tests | Failures | Jira epics | Jira stories | Lowest contrast |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 116 | 103 | 27,800 | 724 | 0 | 7 | 40 | 5.0:1 |
+## Technology stack
 
-Counts are from the workbench on branch `codex/published-main-preview`; six tests are skipped because they need a live model.
+| Technology | Where and why it is used |
+| --- | --- |
+| **TypeScript 5.9 · Node.js 22 · ESM** | Shared types across HTTP handlers, workflow engines, MCP tools, and browser code. Relative TypeScript imports use `.js` specifiers for the emitted modules. |
+| **pnpm 10.26.1 · Corepack** | Pinned package management and reproducible installation from the lockfile. |
+| **MCP TypeScript SDK** | Workspace tools for compatible clients and in-memory tool connections for agents. Tool access remains subject to workspace scope and policy. |
+| **Zod 3** | Validates configuration, requests, stored records, and integration payloads at boundaries. |
+| **HTML · CSS · browser TypeScript · React 19** | Most views are HTML-rendering functions with shared design tokens. React powers the interactive operations queue. |
+| **esbuild** | Bundles browser assets and Node entry points for local, demo, company, and MCP execution. |
+| **Ollama · optional LangChain adapters · configured provider APIs** | Local and hosted model execution through provider interfaces. Models require an installed adapter and valid connectivity; a model name alone does not connect it. |
+| **Clerk Organizations** | Company sign-in and membership. Provider roles map to Magentic's author, approver, and administrator roles. |
+| **Stripe** | Configured subscription checkout and billing portal integration. Payment does not create workspace membership. |
+| **JSON persistence · Node filesystem APIs** | Workspace state, versioned configuration, and execution records with atomic writes. The company service currently uses one writer per data directory. |
+| **Git worktrees** | Isolates local repository proposals from the developer's checkout. A worktree is not an operating-system sandbox. |
+| **Node `--test` · Playwright · axe-core** | Domain/API regression tests plus separate browser and accessibility checks. The standard test command does not run every UI or live-provider check. |
 
-## What a person can do today
+Optional integration boundaries include Palantir Foundry reads, Jira/Confluence evidence, and reviewed AWS Lambda invocation. Each requires its own configuration and permissions.
 
-| Area | Outcome | Proof |
-|---|---|---|
-| Workflows | Start a run and see, per run, the stage, the owner, the output state and the one next action | [`workflow-view.ts`](workbench/workflow-view.ts) |
-| Output review | Evidence, original output, edited handoff and approval state in one grid | [`output-review.ts`](workbench/output-review.ts), [test](tests/output-review.test.ts) |
-| Approval gates | Independent signatures over a content hash; owner and author can never approve their own stage | [`pipeline.ts`](workbench/pipeline.ts), [test](tests/workspace-focus.test.ts) |
-| Agent Studio | Build an agent, grant read only tools with limits, save tests bound to its version, assign to a stage only after a pass | [`agent-tests.ts`](workbench/agent-tests.ts), [gate test](tests/agent-assignment-gate.test.ts) |
-| Model Studio | Train, evaluate, approve and assign an assistant through six guided stages | [`guided-stages.ts`](workbench/guided-stages.ts) |
-| Zenfluence | Attach a reviewed, hashed snapshot of a Jira ticket or Confluence page; read only | [`zenfluence.ts`](workbench/zenfluence.ts), [guide](docs/zenfluence.md) |
-| Windows app | Installer with SHA256 manifest, Apps and features entry, uninstaller that keeps data, update feed check | [`workbench/desktop`](workbench/desktop) |
-| MCP server | The same operations for any MCP client, scoped to one workspace | [`pipeline-mcp.ts`](workbench/pipeline-mcp.ts) |
+## Architecture
 
-## Rules the server enforces
-
-Shown in the interface and refused by the server when a client skips the interface.
-
-1. Every API call is checked for current membership of the workspace it names.
-2. An agent that must read a source and does not is failed; the evidence block lists each file as read, empty or missing.
-3. Approvals sign a content hash. Change the content and the signatures stop counting.
-4. An agent version with no passing test cannot be assigned to a stage (HTTP 409).
-5. Credentials are setting names in configuration, never values. Nothing echoes a key to a page or a log.
-6. Outbound reads are https only, size capped, time capped, redirects refused, and checked against what was asked for.
-
-## How it is built
-
-<p align="center">
-  <img src="docs/images/architecture.svg" alt="Browser window, loopback server with HTTP API, zod schemas, pipeline engine, bot runtime and MCP server, workspace folder on disk, and outbound connections to models, Atlassian, the company server and the Windows package" width="100%">
-</p>
-
-Four decisions worth asking about:
-
-- **Files, not a database.** A workspace is a folder of JSON with a storage version and atomic writes. The Windows package is a bundled runtime and a browser window, nothing to install beside it.
-- **Schemas at every boundary.** Request bodies, stored documents and configuration files are parsed with zod. A file written by a newer version is refused with a message, never rewritten in silence.
-- **Views as functions.** Pages return HTML strings, so a view test renders a page for owner, reviewer and viewer and asserts on the words each one may see. The one interactive list is a React component.
-- **Honest states.** Every page shows loading, empty, error, not connected, not assigned, blocked and awaiting approval, each with the one step that resolves it. A stopped local model is a setup notice, not a red error.
-
-## How the work is run
-
-Every change takes the same path: a Jira story with acceptance criteria, a written plan, code in an isolated copy with new tests only, four verification scripts with counts recorded, a diff on the story before anything is applied, hash checked writes, then a second verification on Windows and a look at the result at 1440 and 360 px.
-
-Seven delivery epics and forty stories carry that trail. Decisions that need a product owner (code signing, Foundry tenant, design system path) are their own tickets with the options written out, so nothing blocks in silence.
-
-## Verify it in ten minutes
-
-Windows PowerShell, in the repository folder, Node 22:
-
+```mermaid
+flowchart LR
+  UI["Workspace UI"] --> API["Authenticated HTTP API"]
+  Client["MCP client"] --> MCP["Workspace MCP tools"]
+  MCP --> Engine["Workflow and review engines"]
+  API --> Engine
+  API --> Identity["Workspace membership and roles"]
+  Engine --> Store["Versioned state and evidence"]
+  Engine --> Runner["Agent execution"]
+  Runner --> Model["Configured model provider"]
+  Runner --> Tools["Granted read tools"]
+  Tools --> Sources["Documents, ontology, or local repository"]
+  Runner --> Draft["Draft and execution record"]
+  Draft --> Review["Human review and content-bound approval"]
+  Review --> Engine
 ```
-corepack enable
+
+There are three distinct execution surfaces:
+
+| Surface | Intended use | Boundary |
+| --- | --- | --- |
+| **Local workspace** | Develop and test against a repository, inspect proposed changes, and run configured validation commands | Runs with the local user's privileges. Repository execution is supervised. |
+| **Company workspace** | Shared documents, approved assistants, workflow runs, and independent review | Clerk membership selects access. Company data is scoped by workspace; host repository execution is not enabled. |
+| **Standalone MCP adapters** | Expose supported tools to compatible external clients | The workspace endpoints and the original conversation-relay adapter are separate interfaces with different authentication requirements. |
+
+Workspace MCP endpoints include `/api/mcp` for reviewed definitions and `/api/pipeline-mcp` for supported workflow operations. The original relay adapter uses a separately operated REST service; it is not required for the local workbench demo. See the [MCP/relay guide](docs/relay-adapter.md) before configuring that entry point.
+
+## How a company uses it
+
+**Example: an internal documentation request.** A delivery team needs an answer based on its SOP, with enough evidence for another employee to review it.
+
+| Step | Employee action | What Magentic records or enforces |
+| --- | --- | --- |
+| 1. Join the company | Sign in through Clerk and select a company | Verified membership determines access. A company administrator provisions its workspace; display names and email domains do not grant access. |
+| 2. Complete setup | Open **Workspace setup** and review roles, model configuration, references, and workflow settings | Setup reflects saved state. It does not certify provider connectivity or reviewer availability. |
+| 3. Prepare the task | An author adds the SOP, attaches it to the work, and starts a workflow | The run retains its configuration and references. Documents with detected credentials cannot be used as model input through the document flow. |
+| 4. Produce a draft | Use an approved assistant on a configured company workflow stage | The stage uses its saved model/profile binding and granted tools. Repository-agent templates require isolated workers before company execution can be offered. |
+| 5. Review the evidence | Compare the draft with its sources, revise the handoff, and request review | Execution completion and answer quality are separate facts. A model response is not proof that the task is correct. |
+| 6. Approve and hand off | Eligible independent reviewers approve the gated output | The run owner and output author cannot approve their own gated handoff. Approvals bind to the output content; a change invalidates that evidence. |
+
+### Roles
+
+| Magentic role | Typical responsibility |
+| --- | --- |
+| **Author** | Prepare tasks, add reference material, and start work. |
+| **Approver** | Review evidence and approve eligible releases or handoffs. The UI also calls this role “Reviewer.” |
+| **Administrator** | Configure workflows and workspace settings; manage company access through the identity provider. Administrative rights do not bypass independent approval rules. |
+
+Roles can be combined. The default Clerk mapping is `org:admin → admin, author, approver`, `org:member → author`, and `org:reviewer → approver`. The reviewer role must exist in Clerk if that mapping is used. Unknown provider roles do not gain access.
+
+For local repository agents, Agent Studio saves instructions, permitted tools, limits, and version-bound tests. Successful unreviewed tests remain assignable for compatibility. A recorded failed or uncertain quality review blocks new assignments until resolved for that version, or the agent is revised and tested again. This is distinct from Model Studio release approval.
+
+### Other company use cases
+
+- **Engineering handoff:** preserve a proposed change, validation results, and review decisions through planning, build, and delivery stages.
+- **Operational evidence review:** attach a Jira ticket or Confluence snapshot through Zenfluence and compare it with workflow output.
+- **Data-grounded analysis:** read typed objects and relationships from a local ontology dataset or configured Foundry environment.
+- **Reviewed automation:** an authorized operator previews and invokes a configured Lambda unit from an independently reviewed stage. This does not deploy AWS resources or grant cloud write access to a chatbot.
+
+## Run locally
+
+Use Node.js 22 and the package manager pinned in `package.json`. From this repository in PowerShell:
+
+```powershell
+node -v
+corepack pnpm -v
 corepack pnpm install --frozen-lockfile
 corepack pnpm typecheck
 corepack pnpm test
@@ -90,34 +118,56 @@ corepack pnpm build:workbench
 node .\workbench\dev.mjs --port=4182
 ```
 
-Then open `http://127.0.0.1:4182` and try three things:
+Open [http://127.0.0.1:4182/#/onboarding](http://127.0.0.1:4182/#/onboarding). Use a free port; do not start another process against an occupied port or the same data directory. The development watcher rebuilds the workspace as source files change.
 
-1. Open a run on Workflows. The evidence block names every source as read, empty or missing, and the approval block shows who may sign and who may not.
-2. In Agent Studio, change a tested agent and try to assign it. The control is disabled and the API answers 409.
-3. Stop Ollama and open Chat. You get the setup steps, not an error.
+For a repeatable agent demonstration, run `corepack pnpm demo:agents` after the workbench build and open the printed URL. That demo uses synthetic documents and a scripted model. Use a configured live provider separately to assess answer quality and latency.
 
-The installer is `corepack pnpm build:desktop`, then `Install.cmd` in the output folder.
+### Company mode
 
-## The road to November 20
+Company mode is a separate entry point, not a switch that makes the development watcher public.
 
-<p align="center">
-  <img src="docs/images/road-to-november.svg" alt="Timeline from kickoff through output review, Agent Studio, design system, Windows app and Zenfluence, with Windows verification and the November 20 pitch still ahead" width="100%">
-</p>
+1. Configure a Clerk application with Organizations and the role mapping above.
+2. Set `MAGENTIC_ACCOUNTS_FILE` to a private configuration file with `members: []` and `companies` settings.
+3. Supply `MAGENTIC_CLERK_SECRET_KEY`, the exact `MAGENTIC_PUBLIC_ORIGIN`, a dedicated `MAGENTIC_WORKSPACES_DIR`, and `MAGENTIC_WORKBENCH_PORT` through the launch environment.
+4. Build, then run `corepack pnpm company:workbench`. Sign in at `/login`, select a company at `/companies`, and continue to **Workspace setup**.
 
-| Remaining | Status |
-|---|---|
-| Windows verification of the current tree and the first installable package | queued |
-| Live Zenfluence read against the company Jira project | credentials pending |
-| Update install and rollback scripts; code signing decision | in progress |
-| Pitch path: install, connect a model, draft, review, approve with a second account, attach a Jira ticket | scripted |
+The [account and company guide](docs/account-portal.md#company-workspaces) contains the configuration contract. Keep credentials out of source control. The service binds to loopback; a production origin requires a separately configured HTTPS proxy and operational controls.
 
-## What this shows
+## Verification and current limits
 
-- Full stack ownership: engine, HTTP API, MCP server, interface, Windows packaging, release workflow, documentation.
-- A non negotiable (auditable human approval) kept intact through forty tickets of change.
-- Verification as a habit: 724 tests, measured contrast and keyboard order, hash checked writes, counts recorded per environment.
-- Delivery team practice as a team of one: epics, stories with acceptance criteria, plan before code, diff before apply.
+**Latest local verification: October 22, 2026 — Node 22.23.2, pnpm 10.26.1.**
 
-## About
+| Check | Result |
+| --- | --- |
+| `corepack pnpm typecheck` | Passed |
+| `corepack pnpm test` | 778 tests: 777 passed, 0 failed, 0 cancelled, 1 skipped |
+| `corepack pnpm build` | Passed |
+| `corepack pnpm build:workbench` | Passed |
 
-Built by a Virginia Tech CMDA student, class of 2027. Walkthrough and source tour on request through the repository contact.
+This result applies to the local working tree, including the review-control, onboarding, workspace console, deployment-report and Slack changes. It is not a published-release or remote-CI claim. The skipped test exercises a missing optional package; that package was installed in this environment. Provider, company and Slack tests use fixtures where specified and do not establish live service availability.
+
+Important boundaries for an engineering review:
+
+- **Training:** the default Model Studio training provider is simulated and produces no trained weights. Its workflow and review controls can be exercised; real training needs a provider implementation.
+- **Company execution:** approved assistant stages and configured automation units are supported. Shared-host repository commands are intentionally unavailable.
+- **Persistence and scale:** local files and a single writer are suitable for this prototype. Shared transactional storage, job coordination, isolated workers, recovery procedures, and load testing remain production work.
+- **Model quality:** tool access and output structure are enforced, but citations and answer quality still need review. Automatic model routing is not evidence of optimal cost or accuracy.
+- **Integrations:** Foundry, Clerk, Stripe, Atlassian, and AWS need separately verified configuration. A local ontology dataset is not a hosted Foundry database.
+- **Packaging:** Windows and VS Code build tooling exists. Packaging scripts do not establish signed releases, validated upgrades, or a production deployment.
+- **Compliance:** the project is relevant to reviewed enterprise and federal delivery workflows; it does not claim FedRAMP, an ATO, FISMA compliance, or Section 508 certification.
+
+## Repository guide
+
+| Location | Responsibility |
+| --- | --- |
+| [`workbench/`](workbench/) | Application API/UI, workflow engines, agent execution, company access, and integrations |
+| [`registry/`](registry/) | Definition lifecycle, configurable workflow rules, roles, hashes, and signatures |
+| [`agents/`](agents/), [`catalog/`](catalog/) | Relay-adapter definitions and catalog support |
+| [`tests/`](tests/) | Regression tests, company-boundary fixtures, and UI test configuration |
+| [`examples/`](examples/) | Configuration and ontology examples |
+| [`extensions/vscode/`](extensions/vscode/) | Editor integration and packaging |
+| [`workbench/desktop/`](workbench/desktop/) | Windows application packaging/runtime |
+| [`deploy/`](deploy/) | Standalone relay-adapter deployment templates; not the company workspace deployment |
+| [`docs/`](docs/README.md) | Task-oriented documentation index |
+
+For a source review, start with [company access](workbench/company-access.ts), [workflow state transitions](workbench/pipeline.ts), [the agent worker](workbench/bot-worker.ts), and their tests. The [documentation index](docs/README.md) separates current setup instructions, integration guides, and historical design notes.

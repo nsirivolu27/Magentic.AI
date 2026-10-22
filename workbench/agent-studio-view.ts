@@ -1,6 +1,6 @@
 import { agentReadiness } from "./agent-studio.js";
 import { AGENT_STARTERS, configurableStages, type AgentConfigurable } from "./agent-configurables.js";
-import { agentHash, passedCurrentTest, type AgentTestRun, type AgentTestsSnapshot } from "./agent-tests-model.js";
+import { agentHash, blockingTestReviews, passedCurrentTest, type AgentTestRun, type AgentTestsSnapshot } from "./agent-tests-model.js";
 import { BOT_REPOSITORY_TOOLS, effectiveToolPolicy } from "./bot-schema.js";
 import type { ChatModelOption } from "./chat.js";
 import type { PipelineConfig } from "./pipeline.js";
@@ -40,6 +40,7 @@ export function nextAction(snapshot: WorkbenchSnapshot, agent: AgentConfigurable
   if (!latest) return { label: "Run test", href: `#/agent-studio/${id}/test` };
   if (latest.run.status === "running") return { label: "Wait for the test", href: `#/agent-studio/${id}/test` };
   if (latest.stale) return { label: "Run test again", href: `#/agent-studio/${id}/test` };
+  if (blockingTestReviews(agent, tests).length) return { label: "Resolve review and retest", href: `#/agent-studio/${id}/test` };
   if (latest.run.status !== "succeeded") return { label: "Fix and run test again", href: `#/agent-studio/${id}/test` };
   if (!latest.run.review) return { label: "Review result", href: `#/agent-studio/${id}/test` };
   const assigned = snapshot.pipelines ? configurableStages(snapshot.pipelines.config, agent) : [];
@@ -146,7 +147,7 @@ function sideActions(snapshot: WorkbenchSnapshot, pipeline: NonNullable<Workbenc
   const tryKey = `agent-trial:${selected.id}`;
   const trial = ui.drafts[tryKey];
   const history = pipeline.runs.filter(run => { const saved = run.config.configurables?.find(agent => agent.id === selected.id); return saved && configurableStages(run.config, saved).length; }).slice(0, 5);
-  const assign = assignForm(pipeline, selected, admin, passedCurrentTest(selected, tests));
+  const assign = assignForm(pipeline, selected, admin, tests);
   const trialForm = `<section class="agent-studio-trial"><h3>Run in a workflow</h3><ul class="agent-readiness">${readiness.checks.map(check => `<li><span aria-label="${check.ready ? "Ready" : "Needed"}">${check.ready ? "✓" : "○"}</span>${check.ready ? escape(check.label) : `<a href="${check.href}">${escape(check.label)}</a>`}</li>`).join("")}</ul>
     <form id="agent-studio-start" data-agent="${selected.id}" data-version="${pipeline.version}" data-draft="${tryKey}"><label>Task<input name="title" required minlength="3" maxlength="160" value="${escape(trial?.title ?? selected.purpose)}"></label><label>Expected result<textarea name="brief" rows="3" required maxlength="4000" placeholder="What should the agent produce? How will you check it?">${escape(trial?.brief ?? "")}</textarea></label><button class="primary" ${readiness.ready && snapshot.canAuthor ? "" : "disabled"}>Start workflow</button></form>
     <small>Starts at ${escape(pipeline.config.stages[0]!.name)}. Run each agent from the work item; review gates stay in place.</small>
@@ -156,11 +157,14 @@ function sideActions(snapshot: WorkbenchSnapshot, pipeline: NonNullable<Workbenc
   return `<aside class="agent-studio-review" aria-label="Agent review"><h2>Test and assign</h2><p>${latest ? `Latest test ${escape(ago(latest.run.startedAt))}: ${outcomePill(latest)}` : "Not tested yet."} <a href="#/agent-studio/${escape(selected.id)}/test">Open tests</a></p>${assign}${trialForm}<a href="#/desk">Open work items →</a><details><summary>Execution and approvals</summary><p>Attach a repository in local mode, start a workflow, then run the assigned agent from Work items. Check its evidence before accepting the result.</p><p>This is a supervised configuration, not an approved model release. Model training and release signatures remain in <a href="#/studio">Model Studio</a>.</p><p>Approved assistants are assigned separately in <a href="#/workflows">Workflows</a>. Additional external servers are not connected by this form.</p></details>${more("Advanced", `<button class="secondary" data-agent-export="${selected.id}">Copy saved definition</button><p class="text-3">Saved version v${agentHash(selected)} · workspace configuration ${pipeline.version}</p>`)}</aside>`;
 }
 
-function assignForm(pipeline: NonNullable<WorkbenchSnapshot["pipelines"]>, selected: AgentConfigurable, admin: boolean, tested = false): string {
+function assignForm(pipeline: NonNullable<WorkbenchSnapshot["pipelines"]>, selected: AgentConfigurable, admin: boolean, tests?: AgentTestsSnapshot): string {
   const stageChoices = pipeline.config.stages.filter(stage => !stage.assistantId);
-  // A version that has not passed a test cannot be assigned; the server refuses it too.
-  const gate = tested ? "" : `<p class="callout warn">Run a passing test on this version before assigning it. <a href="#/agent-studio/${selected.id}/test">Open tests</a></p>`;
-  return `<form id="agent-studio-assign" data-agent="${selected.id}" data-version="${pipeline.version}">${gate}<label>Workflow stage<select name="stage" required ${stageChoices.length ? "" : "disabled"}>${stageChoices.map(stage => `<option value="${escape(stage.id)}">${escape(stage.name)}</option>`).join("")}</select></label><button class="secondary" ${admin && stageChoices.length && tested ? "" : "disabled"}>Assign saved agent</button><small>Uses the saved definition for future runs. Existing runs and review gates keep their settings.</small></form>`;
+  const tested = passedCurrentTest(selected, tests);
+  const blocked = blockingTestReviews(selected, tests);
+  const reason = blocked.length ? "Quality review blocks assignment. Rerun the rejected cases and obtain a passing review, or revise the agent and test the new version." : "Run a passing test on this version before assigning it.";
+  const gate = tested ? '<p class="text-3">Test execution finished. Assignment is not release approval.</p>' : `<p class="callout warn">${reason} <a href="#/agent-studio/${selected.id}/test">Open tests</a></p>`;
+  const evidence = blocked.length ? `<ul>${blocked.map(run => `<li>${escape(run.prompt)} — ${escape(run.review!.verdict)}${run.review!.note ? `: ${escape(run.review!.note)}` : ""}</li>`).join("")}</ul>` : "";
+  return `<form id="agent-studio-assign" data-agent="${selected.id}" data-version="${pipeline.version}">${gate}${evidence ? more("Review blockers", evidence) : ""}<label>Workflow stage<select name="stage" required ${stageChoices.length ? "" : "disabled"}>${stageChoices.map(stage => `<option value="${escape(stage.id)}">${escape(stage.name)}</option>`).join("")}</select></label><button class="secondary" ${admin && stageChoices.length && tested ? "" : "disabled"}>Assign saved agent</button><small>Uses the saved definition for future runs. Existing runs and review gates keep their settings.</small></form>`;
 }
 
 // ---------------------------------------------------------------------- test
@@ -227,5 +231,5 @@ function workflowPage(snapshot: WorkbenchSnapshot, pipeline: NonNullable<Workben
   };
   const list = assigned.length ? assigned.map(row).join("") : '<p class="text-2">Not assigned to any stage yet. Choose one below.</p>';
   const open = pipeline.runs.filter(run => run.status === "running" || run.status === "paused" || run.status === "blocked").length;
-  return `<div class="agent-studio-layout"><section class="agent-studio-editor" aria-label="Assigned stages"><h2>Where this agent works</h2>${list}<p class="text-2">${open ? `${open} open run${open === 1 ? " keeps" : "s keep"} the configuration they started with. ` : ""}Changes affect future runs only.</p></section><aside class="agent-studio-review" aria-label="Assign"><h2>Assign to workflow</h2>${assignForm(pipeline, selected, admin, passedCurrentTest(selected, tests))}${nextAction(snapshot, selected, models, undefined).label === "Choose a connected model" ? '<p class="callout warn">The saved model is not connected; a run would stop at its first model call.</p>' : ""}<a href="#/desk">Open work items →</a><p class="text-3">There is no publish step: a saved agent is available to this workspace's workflow once assigned. Release approval applies to trained models in Model Studio, not to agent configurations.</p></aside></div>`;
+  return `<div class="agent-studio-layout"><section class="agent-studio-editor" aria-label="Assigned stages"><h2>Where this agent works</h2>${list}<p class="text-2">${open ? `${open} open run${open === 1 ? " keeps" : "s keep"} the configuration they started with. ` : ""}Changes affect future runs only.</p></section><aside class="agent-studio-review" aria-label="Assign"><h2>Assign to workflow</h2>${assignForm(pipeline, selected, admin, tests)}${nextAction(snapshot, selected, models, undefined).label === "Choose a connected model" ? '<p class="callout warn">The saved model is not connected; a run would stop at its first model call.</p>' : ""}<a href="#/desk">Open work items →</a><p class="text-3">There is no publish step: a saved agent is available to this workspace's workflow once assigned. Release approval applies to trained models in Model Studio, not to agent configurations.</p></aside></div>`;
 }

@@ -152,6 +152,28 @@ footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10
 .queue-stat[aria-pressed=true] { background: var(--brand-soft); box-shadow: inset 0 -3px var(--brand-primary); }
 .queue-stat:hover { background: var(--brand-soft); }
 .queue-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 25px; flex-wrap: wrap; }
+.workspace-console { margin-bottom: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.console-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
+.console-row h2 { margin: 0; margin-right: auto; font-size: 16px; }
+.console-tabs { display: flex; gap: 6px; }
+.console-tabs a { padding: 8px 14px; color: var(--text-2); text-decoration: none; border-bottom: 2px solid transparent; }
+.console-tabs a[aria-current=page] { color: var(--accent); border-color: var(--accent); }
+.console-role { color: var(--text-3); font-size: 12px; margin-left: auto; }
+.console-menu { position: relative; }
+.console-menu summary { cursor: pointer; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); }
+.console-menu nav { position: absolute; right: 0; top: 100%; width: 240px; max-width: 80vw; z-index: 10; display: grid; background: var(--raised); border: 1px solid var(--border-strong); padding: 6px; }
+.console-menu nav a { padding: 9px; color: var(--text); text-decoration: none; }
+.console-menu nav a:hover { background: var(--accent-soft); }
+.console-drawer { padding: 16px; border-top: 1px solid var(--line); }
+.console-drawer h2 { font-size: 16px; }
+.console-drawer label { display: grid; gap: 6px; max-width: 620px; margin: 12px 0; }
+.console-close { display: block; margin: 0 16px 12px; font-size: 12px; }
+.console-checks { list-style: none; padding: 0; }
+.console-checks li { display: grid; grid-template-columns: minmax(100px, 1fr) 3fr; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.console-checks span { color: var(--text-2); overflow-wrap: anywhere; }
+.console-message pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--raised); }
+.queue-audience { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12px; }
+@media (max-width: 600px) { .console-role { order: 3; width: 100%; } .console-menu { margin-left: auto; } .console-checks li { grid-template-columns: 1fr; gap: 4px; } }
 .queue-filters { display: flex; flex-wrap: wrap; gap: 4px; }
 .queue-filters button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid transparent; color: var(--text-2); background: transparent; border-radius: 4px; min-height: 35px; font-size: 11px; font-weight: 600; padding: 6px 9px; }
 .queue-filters button span { background: var(--raised); color: var(--text-2); border-radius: 3px; padding: 0 5px; font-size: 10px; }
