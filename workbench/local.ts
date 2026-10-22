@@ -1,4 +1,9 @@
+import { loadAccounts, accountActor } from "./accounts.js";
+import { createChatAccess, loadChatPlan } from "./chat-access.js";
+import { fileChatVault } from "./chat-vault.js";
+import { createBilling } from "./billing.js";
 import { loadOntologyDirectory } from "./ontology.js";
+import { loadZenfluenceDirectory } from "./zenfluence.js";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +21,7 @@ import { chatConfiguration } from "./chat-config.js";
 import { workspaceDirectory } from "./workspace-directory.js";
 import { filePipelines, PipelineError, type PipelineEngine } from "./pipeline.js";
 import { createBotRuntime, type BotRuntime } from "./bot-runtime.js";
+import { createAgentTests } from "./agent-tests.js";
 import { fileWorkspaceStore, workspacesDirectory, type WorkspaceStore } from "./storage.js";
 import { fileModelStudio } from "./studio/engine.js";
 import { assistantGuards, studioAssistants } from "./assistant-resolver.js";
@@ -70,7 +76,7 @@ export interface LocalWorkbench {
  * MAGENTIC_WORKBENCH_ASSETS points somewhere else, for running the compiled
  * server against the source assets without a bundling step.
  */
-function assets(): Map<string, { type: string; body: string | Buffer }> {
+export function assets(): Map<string, { type: string; body: string | Buffer }> {
   const override = setting("MAGENTIC_WORKBENCH_ASSETS")?.trim();
   const base = override ?? fileURLToPath(new URL("./", import.meta.url));
   const map = new Map<string, { type: string; body: string | Buffer }>();
@@ -90,6 +96,14 @@ function assets(): Map<string, { type: string; body: string | Buffer }> {
     const body = readFileSync(join(base, file!));
     map.set(path!, { type: type!, body: path === "/" ? body.toString("utf8").replace('<html lang="en">', '<html lang="en" data-mode="local">') : body });
   }
+  // Older asset bundles remain usable with the system font fallback.
+  for (const file of ["SourceSansPro-Regular.woff2", "SourceSansPro-Semibold.woff2", "SourceSansPro-Bold.woff2", "SourceSansPro-LICENSE.txt"]) {
+    try {
+      map.set('/' + file, { type: file.endsWith('.woff2') ? 'font/woff2' : 'text/plain; charset=utf-8', body: readFileSync(join(base, file)) });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
   return map;
 }
 
@@ -101,8 +115,14 @@ function assets(): Map<string, { type: string; body: string | Buffer }> {
  * mean a person doing a day's work into storage that evaporates.
  */
 export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): Promise<LocalWorkbench> {
+  const accounts = loadAccounts();
+  if (accounts?.companies) throw new Error("Use company:workbench for company accounts; local repository execution is not tenant isolated.");
+  const billing = createBilling(accounts?.billing, setting("MAGENTIC_STRIPE_SECRET_KEY"));
   const dataDir = options.dataDir ?? workspacesDirectory();
   const ontology = loadOntologyDirectory();
+  // Same connector as the company server, so a developer can read real tickets
+  // and pages locally. Without MAGENTIC_ZENFLUENCE_FILE the page shows setup.
+  const zenfluence = loadZenfluenceDirectory();
   const requestedWorkspace = options.workspaceId ?? setting("MAGENTIC_WORKSPACE")?.trim();
 
   // Ownership first. Everything after this is only safe because we hold it.
@@ -116,6 +136,7 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
     // while there is still nothing running to report ready.
     const directory = workspaceDirectory(dataDir, workspaceStore, requestedWorkspace ?? DEFAULT_WORKSPACE);
     const workspaceId = directory.open({ workspaceId: requestedWorkspace ?? directory.list().lastWorkspaceId }).workspaceId;
+    if (accounts?.members.some(member => !directory.has(member.workspaceId))) throw new Error("members.workspaceId must name an existing workspace.");
     const accessDirectory = join(dataDir, "access");
     mkdirSync(accessDirectory, { recursive: true });
     const grants = new Map<string, string>();
@@ -126,14 +147,20 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
       try { readFileSync(path); grants.set(entry.id, loadMcpToken(path)); }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     }
+    const chat = chatConfiguration(true)!;
+    const chatAccess = createChatAccess({ base: chat, managedLogin: !!accounts, plan: loadChatPlan(),
+      vault: fileChatVault(join(dataDir, "chat-connections"), setting("MAGENTIC_CONNECTIONS_KEY")), entitled: workspace => billing.tier(workspace) });
+    const chatMcpIdentity = (request: import("node:http").IncomingMessage) => chatAccess.authenticateToken(request.headers.authorization?.replace(/^Bearer /, "") ?? "");
     const session = createLocalSession({ dataDir, workspaceId: directory.mcpWorkspaceId, actor: LOCAL_OWNER,
+      managedLogin: !!accounts,
+      authorizeChatMcp: request => !!chatMcpIdentity(request),
       resolveMcpWorkspace(token) {
         for (const [id, grant] of grants) if (sameSecret(token, grant)) return id;
         return undefined;
       },
     });
     const members: MemberDirectory = {
-      async rolesFor(id, actor) { return directory.has(id) && actor === LOCAL_OWNER ? ["author", "admin"] : []; },
+      async rolesFor(id, actor) { return accounts ? accounts.members.find(member => member.workspaceId === id && member.actor === actor)?.roles ?? [] : directory.has(id) && actor === LOCAL_OWNER ? ["author", "admin"] : []; },
     };
 
     // The owner authors and administers. They cannot approve their own work:
@@ -147,7 +174,6 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
       workflow: resolveWorkflow(),
     };
 
-    const chat = chatConfiguration(true);
     // Model Studio records live beside the other workspace data. Dataset
     // files may only be imported from one folder, so the browser can never
     // name an arbitrary path on this machine. MAGENTIC_STUDIO_IMPORT_DIR
@@ -160,6 +186,8 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
     const engine = filePipelines(workspaceStore, assistantGuards(assistants));
     bots = createBotRuntime(join(dataDir, "bots"), engine, chat, assistants);
     const runtime = bots;
+    // Tests run the same worker as a workflow agent, against the same attached repository, without touching a run.
+    const agentTests = createAgentTests({ directory: join(dataDir, "agent-tests"), pipelines: engine, bots: runtime, ...(chat ? { chat } : {}) });
     for (const entry of directory.list().workspaces) runtime.snapshot(entry.id);
     const pipelines: PipelineEngine = {
       snapshot: engine.snapshot,
@@ -188,13 +216,25 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
     }, 30_000);
     ticker.unref();
     server = createWorkbenchServer({
-      context,
+      context, billing, chatAccess, ...(accounts ? { accounts } : {}),
       assets: assets(),
-      pipelines, bots: runtime, jira: jiraRuntime, ontology, studio, scheduler, learning, documents,
+      pipelines, bots: runtime, jira: jiraRuntime, ontology, zenfluence, studio, scheduler, learning, documents, agentTests,
       guard: session.guard,
       async authenticate(request) {
         const path = new URL(request.url ?? "/", "http://localhost").pathname;
         const selected = request.headers["x-magentic-workspace"];
+        if (path === "/api/chat-mcp" && request.headers.authorization?.startsWith("Bearer mchat_")) {
+          const identity = chatMcpIdentity(request);
+          if (selected !== undefined && selected !== identity?.workspaceId) return undefined;
+          return identity;
+        }
+        if (accounts) {
+          const actor = accountActor(request, accounts);
+          if (!actor) return undefined;
+          const id = selected ?? accounts.members.find(member => member.actor === actor)?.workspaceId ?? workspaceId;
+          if (typeof id !== "string" || !directory.has(id)) return undefined;
+          return { workspaceId: id, actor };
+        }
         if (request.headers.authorization) {
           if (session.browserAuthenticated(request) || (path !== "/api/mcp" && path !== "/api/pipeline-mcp")) return undefined;
           const identity = await session.authenticate(request);
@@ -241,6 +281,7 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
           clearInterval(ticker);
           await scheduler.close();
           await jiraRuntime.close();
+          await agentTests.close();
           await runtime.close();
           await new Promise<void>((resolve) => {
             listening.close(() => resolve());

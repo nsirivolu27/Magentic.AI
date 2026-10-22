@@ -1,0 +1,12 @@
+{
+  "connections": [
+    {
+      "workspaceId": "00000000-0000-4000-8000-000000000000",
+      "site": "https://magenticai.atlassian.net",
+      "project": "KAN",
+      "spaceId": "123456",
+      "emailSetting": "MAGENTIC_ATLASSIAN_EMAIL_COMPANY",
+      "tokenSetting": "MAGENTIC_ATLASSIAN_TOKEN_COMPANY"
+    }
+  ]
+}

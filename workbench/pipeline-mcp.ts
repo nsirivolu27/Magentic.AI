@@ -1,4 +1,8 @@
-import { configurableCatalog } from "./agent-configurables.js";
+import { registerZenfluenceReads } from "./zenfluence-mcp.js";
+import type { ZenfluenceDirectory } from "./zenfluence.js";
+import { registerAutomationInspection } from "./automation-mcp.js";
+import type { AutomationRuntime } from "./automation-runtime.js";
+import { registerWorkspaceReads } from "./workspace-read-tools.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -14,22 +18,14 @@ import { CADENCES, type LearningEngine } from "./learning-schedule.js";
 import type { DocumentsEngine } from "./documents.js";
 
 export async function handlePipelineMcp(engine: PipelineEngine, workspace: string, actor: string, roles: readonly Role[],
-  approvals: number, request: IncomingMessage, response: ServerResponse, raw: unknown, bots?: BotRuntime, jira?: Pick<JiraRuntime, "inspect">, assistants?: AssistantDirectory, learning?: LearningEngine, documents?: DocumentsEngine): Promise<void> {
+  approvals: number, request: IncomingMessage, response: ServerResponse, raw: unknown, bots?: BotRuntime, jira?: Pick<JiraRuntime, "inspect">, assistants?: AssistantDirectory, learning?: LearningEngine, documents?: DocumentsEngine, automations?: AutomationRuntime, zenfluence?: ZenfluenceDirectory): Promise<void> {
   const server = new McpServer({ name: "magentic-pipelines", version: "0.1.0" }, {
     instructions: bots ? "Track workflows and inspect bot timelines. Bot execution and file application require the local application session." : "Track manual development handoffs and Jira previews. These tools do not execute code, invoke LLMs, send Jira requests, merge, or deploy.",
   });
   const result = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
-  server.registerTool("get_pipeline", { description: "Read the workspace pipeline configuration and compact run summaries.",
-    inputSchema: z.object({}).strict(), annotations: { readOnlyHint: true } }, async () => {
-    const snapshot = engine.snapshot(workspace);
-    return result({ config: snapshot.config, agentConfigurations: configurableCatalog(snapshot.config), version: snapshot.version, storage: snapshot.storage, jiraDelivery: snapshot.jiraDelivery,
-      runs: snapshot.runs.map(({ id, title, status, current, version, revision }) => ({ id, title, status, current, version, revision })) });
-  });
-  server.registerTool("get_pipeline_run", { description: "Read one run, its stage outputs, review evidence, history, and Jira previews.",
-    inputSchema: z.object({ runId: z.string().uuid() }).strict(), annotations: { readOnlyHint: true } }, async ({ runId }) => {
-    const run = engine.snapshot(workspace).runs.find(item => item.id === runId);
-    return run ? result(run) : { ...result({ error: "Run not found in this workspace." }), isError: true };
-  });
+  registerWorkspaceReads(server, workspace, engine, documents);
+  if (automations) registerAutomationInspection(server, automations, workspace);
+  if (zenfluence) registerZenfluenceReads(server, zenfluence, workspace);
   server.registerTool("start_pipeline_run", { description: "Start a manual development run. A repeated requestId reuses the same run. Jira actions remain previews.",
     inputSchema: z.object({ requestId: z.string().uuid(), title: z.string().min(3).max(160), brief: z.string().min(1).max(4000), issueKey: z.string().optional() }).strict(),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true } }, async (input) => {
@@ -86,10 +82,6 @@ export async function handlePipelineMcp(engine: PipelineEngine, workspace: strin
   }, async ({ projectId }) => { try { return result(learning.runNow(workspace, actor, roles, projectId)); } catch (error) { return learningError(error); } });
   // The documentation portal: what the workspace has been given, and connecting it. Content itself is never returned over MCP.
   const documentError = (error: unknown) => ({ ...result({ error: error instanceof Error ? error.message : "The document command failed." }), isError: true });
-  if (documents) server.registerTool("list_documents", {
-    description: "List the documents in this workspace's documentation portal: title, size, how many lines looked like a credential, an excerpt, and the runs and datasets each one is connected to. The content stays on the machine.",
-    inputSchema: z.object({}).strict(), annotations: { readOnlyHint: true },
-  }, async () => result(documents.snapshot(workspace).documents));
   if (documents) server.registerTool("add_document", {
     description: "Add a document to the portal. It is stored once by content hash; lines that look like a credential are counted and never shown. Adding trains nothing and changes no run.",
     inputSchema: z.object({ title: z.string().trim().min(1).max(120), text: z.string().min(1).max(200_000) }).strict(), annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
