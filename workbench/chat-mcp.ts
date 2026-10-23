@@ -12,26 +12,40 @@ export function createChatMcpServer(access: ChatAccess, workspace: string, actor
   server.registerTool("list_chat_models", {
     description: "List models available to this credential's member and workspace. No credentials are returned.", inputSchema: z.object({}).strict(),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async () => {
-    if (!(await member())) return { ...result({ error: "Workspace access is no longer available." }), isError: true };
-    return result({ models: await (await access.configuration(workspace, actor)).modelOptions!() });
+  }, async (_, extra) => {
+    const signal = AbortSignal.any([extra.signal, AbortSignal.timeout(15_000)]);
+    try {
+      if (!(await untilAborted(member(), signal))) return { ...result({ error: "Workspace access is no longer available." }), isError: true };
+      const config = await untilAborted(access.configuration(workspace, actor), signal);
+      return result({ models: await untilAborted(config.modelOptions!(), signal) });
+    } catch {
+      // Provider failures can contain private endpoint or credential details.
+      return { ...result({ error: "Could not list models. Check the model connections and retry." }), isError: true };
+    }
   });
   server.registerTool("chat", {
     description: "Send a text conversation to a connected model. This transmits the supplied conversation to its provider and can incur API charges. Auto may change providers only when routing is explicitly auto and the member has paid access. No workspace tools, files, web search, or approved profiles are used.",
     inputSchema: chatRequestSchema,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, async input => {
+  }, async (input, extra) => {
     let release: (() => void) | undefined;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120_000);
+    const signal = AbortSignal.any([controller.signal, extra.signal]);
     try {
-      if (!(await member())) throw new ChatAccessError(403, "Workspace access is no longer available.");
+      if (!(await untilAborted(member(), signal))) throw new ChatAccessError(403, "Workspace access is no longer available.");
       if (input.profile) throw new ChatAccessError(400, "The chat MCP tool does not accept assistant profiles.");
       release = access.acquire(workspace, actor);
-      const prepared = await access.prepare(workspace, actor, input);
-      const model = await untilAborted(prepared.config.loadModel(prepared.model, prepared.maxOutputTokens === undefined ? undefined : { maxOutputTokens: prepared.maxOutputTokens }), controller.signal);
+      // Cancellation must also release the slot while model discovery is stalled.
+      const prepared = await untilAborted(access.prepare(workspace, actor, input), signal);
+      if (prepared.maxOutputTokens !== undefined) {
+        const choices = await untilAborted(prepared.config.modelOptions!(), signal);
+        if (!choices.find(model => model.id === prepared.model)?.outputLimit) throw new ChatAccessError(400, "This model uses the provider default output cap.");
+      }
+      signal.throwIfAborted();
+      const model = await untilAborted(prepared.config.loadModel(prepared.model, prepared.maxOutputTokens === undefined ? undefined : { maxOutputTokens: prepared.maxOutputTokens }), signal);
       let answer: ChatEvent | undefined;
-      await runBaseChat(contextMessages(input.messages, input.history ?? "recent"), model, controller.signal, event => { if (event.type === "answer") answer = event; });
+      await runBaseChat(contextMessages(input.messages, input.history ?? "recent"), model, signal, event => { if (event.type === "answer") answer = event; });
       return result({ model: prepared.model, ...(prepared.route ? { route: prepared.route } : {}), answer });
     } catch (error) {
       return { ...result({ error: error instanceof ChatAccessError ? error.message : "The model request failed or timed out. Check the connection and retry." }), isError: true };

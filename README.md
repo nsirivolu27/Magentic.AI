@@ -53,6 +53,6 @@ For the presentation website: `node docs/site/serve.mjs --port=4184`.
 
 ## Status
 
-Working prototype. Latest local verification, October 22, 2026: **777 passed, 0 failed, 1 skipped**; typecheck and both builds passed.
+Working prototype. Latest local verification, October 22, 2026: **801 passed, 0 failed, 1 skipped**; typecheck and both builds passed.
 
 Live providers need configuration. Model Studio training is simulated, and storage currently assumes a single writer. Production scaling and compliance validation remain future work.

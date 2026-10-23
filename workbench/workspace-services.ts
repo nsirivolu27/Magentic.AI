@@ -4,6 +4,7 @@ import { homeView } from "./home-view.js";
 import { escape, status, table, cellLink } from "./ui.js";
 
 const services = [
+  { group: "Connect", name: "Ontology", detail: "Foundry, datasets and allowed object types.", href: "#/ontology" },
   { group: "Build", name: "Agent Studio", detail: "Instructions, models and tool permissions.", href: "#/agent-studio" },
   { group: "Build", name: "Agent marketplace", detail: "Find configurations for your workflow.", href: "#/marketplace" },
   { group: "Build", name: "Model Studio", detail: "Candidates, evaluations and releases.", href: "#/studio" },

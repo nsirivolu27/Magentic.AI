@@ -67,6 +67,7 @@ export interface AgentTestsSnapshot { cases: AgentTestCase[]; runs: AgentTestRun
 export const agentTestCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("save_case"), id: z.string().uuid().optional(), agentId: z.string().uuid(), title: text(120), prompt: text(4000), expected: z.string().trim().max(2000).default(""), source: z.string().trim().max(250).default("") }).strict(),
   z.object({ action: z.literal("delete_case"), caseId: z.string().uuid() }).strict(),
+  z.object({ action: z.literal("cancel"), runId: z.string().uuid() }).strict(),
   /** expectedVersion is the workspace configuration version the person saw; a changed agent must be re-read before it is tested. */
   z.object({ action: z.literal("run"), caseId: z.string().uuid(), expectedVersion: z.number().int().min(1) }).strict(),
   z.object({ action: z.literal("review"), runId: z.string().uuid(), verdict: z.enum(["pass", "fail", "unsure"]), note: z.string().trim().max(2000).default("") }).strict(),

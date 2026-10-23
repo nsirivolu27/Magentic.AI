@@ -49,7 +49,7 @@ const MAX_RUNS = 300;
 
 export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
   const states = new Map<string, State>();
-  const active = new Map<string, { controller: AbortController; done: Promise<void> }>();
+  const active = new Map<string, { runId: string; controller: AbortController; done: Promise<void> }>();
   let closed = false;
   if (options.directory) mkdirSync(options.directory, { recursive: true });
   const pathFor = (workspace: string) => join(options.directory!, `${digest(workspace)}.json`);
@@ -102,6 +102,9 @@ export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
       if (!content.trim()) throw new PipelineError(409, `The source "${testCase.source}" is empty, so a required read could never succeed. Add content or choose another file.`);
       if (!policy.allowedTools.includes("read_project_file")) throw new PipelineError(409, "This test names a source but the agent may not read files. Choose the read file tool in Knowledge and tools.");
     }
+    if ((agent.bot.requireSourceRead || testCase.source) && (policy.maxToolCalls < 1 || agent.bot.maxSteps < 2)) {
+      throw new PipelineError(409, "Source reading needs at least 1 tool call and 2 model calls: one to request evidence, one to answer. Update Execution limits.");
+    }
     return { checkout: project.root };
   }
 
@@ -119,10 +122,18 @@ export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
   }
 
   async function work(value: State, run: AgentTestRun, agent: AgentConfigurable, testCase: AgentTestCase, checkout: string, controller: AbortController): Promise<void> {
-    const timer = setTimeout(() => controller.abort(), agent.bot.timeoutSeconds * 1000);
+    const timer = setTimeout(() => controller.abort("timeout"), agent.bot.timeoutSeconds * 1000);
     const attempt: BotAttempt = attemptSchema.parse({ id: run.id, requestId: run.id, runId: run.id, stageId: "test", revision: 1, actor: run.startedBy, bot: agent.bot, model: agent.model,
       checkout, baseCommit: "test", startedAt: run.startedAt, status: "running", summary: "", error: "", calls: 0, tokenUsage: null, cost: null, events: [], changes: [], proposalHash: "", checks: [], checkedTree: "" });
-    const note = (message: string) => { run.events = [...run.events.slice(-59), message.slice(0, 500)]; save(value); };
+    const note = (message: string) => {
+      run.events = [...run.events.slice(-59), message.slice(0, 500)];
+      // A running test must report evidence as it arrives, not only after the model finishes.
+      run.calls = attempt.calls;
+      run.tokenUsage = attempt.tokenUsage;
+      run.toolCalls = toolCallsFrom(run.events);
+      run.sourceRead = run.toolCalls.some(call => call.outcome === "read");
+      save(value);
+    };
     try {
       const model = await untilAborted(options.chat!.loadModel(agent.model, { maxOutputTokens: 1024 }), controller.signal);
       const result = await runBotWorker(attempt, trialRun(value.workspaceId, run.startedBy, agent, testCase), model, controller.signal, note);
@@ -131,9 +142,18 @@ export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
       run.status = "succeeded";
     } catch (error) {
       run.status = controller.signal.aborted ? "cancelled" : "failed";
-      run.error = controller.signal.aborted ? `The test stopped at the ${agent.bot.timeoutSeconds} second limit. Raise the limit or simplify the prompt.`
-        : error instanceof BotToolPolicyError || error instanceof BotHandoffError ? error.message
-        : "The agent could not finish. Check the model connection, repository access and tool budget, then run again.";
+      if (controller.signal.aborted) {
+        if (controller.signal.reason === "shutdown") {
+          run.error = "The application restarted or stopped before this test finished. Reconnect and run it again.";
+        } else if (controller.signal.reason === "user") {
+          run.error = "Stopped by a workspace operator. No answer was accepted.";
+        } else {
+          run.error = `The test stopped at the ${agent.bot.timeoutSeconds} second limit. Try a smaller task or a faster connected model before increasing the limit.`;
+        }
+      } else {
+        run.error = error instanceof BotToolPolicyError || error instanceof BotHandoffError ? error.message
+          : "The agent could not finish. Check the model connection, repository access and tool budget, then run again.";
+      }
     } finally {
       clearTimeout(timer);
       run.calls = attempt.calls; run.tokenUsage = attempt.tokenUsage;
@@ -182,6 +202,16 @@ export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
       save(value);
       return snapshot(workspace);
     }
+    if (input.action === "cancel") {
+      const run = value.runs.find(item => item.id === input.runId);
+      if (!run) throw new PipelineError(404, "This test run is not in this workspace.");
+      if (!roles.includes("admin") && (!author || run.startedBy !== actor)) throw new PermissionError("Only the test author or an admin can stop this test.");
+      const current = active.get(workspace);
+      if (run.status !== "running" || current?.runId !== run.id) throw new PipelineError(409, "This test is no longer running.");
+      current.controller.abort("user");
+      await current.done;
+      return snapshot(workspace);
+    }
     // run
     if (!author) throw new PermissionError("An author or admin runs tests.");
     const testCase = value.cases.find(item => item.id === input.caseId);
@@ -198,7 +228,7 @@ export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
     save(value);
     const controller = new AbortController();
     const done = Promise.resolve().then(() => work(value, run, agent, testCase, checkout, controller)).catch(() => undefined);
-    active.set(workspace, { controller, done });
+    active.set(workspace, { runId: run.id, controller, done });
     return snapshot(workspace);
   }
 
@@ -207,7 +237,7 @@ export function createAgentTests(options: AgentTestsOptions): AgentTestsEngine {
     settled: async (workspace) => { await active.get(workspace)?.done; },
     close: async () => {
       closed = true;
-      for (const entry of active.values()) entry.controller.abort();
+      for (const entry of active.values()) entry.controller.abort("shutdown");
       await Promise.all([...active.values()].map(entry => entry.done));
     },
   };

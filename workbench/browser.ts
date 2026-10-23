@@ -1,3 +1,4 @@
+import { ontologyPage, type OntologyPreview } from "./ontology-view.js";
 import { createZenfluenceView } from "./zenfluence-controller.js";
 import type { SavedChat, SavedChatSummary } from "./chat-history.js";
 import { createWorkflowCanvas } from "./workflow-canvas-controller.js";
@@ -41,7 +42,7 @@ import { type BotSnapshot } from "./bot-schema.js";
 import { DEVELOPMENT_PLAYBOOKS, playbookBrief, type SessionDraft } from "./playbooks.js";
 import type { SessionFilter } from "./desk-view.js";
 import { workspaceView, workList, workProgress } from "./workspace-view.js";
-import { materialsSchema, FEDERAL_SERVICE_STARTER, type Material } from "./materials.js";
+import { materialSchema, materialsSchema, FEDERAL_SERVICE_STARTER, type Material } from "./materials.js";
 import { configureStage } from "./guided-stages.js";
 import { jiraReviewView, jiraHistoryView, type JiraReview, type JiraHistory } from "./jira-view.js";
 import { pipelineView } from "./pipeline-view.js";
@@ -90,33 +91,38 @@ let operationsRoot: Root | undefined;
 let filter = "all";
 node(".skip-link").addEventListener("click", event => { event.preventDefault(); node("main").focus(); });
 const mobileNavigation = window.matchMedia("(max-width: 800px)");
+let navigationTrigger = node("#nav-toggle");
 function closeNavigation(): void {
   document.body.classList.remove("navigation-open");
   node("#workspace-navigation").removeAttribute("role");
   node("#workspace-navigation").removeAttribute("aria-modal");
   node("#nav-toggle").setAttribute("aria-expanded", "false");
+  node("#service-search-launcher").setAttribute("aria-expanded", "false");
   node("#nav-backdrop").hidden = true;
   node("main").inert = false;
 }
-node("#nav-toggle").addEventListener("click", () => {
+function openNavigation(trigger: HTMLElement): void {
+  navigationTrigger = trigger;
   document.body.classList.add("navigation-open");
   node("#workspace-navigation").setAttribute("role", "dialog");
   node("#workspace-navigation").setAttribute("aria-modal", "true");
   node("#nav-toggle").setAttribute("aria-expanded", "true");
+  node("#service-search-launcher").setAttribute("aria-expanded", "true");
   node("#nav-backdrop").hidden = false;
   node("main").inert = true;
   filterServices();
   node<HTMLInputElement>("#service-search").focus();
-});
+}
+for (const id of ["#nav-toggle", "#service-search-launcher"]) node(id).addEventListener("click", () => openNavigation(node(id)));
 for (const id of ["#nav-close", "#nav-backdrop"]) node(id).addEventListener("click", () => {
-  closeNavigation(); node("#nav-toggle").focus();
+  closeNavigation(); navigationTrigger.focus();
 });
 node("#workspace-navigation").addEventListener("click", event => {
   if ((event.target as Element).closest("a.nav, a.brand")) closeNavigation();
 });
 node("#workspace-navigation").addEventListener("keydown", event => {
   if (!document.body.classList.contains("navigation-open")) return;
-  if (event.key === "Escape") { closeNavigation(); node("#nav-toggle").focus(); return; }
+  if (event.key === "Escape") { closeNavigation(); navigationTrigger.focus(); return; }
   if (event.key !== "Tab") return;
   const controls = [...node("#workspace-navigation").querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')]
     .filter(control => control.offsetParent !== null);
@@ -157,7 +163,7 @@ node("#service-search-clear").addEventListener("click", () => {
  * the back button, a reload and a pasted link all land in the same place.
  */
 interface Route { view: string; id?: string; sub?: string; query: URLSearchParams }
-const PRIMARY_VIEWS = ["deployments", "onboarding", "zenfluence", "canvas", "marketplace", "connections", "base-chat", "chat", "account", "agent-studio", "workspace", "assistants", "workflows", "studio", "documents", "evaluations", "approvals", "activity"];
+const PRIMARY_VIEWS = ["ontology", "deployments", "onboarding", "zenfluence", "canvas", "marketplace", "connections", "base-chat", "chat", "account", "agent-studio", "workspace", "assistants", "workflows", "studio", "documents", "evaluations", "approvals", "activity"];
 const LEGACY_VIEWS = ["desk", "pipelines", "agents", "email", "mcp", "workflow", "chat"];
 function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?");
@@ -209,6 +215,54 @@ let sessionQuery = "";
 let sessionDraft: SessionDraft = { title: "", brief: "" };
 let selectedPlaybook: string | undefined;
 let draftMaterials: Material[] = [];
+let ontologyPreview: OntologyPreview | undefined;
+let ontologyScope = "";
+let ontologyRequest = 0;
+function currentOntologyScope(): string {
+  return JSON.stringify([snapshot.workspaceId, snapshot.actor, snapshot.ontology]);
+}
+
+document.addEventListener("submit", async event => {
+  const form = event.target as HTMLFormElement;
+  if (form.id === "ontology-filter") {
+    event.preventDefault();
+    const query = new URLSearchParams({ q: String(new FormData(form).get("q") ?? "") });
+    navigate("#/ontology?" + query);
+    return;
+  }
+  if (form.id !== "ontology-read") return;
+  event.preventDefault();
+  const objectType = form.dataset.type!;
+  const primaryKey = String(new FormData(form).get("primaryKey") ?? "").trim();
+  const scope = currentOntologyScope();
+  const request = ++ontologyRequest;
+  ontologyScope = scope;
+  ontologyPreview = { objectType, primaryKey, loading: true };
+  render();
+  try {
+    const material = materialSchema.parse(await api("/api/ontology/reference", { objectType, primaryKey }));
+    // A response from the previous company must never appear in the next company's console.
+    if (scope !== currentOntologyScope() || request !== ontologyRequest) return;
+    ontologyPreview = { objectType, primaryKey, material };
+  } catch (error) {
+    if (scope !== currentOntologyScope() || request !== ontologyRequest) return;
+    ontologyPreview = { objectType, primaryKey, error: (error as Error).message };
+  }
+  if (view === "ontology") render();
+});
+
+document.addEventListener("click", event => {
+  if (!(event.target as Element).closest("[data-ontology-use]")) return;
+  if (!snapshot.canAuthor || ontologyScope !== currentOntologyScope() || !ontologyPreview?.material) return;
+  try {
+    if (!draftMaterials.some(item => item.id === ontologyPreview!.material!.id)) {
+      draftMaterials = materialsSchema.parse([...draftMaterials, ontologyPreview.material]);
+    }
+    navigate("#/desk/new");
+    notify("Reference added to your draft. No workflow started.");
+  } catch (error) { notify((error as Error).message, true); }
+});
+
 let selectedRun: string | undefined;
 let selectedPhase: number | undefined;
 let botRequestId = crypto.randomUUID();
@@ -306,7 +360,6 @@ function render(): void {
     : companyMode ? "<strong>Company workspace</strong><span>Company membership controls access. Repository execution requires an isolated worker.</span>"
     : localMode ? "<strong>Local workspace</strong><span>Saved locally. Remote models receive sent content.</span>"
     : "<strong>Workspace session</strong><span>Verify deployment and data-handling settings before sensitive work.</span>";
-  node("#environment-banner").insertAdjacentHTML("beforeend", `<span class="mobile-operator-context">${escape(snapshot.workspaceId)} · ${escape(node("#operator-context").textContent ?? "")}</span>`);
   document.body.classList.toggle("developer-desk", view === "desk");
   renderWorkspaces();
   const primary = PRIMARY_VIEWS.includes(view);
@@ -348,6 +401,11 @@ function render(): void {
 /** The six primary pages, from the route and the snapshot. */
 function currentPage(): Page {
   switch (view) {
+    case "ontology": {
+      const scope = currentOntologyScope();
+      if (ontologyScope !== scope) { ontologyPreview = undefined; ontologyScope = scope; ontologyRequest++; }
+      return ontologyPage(snapshot.workspaceId, snapshot.ontology, route.query, ontologyPreview, snapshot.canAuthor);
+    }
     case "onboarding": return workspaceSetupPage(snapshot, companyMode, workspaceList?.workspaces.find(item => item.id === snapshot.workspaceId)?.name);
     case "zenfluence": return zenfluence.page();
     case "base-chat":
@@ -397,9 +455,10 @@ const PAGE_NAMES: Record<string, string> = { deployments: "Workflow checks", onb
 function setHeading(page: Page): void {
   node("#title").textContent = page.title;
   node("#subtitle").textContent = page.context ?? "";
-  node("#crumbs").innerHTML = page.crumbs ? page.crumbs.map(([label, href]) => `<a href="${escape(href)}">${escape(label)}</a> / `).join("") : "";
+  const parents = page.crumbs ?? [];
+  const home = parents[0]?.[1] === "#/workspace" ? "" : '<a href="#/workspace">Console</a><span aria-hidden="true">›</span>';
+  node("#crumbs").innerHTML = home + parents.map(([label, href]) => `<a href="${escape(href)}">${escape(label)}</a><span aria-hidden="true">›</span>`).join("") + `<span aria-current="page">${escape(page.title)}</span>`;
   node("#page-actions").innerHTML = page.actions ?? "";
-  node("#breadcrumb").textContent = page.crumbs ? `${page.crumbs.map(([label]) => label).join(" / ")} / ${page.title}` : page.title;
   document.title = `${page.title} · Magentic`;
 }
 
@@ -1688,7 +1747,7 @@ document.addEventListener("submit", async event => {
 // Agent tests: save a prompt, run it against the saved version, record a review. Each is one command to the tests engine.
 document.addEventListener("submit", async event => {
   const form = event.target as HTMLFormElement;
-  const kind = form.id === "agent-test-case" ? "case" : form.id === "agent-test-review" ? "review" : form.dataset.form === "agent-test-run" ? "run" : "";
+  const kind = form.id === "agent-test-case" ? "case" : form.id === "agent-test-review" ? "review" : form.dataset.form === "agent-test-run" ? "run" : form.dataset.form === "agent-test-stop" ? "stop" : "";
   if (!kind) return;
   event.preventDefault();
   if (busy) return;
@@ -1702,6 +1761,10 @@ document.addEventListener("submit", async event => {
       if (scope !== `${selectedWorkspace}:${snapshot.actor}`) return;
       if (form.dataset.draft) delete studioUi.drafts[form.dataset.draft];
       notify(form.dataset.case ? "Test saved." : "Test saved. Run it to see the result.");
+    } else if (kind === "stop") {
+      await api("/api/agent-tests", { action: "cancel", runId: form.dataset.run });
+      if (scope !== `${selectedWorkspace}:${snapshot.actor}`) return;
+      notify("Test stopped. Its evidence is saved.");
     } else if (kind === "run") {
       await api("/api/agent-tests", { action: "run", caseId: form.dataset.case, expectedVersion: Number(form.dataset.version) });
       if (scope !== `${selectedWorkspace}:${snapshot.actor}`) return;
