@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { LnkzClientLike } from "./client.js";
 import type { ConversationGraph } from "./contract.js";
-import { registerAliasedResource } from "./resources.js";
 
 export const graphSchema = {
   limit: z.number().int().min(2).max(200).default(50),
@@ -37,20 +36,19 @@ export function registerGraphTools(server: McpServer, client: LnkzClientLike): v
     },
   );
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "conversation-graph",
-    "graph",
+    "lnkz://graph",
     {
-      title: "Conversation graph",
+      title: "LNKZ conversation graph",
       description: "Nodes and edges over the 50 most recent conversations.",
       mimeType: "application/json",
     },
-    async (uri) => {
+    async () => {
       const { graph } = await client.graph({ limit: 50 });
       return {
         contents: [{
-          uri,
+          uri: "lnkz://graph",
           mimeType: "application/json",
           text: JSON.stringify(graph, null, 2),
         }],

@@ -6,8 +6,6 @@ import { registerSurfaces } from "./surfaces.js";
 import { registerWorkspaceTools } from "./workspace.js";
 import { createSuggestions, resolveConversation, shortId } from "./suggest.js";
 import { askHandoffChoices, clientSupportsElicitation, missingChoices } from "./elicit.js";
-import { setting } from "./env.js";
-import { legacyUrisEnabled, registerAliasedResource, LEGACY_SCHEME, SCHEME } from "./resources.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -34,7 +32,7 @@ import {
   type MessageInput,
 } from "./contract.js";
 
-export const MAGENTIC_VERSION = "0.2.0";
+export const LNKZ_VERSION = "0.2.0";
 
 /**
  * Tools that change something: on this relay, on someone else's, or to a
@@ -94,7 +92,7 @@ export interface McpServerOptions {
 
   /**
    * Every tool name the server considered registering, appended as it goes.
-   * Only magenticToolNames uses it, to learn what this build actually exposes
+   * Only lnkzToolNames uses it, to learn what this build actually exposes
    * rather than trusting a list someone typed.
    */
   collect?: string[];
@@ -102,7 +100,7 @@ export interface McpServerOptions {
 
 /** Read the exposure setting. Anything other than an explicit read-only wins nothing. */
 export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): McpServerOptions {
-  const declared = (setting("MAGENTIC_SCOPES", env) ?? "").trim().toLowerCase();
+  const declared = (env.LNKZ_MCP_SCOPES ?? "").trim().toLowerCase();
   if (!declared) return { allowWrites: true };
   const scopes = new Set(declared.split(/[\s,]+/).filter(Boolean));
   return { allowWrites: scopes.has("write") };
@@ -124,7 +122,7 @@ const DEFAULT_INSTRUCTIONS = [
  * only describes tools; nothing reaches the relay until one is invoked.
  */
 let toolNames: readonly string[] | undefined;
-export function magenticToolNames(): readonly string[] {
+export function lnkzToolNames(): readonly string[] {
   if (toolNames) return toolNames;
   const collect: string[] = [];
   const probe = new Proxy({}, {
@@ -132,15 +130,15 @@ export function magenticToolNames(): readonly string[] {
       throw new Error("The tool-name probe must not reach the relay.");
     },
   }) as LnkzClientLike;
-  createMagenticMcpServer(probe, { allowWrites: true, collect });
+  createLnkzMcpServer(probe, { allowWrites: true, collect });
   toolNames = [...new Set(collect)].sort();
   return toolNames;
 }
 
-export function createMagenticMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
+export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
   const allowWrites = options.allowWrites ?? true;
   const server = new McpServer(
-    { name: "magentic", version: MAGENTIC_VERSION },
+    { name: "lnkz", version: LNKZ_VERSION },
     {
       instructions: options.instructions?.trim() || DEFAULT_INSTRUCTIONS,
     },
@@ -659,42 +657,41 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
 
   // ------------------------------------------------------------------- resources
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "connector-status",
-    "connectors",
-    { title: "Connector status", description: "Configured and disabled connector inventory.", mimeType: "application/json" },
-    async (uri) => jsonResource(uri, await client.listConnectors()),
+    "lnkz://connectors",
+    { title: "LNKZ connector status", description: "Configured and disabled connector inventory.", mimeType: "application/json" },
+    async () => jsonResource("lnkz://connectors", await client.listConnectors()),
   );
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "workspace-stats",
-    "stats",
-    { title: "Workspace statistics", description: "Conversation, message, provider, and handoff counts.", mimeType: "application/json" },
-    async (uri) => jsonResource(uri, (await client.stats()).stats),
+    "lnkz://stats",
+    { title: "LNKZ workspace statistics", description: "Conversation, message, provider, and handoff counts.", mimeType: "application/json" },
+    async () => jsonResource("lnkz://stats", (await client.stats()).stats),
   );
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "recent-conversations",
-    "conversations",
-    { title: "Recent conversations", description: "The 25 most recently updated conversations.", mimeType: "application/json" },
-    async (uri) => jsonResource(uri, await client.listConversations({ limit: 25 })),
+    "lnkz://conversations",
+    { title: "Recent LNKZ conversations", description: "The 25 most recently updated conversations.", mimeType: "application/json" },
+    async () => jsonResource("lnkz://conversations", await client.listConversations({ limit: 25 })),
   );
 
-  const conversationTemplateOptions = (scheme: string) => ({
+  server.registerResource(
+    "conversation",
     // A list callback is what puts conversations in a client's resource
     // picker, so a person points at one by title instead of a model going
     // looking for it by id. The completion callback narrows that list as
     // they type. The protocol only completes prompt arguments and resource
     // template variables, never tool arguments, so this and the prompts
     // below are the whole of where completion can help.
-    list: async () => {
+    new ResourceTemplate("lnkz://conversation/{id}", {
+      list: async () => {
         const conversations = await suggestions.conversations().catch(() => []);
         return {
           resources: conversations.map((conversation) => ({
-            uri: `${scheme}://conversation/${conversation.id}`,
+            uri: `lnkz://conversation/${conversation.id}`,
             name: conversation.title,
             description: `${conversation.source.provider} \u00b7 ${conversation.messageCount} messages \u00b7 ${shortId(conversation.id)}`,
             mimeType: "text/markdown",
@@ -714,15 +711,9 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
             .map((conversation) => conversation.id);
         },
       },
-  });
-
-  const conversationConfig = {
-    title: "Conversation",
-    description: "One conversation as a portable Markdown transcript.",
-    mimeType: "text/markdown",
-  };
-
-  const readConversation = async (uri: URL, variables: Record<string, string | string[]>) => {
+    }),
+    { title: "LNKZ conversation", description: "One conversation as a portable Markdown transcript.", mimeType: "text/markdown" },
+    async (uri, variables) => {
       const id = Array.isArray(variables.id) ? variables.id[0] : variables.id;
       if (!id) {
         return { contents: [{ uri: uri.href, mimeType: "text/plain", text: "Conversation not found." }] };
@@ -742,23 +733,8 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
         }
         throw error;
       }
-    };
-
-  server.registerResource(
-    "conversation",
-    new ResourceTemplate(`${SCHEME}://conversation/{id}`, conversationTemplateOptions(SCHEME)),
-    conversationConfig,
-    readConversation,
+    },
   );
-
-  if (legacyUrisEnabled()) {
-    server.registerResource(
-      "conversation-legacy",
-      new ResourceTemplate(`${LEGACY_SCHEME}://conversation/{id}`, conversationTemplateOptions(LEGACY_SCHEME)),
-      { ...conversationConfig, description: `${conversationConfig.description} Deprecated alias for ${SCHEME}://conversation/{id}.` },
-      readConversation,
-    );
-  }
 
   // --------------------------------------------------------------------- prompts
 

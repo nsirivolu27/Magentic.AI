@@ -127,16 +127,16 @@ function configOf(overrides: Partial<LlmConfig> = {}): LlmConfig {
 
 test("the integration is off unless an operator names a provider", () => {
   assert.equal(llmConfigFromEnv({}), undefined);
-  assert.equal(llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "   " }), undefined);
-  assert.throws(() => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "anthropic" }), /must be one of/);
+  assert.equal(llmConfigFromEnv({ LNKZ_LLM_PROVIDER: "   " }), undefined);
+  assert.throws(() => llmConfigFromEnv({ LNKZ_LLM_PROVIDER: "anthropic" }), /openai or ollama/);
 });
 
 test("numeric settings are clamped rather than trusted", () => {
   const config = llmConfigFromEnv({
-    MAGENTIC_LLM_PROVIDER: "openai",
-    MAGENTIC_LLM_MAX_CONVERSATIONS: "100000",
-    MAGENTIC_LLM_BATCH_SIZE: "0",
-    MAGENTIC_LLM_CHUNK_CHARS: "not a number",
+    LNKZ_LLM_PROVIDER: "openai",
+    LNKZ_LLM_MAX_CONVERSATIONS: "100000",
+    LNKZ_LLM_BATCH_SIZE: "0",
+    LNKZ_LLM_CHUNK_CHARS: "not a number",
   });
   assert.ok(config);
   assert.equal(config.maxConversations, 500);
@@ -147,7 +147,7 @@ test("numeric settings are clamped rather than trusted", () => {
 
 test("a base URL carrying credentials is refused", () => {
   assert.throws(
-    () => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "ollama", MAGENTIC_LLM_BASE_URL: "http://user:pass@host:11434" }),
+    () => llmConfigFromEnv({ LNKZ_LLM_PROVIDER: "ollama", LNKZ_LLM_BASE_URL: "http://user:pass@host:11434" }),
     /must not contain credentials/,
   );
 });
@@ -444,10 +444,10 @@ test("ask_conversations says nothing matched rather than answering from the mode
 });
 
 test("the real server picks the tools up through surfaces, and only when configured", async (t) => {
-  const { createMagenticMcpServer } = await import("../mcp.js");
+  const { createLnkzMcpServer } = await import("../mcp.js");
   const client = retrievalClient([storeConversation]);
 
-  const withoutProvider = createMagenticMcpServer(client);
+  const withoutProvider = createLnkzMcpServer(client);
   const plain = await connect(withoutProvider);
   t.after(plain.close);
   const before = new Set((await plain.client.listTools()).tools.map((tool) => tool.name));
@@ -456,28 +456,18 @@ test("the real server picks the tools up through surfaces, and only when configu
 
   // Registration only reads configuration; the provider package is not
   // imported until a tool is called, so this needs nothing installed.
-  const previous = process.env.MAGENTIC_LLM_PROVIDER;
-  process.env.MAGENTIC_LLM_PROVIDER = "ollama";
+  const previous = process.env.LNKZ_LLM_PROVIDER;
+  process.env.LNKZ_LLM_PROVIDER = "ollama";
   t.after(() => {
-    if (previous === undefined) delete process.env.MAGENTIC_LLM_PROVIDER;
-    else process.env.MAGENTIC_LLM_PROVIDER = previous;
+    if (previous === undefined) delete process.env.LNKZ_LLM_PROVIDER;
+    else process.env.LNKZ_LLM_PROVIDER = previous;
   });
 
-  const withProvider = createMagenticMcpServer(client);
+  const withProvider = createLnkzMcpServer(client);
   const configured = await connect(withProvider);
   t.after(configured.close);
   const after = new Set((await configured.client.listTools()).tools.map((tool) => tool.name));
   assert.ok(after.has("semantic_search"));
   assert.ok(after.has("ask_conversations"));
   assert.equal(after.size, before.size + 1, "configuring a provider adds semantic_search and nothing else");
-});
-
-test("azure and google are configurable providers with their own defaults", () => {
-  const azure = llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "azure" });
-  assert.equal(azure?.provider, "azure");
-  const google = llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "google" });
-  assert.equal(google?.provider, "google");
-  assert.equal(google?.chatModel, "gemini-2.0-flash");
-  // A provider name nobody implemented is still refused.
-  assert.throws(() => llmConfigFromEnv({ MAGENTIC_LLM_PROVIDER: "bedrock" }), /must be one of/);
 });

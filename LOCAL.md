@@ -32,7 +32,7 @@ the moment anything is reachable from outside it.
 ## 2. The adapter
 
 ```powershell
-cd C:\Users\nsiri\OneDrive\Documents\Playground\magentic-mcp
+cd C:\Users\nsiri\OneDrive\Documents\Playground\lnkz-mcp
 corepack pnpm install --frozen-lockfile
 corepack pnpm build
 corepack pnpm agents
@@ -54,20 +54,20 @@ than an endpoint. Open
   "mcpServers": {
     "lnkz": {
       "command": "node",
-      "args": ["C:\\Users\\nsiri\\OneDrive\\Documents\\Playground\\magentic-mcp\\dist\\stdio.mjs"],
+      "args": ["C:\\Users\\nsiri\\OneDrive\\Documents\\Playground\\lnkz-mcp\\dist\\stdio.mjs"],
       "env": {
         "LNKZ_BASE_URL": "http://127.0.0.1:3100",
         "LNKZ_API_KEY": "local-dev-key",
-        "MAGENTIC_AGENT": "conversation-relay"
+        "LNKZ_AGENT": "conversation-relay"
       }
     },
     "lnkz-reader": {
       "command": "node",
-      "args": ["C:\\Users\\nsiri\\OneDrive\\Documents\\Playground\\magentic-mcp\\dist\\stdio.mjs"],
+      "args": ["C:\\Users\\nsiri\\OneDrive\\Documents\\Playground\\lnkz-mcp\\dist\\stdio.mjs"],
       "env": {
         "LNKZ_BASE_URL": "http://127.0.0.1:3100",
         "LNKZ_API_KEY": "local-dev-key",
-        "MAGENTIC_AGENT": "research-reader"
+        "LNKZ_AGENT": "research-reader"
       }
     }
   }
@@ -78,13 +78,13 @@ Restart Claude Desktop. The first entry gives sixteen tools and can write;
 the second gives twelve and cannot, so pointing a conversation at it means
 nothing it does can change anything.
 
-Drop `MAGENTIC_AGENT` entirely for all twenty-nine tools, which is what a
+Drop `LNKZ_AGENT` entirely for all twenty-nine tools, which is what a
 configuration written before agents already does.
 
 ## 3b. Use it hosted, on your own machine
 
 ```powershell
-cd C:\Users\nsiri\OneDrive\Documents\Playground\magentic-mcp
+cd C:\Users\nsiri\OneDrive\Documents\Playground\lnkz-mcp
 $env:LNKZ_BASE_URL = "http://127.0.0.1:3100"
 corepack pnpm start:http
 ```
@@ -112,10 +112,10 @@ which is the configuration this product is for:
 ```powershell
 ollama pull nomic-embed-text
 ollama pull llama3.1
-cd C:\Users\nsiri\OneDrive\Documents\Playground\magentic-mcp
+cd C:\Users\nsiri\OneDrive\Documents\Playground\lnkz-mcp
 corepack pnpm add @langchain/ollama
-$env:MAGENTIC_LLM_PROVIDER = "ollama"
-$env:MAGENTIC_LLM_BASE_URL = "http://127.0.0.1:11434"
+$env:LNKZ_LLM_PROVIDER = "ollama"
+$env:LNKZ_LLM_BASE_URL = "http://127.0.0.1:11434"
 corepack pnpm agents
 ```
 

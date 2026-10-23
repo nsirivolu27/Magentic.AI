@@ -1,8 +1,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { LnkzClient } from "./client.js";
-import { createMagenticMcpServer, optionsFromEnv } from "./mcp.js";
+import { createLnkzMcpServer, optionsFromEnv } from "./mcp.js";
 import { catalogFor, selectAgent } from "./catalog/select.js";
-import { setting } from "./env.js";
 
 // fromEnv throws without LNKZ_BASE_URL and LNKZ_API_KEY, which is the point:
 // an adapter with nowhere to talk to should fail at boot rather than on its
@@ -12,7 +11,7 @@ const client = LnkzClient.fromEnv();
 // Verify a named profile before exposing any tools to its MCP client. A
 // profile that does not resolve is a misconfiguration, and finding that out
 // now is better than finding it out through a tool call that half worked.
-if (setting("MAGENTIC_PROFILE") || setting("MAGENTIC_PROFILES_JSON")) await client.workspace();
+if (process.env.LNKZ_PROFILE || process.env.LNKZ_PROFILES_JSON) await client.workspace();
 
 const base = optionsFromEnv();
 
@@ -22,12 +21,12 @@ const base = optionsFromEnv();
 //
 // Everything is written to stderr. stdout is the MCP transport, and a single
 // stray line on it corrupts the protocol.
-const requested = setting("MAGENTIC_AGENT")?.trim();
+const requested = process.env.LNKZ_AGENT?.trim();
 let options = base;
 if (requested) {
   const catalog = catalogFor(import.meta.url, base.allowWrites ?? true);
   if (!catalog) {
-    console.error(`[lnkz] MAGENTIC_AGENT=${requested} was set but no agent definitions could be read.`);
+    console.error(`[lnkz] LNKZ_AGENT=${requested} was set but no agent definitions could be read.`);
     process.exit(1);
   }
   try {
@@ -44,7 +43,7 @@ if (requested) {
   }
 }
 
-const server = createMagenticMcpServer(client, options);
+const server = createLnkzMcpServer(client, options);
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, async () => {
