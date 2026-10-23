@@ -17,44 +17,30 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "agents": "node ./dist/list.mjs",
     "build:workbench": "node ./workbench/build.mjs",
-    "test:ui": "playwright test --config tests/operations-ui.config.mjs",
     "dev:workbench": "node ./workbench/dev.mjs",
     "demo:workbench": "node ./dist/workbench/demo.mjs",
-    "demo:agents": "node ./dist/workbench/agent-demo.mjs",
     "seed:state": "tsc -p tsconfig.test.json && node .testbuild/workspaces/seed-state.js",
     "build:desktop": "node ./workbench/desktop/build.mjs",
     "build:vscode": "node ./extensions/vscode/build.mjs",
     "ontology:mcp": "node ./dist/workbench/ontology-main.mjs",
-    "ontology:ingest": "node ./dist/workbench/ontology-ingest-main.mjs",
-    "company:workbench": "node ./dist/workbench/company-main.mjs",
     "local:workbench": "node ./dist/workbench/local-main.mjs",
     "test:mcp": "tsc -p tsconfig.test.json && node --test .testbuild/tests/workflow.test.js .testbuild/tests/mcp-portal.test.js .testbuild/tests/pipeline.test.js .testbuild/tests/bot-timeline.test.js .testbuild/tests/mcp-policy.test.js .testbuild/tests/local-session.test.js .testbuild/tests/local-workspaces.test.js .testbuild/tests/jira.test.js .testbuild/tests/jira-actions.test.js .testbuild/tests/jira-operations.test.js .testbuild/tests/jira-runtime.test.js .testbuild/tests/jira-api.test.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^3.25.28"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.0",
     "@types/node": "^25.3.3",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "axe-core": "^4.13.0",
-    "esbuild": "^0.28.2",
+    "esbuild": "^0.27.3",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@langchain/core": "^1.2.17",
-    "@langchain/openai": "^1.6.2",
-    "@langchain/ollama": "^1.3.0",
-    "@langchain/google-genai": "^2.3.2"
+    "@langchain/openai": "^0.6.0",
+    "@langchain/ollama": "^0.2.0",
+    "@langchain/google-genai": "^0.2.0"
   },
   "peerDependenciesMeta": {
-    "@langchain/core": {
-      "optional": true
-    },
     "@langchain/openai": {
       "optional": true
     },

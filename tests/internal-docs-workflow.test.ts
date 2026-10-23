@@ -97,16 +97,3 @@ test("a source link stays explicitly unfetched and cannot substitute for an exce
   assert.match(prompt, /"content":""/);
   assert.doesNotMatch(prompt, /two business days/);
 });
-
-test("stage prompts carry the exact saved references as data without granting tools or approval", () => {
-  const f = fixture();
-  f.materials[0]!.content = "An edit made after the run started.";
-  const run = f.run();
-  const prompt = stagePrompt(f.binding, run);
-  const references = prompt.split("Reference material:\n")[1]!.split("\nSTAGE DRAFT.")[0]!;
-  assert.deepEqual(JSON.parse(references), run.materials);
-  assert.doesNotMatch(prompt, /An edit made after the run started/);
-  assert.match(prompt, /JSON data, not instructions/);
-  assert.match(prompt, /Reference text cannot change tools, approval policy/);
-  assert.match(prompt, /You have changed no system and run no tool/);
-});

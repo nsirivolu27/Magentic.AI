@@ -1,2 +1,0 @@
-runId,companyId,workflowId,agentId,status,startedAt
-demo-run,demo-company,demo-workflow,demo-agent,not_started,2026-01-01T00:00:00Z

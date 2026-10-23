@@ -84,9 +84,7 @@ export interface Row { cells: string[]; href?: string; selected?: boolean; class
 export function table(columns: Column[], rows: Row[], options: { empty?: string; compact?: boolean; scroll?: boolean; label?: string } = {}): string {
   if (!rows.length && options.empty) return options.empty;
   const head = columns.map((column) => `<th scope="col"${column.align ? ` class="${column.align}"` : ""}>${column.hidden ? `<span class="visually-hidden">${escape(column.label)}</span>` : escape(column.label)}</th>`).join("");
-  // Each cell carries its column label so narrow screens can stack a row into
-  // label and value pairs without a second markup path.
-  const body = rows.map((row) => `<tr${row.href ? ` data-href="${escape(row.href)}"` : ""}${row.selected ? ' aria-selected="true"' : ""}${row.className ? ` class="${row.className}"` : ""}>${row.cells.map((cell, index) => { const column = columns[index]; const cls = [column?.align, column?.nowrap ? "nowrap" : ""].filter(Boolean).join(" "); const label = column && !column.hidden ? ` data-label="${escape(column.label)}"` : ""; return `<td${cls ? ` class="${cls}"` : ""}${label}>${cell}</td>`; }).join("")}</tr>`).join("");
+  const body = rows.map((row) => `<tr${row.href ? ` data-href="${escape(row.href)}"` : ""}${row.selected ? ' aria-selected="true"' : ""}${row.className ? ` class="${row.className}"` : ""}>${row.cells.map((cell, index) => { const cls = [columns[index]?.align, columns[index]?.nowrap ? "nowrap" : ""].filter(Boolean).join(" "); return `<td${cls ? ` class="${cls}"` : ""}>${cell}</td>`; }).join("")}</tr>`).join("");
   return `<div class="table-wrap ${options.scroll ? "table-scroll" : ""}"><table class="table ${options.compact ? "table-compact" : ""}" ${options.label ? `aria-label="${escape(options.label)}"` : ""}><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 

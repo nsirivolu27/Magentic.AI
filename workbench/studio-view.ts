@@ -1,5 +1,5 @@
 import { evaluationAnalysis } from "./evaluation-analysis.js";
-import { STUDIO_STAGES, stageStateSentence, studioGuide, type GuidedExample } from "./guided-stages.js";
+import { STUDIO_STAGES, studioGuide, type GuidedExample } from "./guided-stages.js";
 import type { WorkbenchSnapshot } from "./snapshot.js";
 import type { StudioSnapshot } from "./studio/engine.js";
 import type { Dataset, EvaluationRun, ModelProject, ModelRelease, TrainingJob } from "./studio/schema.js";
@@ -103,7 +103,7 @@ export function studioProjectPage(snapshot: WorkbenchSnapshot, projectId: string
   const chain = graph(flow.nodes, NODE_OF_PHASE[phase], { label: `${project.name} connections` });
   const step = STUDIO_STAGES.find((item) => item.id === phase)!;
   const nextStep = STUDIO_STAGES.find((item) => item.id === report.current)!;
-  const orientation = `<section class="stage-intro" aria-label="About this stage"><div><p class="stage-eyebrow">Stage ${STUDIO_STAGES.indexOf(step) + 1} of ${STUDIO_STAGES.length}</p><h2>${step.title}</h2><p>${step.task}</p><p class="stage-state ${report.states[phase]}">${escape(stageStateSentence(phase, report, pending ? { approvals: pending.approvals.length, required: pending.requiredApprovals } : undefined))}</p></div><div>${more("About this step", `<p>${step.result}</p>`)}${phase !== report.current ? `<a href="#/studio/${project.id}/${report.current}">Continue: ${nextStep.title}</a>` : ""}</div></section>`;
+  const orientation = `<section class="stage-intro" aria-label="About this stage"><div><p class="stage-eyebrow">Stage ${STUDIO_STAGES.indexOf(step) + 1} of ${STUDIO_STAGES.length}</p><h2>${step.title}</h2><p>${step.task}</p></div><div>${more("About this step", `<p>${step.result}</p>`)}${phase !== report.current ? `<a href="#/studio/${project.id}/${report.current}">Continue: ${nextStep.title}</a>` : ""}</div></section>`;
   const content = ({ define: defineContent, data: dataContent, train: trainContent, evaluate: evaluateContent, approve: approveContent, use: useContent })[phase](studio, project, report, viewer, ui, snapshot);
 
   // The header says what the assistant is waiting for, in the words a person would use.
