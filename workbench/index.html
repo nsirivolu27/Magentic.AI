@@ -8,46 +8,57 @@
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <button id="nav-backdrop" class="nav-backdrop" aria-label="Close navigation" hidden></button>
-  <aside class="sidebar" id="workspace-navigation" aria-label="Workspace navigation">
+  <aside class="sidebar" id="workspace-navigation" aria-label="Services">
     <div class="brand-row"><a class="brand" href="#/base-chat" aria-label="Magentic home"><span class="mark">m</span><span>Magentic<small>OPERATIONS WORKSPACE</small></span></a><button id="nav-close" class="mobile-navigation-close" aria-label="Close navigation">×</button></div>
     <div class="workspace"><span class="workspace-icon">D</span><div>Demo workspace<small>DEMO DATA</small></div></div>
-    <nav class="nav-list" aria-label="Primary">
+    <div class="service-search"><label for="service-search" class="visually-hidden">Find a service</label><input id="service-search" type="search" placeholder="Find a service, agent tool or setting…" autocomplete="off"><button class="secondary" id="service-search-clear" hidden>Clear</button></div>
+    <p id="service-results" class="service-results" role="status" aria-live="polite"></p>
+    <nav class="nav-list" aria-label="Primary"><section class="service-group"><div class="nav-section-label">START</div>
       <a class="nav" href="#/base-chat" data-route="base-chat"><span aria-hidden="true">◇</span> Chat</a>
       <a class="nav" href="#/connections" data-route="connections"><span aria-hidden="true">↔</span> Connections</a>
-      <div class="nav-section-label">OPERATIONS</div>
-      <a class="nav" href="#/workspace" data-route="workspace"><span aria-hidden="true">▣</span> Work queue <span class="nav-count" id="nav-attention" hidden></span></a>
+      </section><section class="service-group"><div class="nav-section-label">OPERATIONS</div>
+      <a class="nav" href="#/workspace" data-route="workspace"><span aria-hidden="true">▣</span> Workspace <span class="nav-count" id="nav-attention" hidden></span></a>
       <a class="nav" href="#/desk" data-route="desk"><span aria-hidden="true">▤</span> Work items</a>
-      <a class="nav" href="#/workflows" data-route="workflows"><span aria-hidden="true">⇢</span> Workflows</a>
+      <a class="nav" href="#/workspace?tab=agents" data-route="workspace" data-console-tab="agents"><span aria-hidden="true">✦</span> Team agents</a>
+      <a class="nav" href="#/workspace?tab=tools" data-route="workspace" data-console-tab="tools"><span aria-hidden="true">⌘</span> Tools</a>
+      <a class="nav" href="#/workspace?tab=workflows" data-route="workspace" data-console-tab="workflows"><span aria-hidden="true">⇢</span> Workflows</a>
+      <a class="nav" href="#/canvas" data-route="canvas"><span aria-hidden="true">▦</span> Workflow canvas</a>
       <a class="nav" href="#/assistants" data-route="assistants"><span aria-hidden="true">✦</span> Assistants</a>
       <a class="nav" href="#/documents" data-route="documents"><span aria-hidden="true">▤</span> Reference documents</a>
+      <a class="nav" href="#/ontology" data-route="ontology"><span aria-hidden="true">◇</span> Ontology <small>Foundry &amp; datasets</small></a>
       <a class="nav" href="#/zenfluence" data-route="zenfluence"><span aria-hidden="true">↗</span> Zenfluence</a>
-      <div class="nav-section-label">ASSURANCE</div>
+      </section><section class="service-group"><div class="nav-section-label">ASSURANCE</div>
+      <a class="nav" href="#/workspace?tab=readiness" data-route="workspace" data-console-tab="readiness"><span aria-hidden="true">◇</span> Readiness</a>
       <a class="nav" href="#/evaluations" data-route="evaluations"><span aria-hidden="true">◔</span> Evaluations</a>
       <a class="nav" href="#/approvals" data-route="approvals"><span aria-hidden="true">✓</span> Release approvals <span class="nav-count" id="nav-approvals" hidden></span></a>
       <a class="nav" href="#/activity" data-route="activity"><span aria-hidden="true">◷</span> Audit trail</a>
       <a class="nav" href="#/workflow" data-route="workflow"><span aria-hidden="true">◇</span> Review policy</a>
-      <div class="nav-section-label">CONFIGURATION</div>
+      </section><section class="service-group"><div class="nav-section-label">CONFIGURATION</div>
+      <a class="nav" href="#/workspace?tab=access" data-route="workspace" data-console-tab="access"><span aria-hidden="true">▣</span> Access &amp; team</a>
       <a class="nav" href="#/marketplace" data-route="marketplace"><span aria-hidden="true">▦</span> Agent marketplace</a>
       <a class="nav" href="#/agent-studio" data-route="agent-studio"><span aria-hidden="true">◇</span> Agent Studio</a>
       <a class="nav" href="#/studio" data-route="studio"><span aria-hidden="true">◈</span> Model Studio</a>
       <a class="nav" id="company-navigation" href="/companies" hidden><span aria-hidden="true">▣</span> Companies &amp; team</a>
       <a class="nav" href="#/account" data-route="account"><span aria-hidden="true">◉</span> Account &amp; billing</a>
-      <details class="advanced-nav"><summary>Advanced</summary>
+      </section><section class="service-group"><div class="nav-section-label">MORE TOOLS</div>
         <a class="nav" href="#/pipelines" data-route="pipelines"><span aria-hidden="true">⇢</span> Automation setup</a>
         <a class="nav" href="#/agents" data-route="agents"><span aria-hidden="true">▦</span> Agent registry</a>
         <a class="nav" href="#/email" data-route="email"><span aria-hidden="true">✉</span> Notification previews <span id="mail-badge" class="nav-mail-badge" hidden></span></a>
         <a class="nav" href="#/mcp" data-route="mcp"><span aria-hidden="true">⌘</span> MCP inspector</a>
-      </details>
+      </section>
     </nav>
-    <div class="sidebar-note"><span class="status-dot"></span> SUPERVISED BY PEOPLE<p>Review before approving.</p></div>
+
     <label class="hints-switch"><input type="checkbox" id="hints-switch"> Show hints</label>
     <div class="identity"><label for="identity">Acting as</label><select id="identity"><option value="alex.writer">Alex · Author</option><option value="sam.reviewer">Sam · Reviewer</option><option value="jordan.reviewer">Jordan · Reviewer</option><option value="taylor.admin">Taylor · Admin</option></select><small>Demo identities</small></div>
   </aside>
   <main id="main-content" tabindex="-1">
-    <header class="topbar"><div class="topbar-location"><button id="nav-toggle" class="mobile-navigation-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="workspace-navigation">☰</button><span class="product-location">Operations <span aria-hidden="true">/</span></span><span id="crumbs-bar"><strong id="breadcrumb">Chat</strong></span></div><div class="topbar-actions"><span id="operator-context" class="operator-context"></span><span id="workspace-status" class="workspace-status" role="status" aria-live="polite">Ready</span><button class="secondary small" id="refresh-workspace" aria-label="Refresh workspace">↻ Refresh</button><span class="demo-badge">DEMO</span></div></header>
+    <header class="topbar">
+      <div class="topbar-location"><a class="console-brand" href="#/workspace" aria-label="Magentic workspace"><span>Magentic</span></a><button id="nav-toggle" class="mobile-navigation-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="workspace-navigation"><span aria-hidden="true">▦</span> <span>Services</span> <span aria-hidden="true">⌄</span></button></div>
+      <button id="service-search-launcher" class="console-search-launcher" aria-label="Search services" aria-haspopup="dialog" aria-expanded="false" aria-controls="workspace-navigation"><span aria-hidden="true">⌕</span><span>Search services</span></button>
+      <div class="topbar-actions"><span id="workspace-status" class="workspace-status" role="status" aria-live="polite">Ready</span><button class="secondary small" id="refresh-workspace" aria-label="Refresh workspace">↻ Refresh</button><details class="console-session"><summary>Session</summary><div><span id="operator-context" class="operator-context"></span><a href="#/account">Account &amp; billing</a></div></details><span class="demo-badge">DEMO</span></div>
+    </header>
     <div class="environment-banner" id="environment-banner" role="note"><strong>Demo environment</strong><span>Synthetic sample data only. No live agency service is connected.</span></div>
     <div class="page">
-      <div class="heading"><div><div class="crumbs" id="crumbs"></div><p class="eyebrow" hidden></p><h1 id="title" tabindex="-1">Work queue</h1><p class="lede" id="subtitle"></p></div><div class="page-actions" id="page-actions"></div><button class="primary" id="new-agent" hidden>New agent</button><button class="primary" id="new-invitation" hidden>Invite teammate</button></div>
       <div id="notice" class="notice" role="status" aria-live="polite"></div>
       <section id="local-workspaces" class="panel local-workspaces" hidden aria-label="Local workspace management">
         <div class="local-workspace-row"><label>Workspace<select id="workspace-select" aria-label="Select workspace"></select></label>
@@ -55,6 +66,8 @@
         <details class="workspace-storage"><summary>Local storage and MCP connection</summary><p id="local-identity" class="muted"></p><p id="local-storage" class="muted"></p>
         <details><summary>Standalone MCP access</summary><p class="muted">The local owner cannot approve their own work. Review gates stay closed until an independent reviewer is available.</p><button id="local-mcp-access" class="secondary">Prepare connection settings</button><pre id="local-mcp-settings"></pre></details></details>
       </section>
+      <nav class="crumbs" id="crumbs" aria-label="Breadcrumbs"></nav>
+      <div class="heading"><div><p class="eyebrow" hidden></p><h1 id="title" tabindex="-1">Work queue</h1><p class="lede" id="subtitle"></p></div><div class="page-actions" id="page-actions"></div><button class="primary" id="new-agent" hidden>New agent</button><button class="primary" id="new-invitation" hidden>Invite teammate</button></div>
       <section id="view" class="view"><div class="loading" role="status">Loading workspace</div></section>
       <section id="metrics" class="metrics" aria-label="Workspace summary" hidden></section>
       <section class="panel" id="agent-panel" hidden><div class="panel-toolbar"><div class="filters" role="group" aria-label="Filter by status"><button data-filter="all" class="selected">All agents</button><button data-filter="review">In review</button><button data-filter="draft">Drafts</button><button data-filter="approved">Approved</button><button data-filter="retired">Retired</button><button data-filter="needs-review">Needs approval</button><button data-filter="ready">Ready</button></div><label class="search"><span>⌕</span><input id="search" type="search" aria-label="Search agents" placeholder="Find an agent"></label></div><div id="records" class="records"><p class="empty">Loading…</p></div></section>

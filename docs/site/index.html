@@ -3,11 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Magentic, a supervised AI workflow workspace built for the Virginia Tech x Accenture Federal Services Build Challenge.">
-<title>Magentic Build Challenge</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="description" content="Magentic lets delivery teams use AI on real work without losing the chain of custody. AI drafts, people decide, every approval is a signature.">
+<title>Magentic — workflow demo & engineering</title>
 <style>
   /* Layout: one centered column over a fixed magenta flow. A quiet fixed header carries the
      challenge watermark on the left and the product mark on the right. Dark by choice, so the
@@ -117,6 +114,8 @@
   footer div { max-width: 1080px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; color: var(--fg-3); font-size: 14px; }
   @media (max-width: 560px) { .mark-text span { display: none; } main { padding-top: 104px; gap: 72px; } }
 </style>
+<link rel="stylesheet" href="./presentation.css">
+<script src="./presentation.js" defer></script>
 </head>
 <body>
 <canvas id="flow" aria-hidden="true"></canvas>
@@ -130,49 +129,84 @@
   </a>
 </header>
 
-<main>
+<a class="skip" href="#main">Skip to content</a>
+<main id="main">
   <section class="hero">
-    <div class="eyebrow">Virginia Tech × Accenture Federal Services · pitch on November 20, 2026</div>
+    <div class="eyebrow">Working prototype · presentation & submission</div>
     <h1>AI drafts.<br>People decide.</h1>
-    <p class="lede">Magentic is a supervised workflow workspace for teams that may use AI only with a chain of custody. Every approval is a signature over a content hash, and the server refuses anything that skips a step.</p>
+    <p class="lede">A company workspace for grounded agent drafts, reviewable evidence, and controlled handoffs. Follow one documentation request from intake to independent review.</p>
     <div class="hero-actions">
-      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI">View the code</a>
-      <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI#readme">Read the README</a>
+      <a class="btn primary" href="#demo">Walk through the demo <span aria-hidden="true">↗</span></a>
+      <a class="btn" href="#architecture">Explore the engineering</a>
     </div>
     <div class="badges">
-      <span class="badge">version <b>0.2.0</b></span>
-      <span class="badge">tests <b>738 run · 0 failed</b></span>
-      <span class="badge">typecheck <b>clean</b></span>
-      <span class="badge">TypeScript <b>Node 22</b></span>
-      <span class="badge">Windows <b>installer</b></span>
-      <span class="badge">contrast <b>5.0:1 minimum</b></span>
+      <span class="badge">Runs on <b>your laptop</b></span>
+      <span class="badge">Local model or <b>your provider</b></span>
+      <span class="badge">Data in <b>one folder</b></span>
+      <span class="badge">Company access <b>role scoped</b></span>
+      <span class="badge">MCP <b>shared tools</b></span>
     </div>
   </section>
 
-  <section id="brief">
-    <div class="eyebrow">The brief</div>
+
+  <nav class="section-nav" aria-label="Presentation sections">
+    <a href="#demo">01 / Workflow demo</a><a href="#architecture">02 / Engineering</a><a href="#security">03 / Company security</a><a href="#submission">04 / Submission</a>
+  </nav>
+  <section id="demo" aria-labelledby="demo-heading">
+    <div class="eyebrow">01 / An internal documentation request</div>
+    <h2 id="demo-heading">From a question to a reviewed handoff.</h2>
+    <p class="muted">An employee needs the repository-access process. The agent must use the SOP, show its evidence, and wait for independent review.</p>
+    <div class="demo-shell">
+      <div class="demo-top"><span class="pill warn">Illustrative walkthrough</span><span>Synthetic SOP · scripted output · no network calls</span></div>
+      <div class="demo-layout">
+        <nav id="demo-steps" aria-label="Workflow steps"></nav>
+        <div class="demo-detail">
+          <div class="demo-meta"><span id="demo-position" class="eyebrow"></span><span id="demo-state" class="pill" role="status"></span></div>
+          <h3 id="demo-title"></h3><p id="demo-description" class="muted"></p>
+          <div id="demo-artifact"></div>
+          <div class="demo-boundary"><strong>Backend responsibility</strong><p id="demo-backend"></p></div>
+          <details><summary>Presenter notes</summary><p id="demo-notes"></p></details>
+          <p id="demo-feedback" class="demo-feedback" role="status"></p>
+          <div class="demo-actions"><button class="btn" id="demo-back">Back</button><button class="btn primary" id="demo-next">Next</button><button class="text-button" id="demo-reset">Reset walkthrough</button></div>
+        </div>
+      </div>
+    </div>
+    <noscript><p>This walkthrough needs JavaScript. The full sequence is: choose a workspace, attach the SOP, configure tools, inspect the draft, request independent review, hand off, and record an audit update. No live operations occur on this page.</p></noscript>
+    <details class="presenter-runbook"><summary>Five-minute presentation route</summary><ol>
+      <li><b>30 seconds:</b> describe the documentation request and why a chat answer alone is insufficient.</li>
+      <li><b>90 seconds:</b> walk through the source, tool grant and draft. Separate execution success from answer quality.</li>
+      <li><b>60 seconds:</b> try owner approval, simulate two independent reviewers, then revise the draft to show why it needs review again.</li>
+      <li><b>60 seconds:</b> open Engineering and follow one request through the UI, API, engine and storage.</li>
+      <li><b>60 seconds:</b> show the real workspace or explain the reproducible scripted demo; close with current limits.</li>
+    </ol></details>
+  </section>
+
+  <section id="who">
+    <div class="eyebrow">Who it is for</div>
+    <h2>Teams that are allowed to use AI only if they can show their work</h2>
     <div class="grid">
       <div class="card">
-        <span class="eyebrow">Problem</span>
-        <h3>Chat tools leave the chain of custody to the person</h3>
-        <p>In federal delivery an AI output is usable only when you can show where it came from, who reviewed it, and that nothing changed afterwards.</p>
+        <span class="eyebrow">The lead</span>
+        <h3>Answer "where did this come from" in one click</h3>
+        <p>Open any run and see the sources the agent read, the tools it called, who edited the handoff and who signed it. No digging through chat history.</p>
       </div>
       <div class="card">
-        <span class="eyebrow">Constraint</span>
-        <h3>Nothing advances, publishes or trains on its own</h3>
-        <p>A single owner cannot approve their own stage. A changed output invalidates every signature on it. Every limit the page shows is enforced again on the server.</p>
+        <span class="eyebrow">The reviewer</span>
+        <h3>Read the draft next to its evidence</h3>
+        <p>The original output, the edited handoff and the evidence sit in one grid. Sign when it is right. If anyone changes the output afterwards, your signature stops counting.</p>
       </div>
       <div class="card">
-        <span class="eyebrow">Answer</span>
-        <h3>Put the chain in the software</h3>
-        <p>An agent drafts a stage, the evidence sits beside the draft, a person edits, an independent reviewer signs. It runs on a laptop with a local model or on a company server with tenants.</p>
+        <span class="eyebrow">The builder</span>
+        <h3>Trust an agent only after it passes a test</h3>
+        <p>Give an agent read only tools with limits, write a test case, run it. An agent that has not passed on its current version cannot be put on a stage.</p>
       </div>
     </div>
   </section>
 
   <section id="stage">
-    <div class="eyebrow">How one stage works</div>
-    <h2>Draft, evidence, review, signature, lock</h2>
+    <div class="eyebrow">How it works</div>
+    <h2>The handoff is a controlled boundary.</h2>
+    <p class="muted">A workflow is a sequence of stages such as intake, discovery, design, build, review and release. Gated stages require the configured independent approvals; ungated stages follow their own completion policy.</p>
     <div class="figure"><svg class="diagram" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
@@ -243,235 +277,131 @@
 </svg></div>
   </section>
 
-  <section id="numbers">
-    <div class="eyebrow">By the numbers</div>
-    <div class="numbers">
-      <div class="num"><strong>116</strong><span>source files</span></div>
-      <div class="num"><strong>103</strong><span>test files</span></div>
-      <div class="num"><strong>27,800</strong><span>lines</span></div>
-      <div class="num"><strong>738</strong><span>tests, 0 failed</span></div>
-      <div class="num"><strong>40</strong><span>Jira stories, 7 epics</span></div>
-      <div class="num"><strong>5.0:1</strong><span>lowest contrast</span></div>
-    </div>
-    <p class="small">Counts from the published workbench snapshot. Six tests are skipped because they need a live model.</p>
-  </section>
-
-  <section id="works">
-    <div class="eyebrow">What a person can do today</div>
-    <h2>Eight working areas, each with a test behind it</h2>
+  <section id="features">
+    <div class="eyebrow">What you get</div>
+    <h2>The whole loop, from draft to signed release</h2>
     <div class="grid">
-      <div class="card"><h3>Workflows</h3><p>Start a run and see, per run, the stage, the owner, the output state and the one next action.</p></div>
-      <div class="card"><h3>Output review</h3><p>Evidence, original output, edited handoff and approval state in one grid. The evidence names each source as read, empty or missing.</p></div>
-      <div class="card"><h3>Approval gates</h3><p>Independent signatures over a content hash. Owner and author can never approve their own stage.</p></div>
-      <div class="card"><h3>Agent Studio</h3><p>Build an agent, grant read only tools with limits, save tests bound to its version, assign to a stage only after a pass. The server answers 409 otherwise.</p></div>
-      <div class="card"><h3>Model Studio</h3><p>Train, evaluate, approve and assign an assistant through six guided stages.</p></div>
-      <div class="card"><h3>Ontology and Zenfluence</h3><p>Ingest a public dataset into Ontology objects with lineage, or attach a reviewed, hashed snapshot of a Jira ticket or Confluence page. Read only.</p></div>
-      <div class="card"><h3>Windows application</h3><p>Installer with a SHA256 manifest, Apps and features entry, uninstaller that keeps data, update feed check.</p></div>
-      <div class="card"><h3>MCP server</h3><p>The same operations for any MCP client, scoped to one workspace, with read only annotations on every tool.</p></div>
+      <div class="card"><h3>Workflows</h3><p>Every run on one page: the stage it is on, who owns it, the state of its output and the one next action. Blocked, waiting and done look different at a glance.</p></div>
+      <div class="card"><h3>Output review</h3><p>Evidence, original output, your edits and the approval state side by side. The evidence names each source as read, empty or missing, so a confident draft built on nothing is caught.</p></div>
+      <div class="card"><h3>Approval gates</h3><p>Independent reviewers sign a hash of the content. The owner and the author can never approve their own stage, on a laptop or on a company server.</p></div>
+      <div class="card"><h3>Agent Studio</h3><p>Build agents from honest templates, grant tools with call budgets and timeouts, save tests bound to the agent version, and record execution, checks and human review as three separate facts.</p></div>
+      <div class="card"><h3>Model Studio</h3><p>Configure training, evaluate a candidate, review a release and assign an assistant. The development provider creates labeled placeholder artifacts, not trained model weights.</p></div>
+      <div class="card"><h3>Connectors</h3><p>Attach a reviewed, hashed snapshot of a Jira ticket, a Confluence page or an Ontology dataset to a run. Evidence reads are separate from explicitly configured actions such as Jira updates, Slack messages and reviewed Lambda invocation.</p></div>
+      <div class="card"><h3>Chat</h3><p>Talk to a local Ollama model or your own provider key. The first run tells you what to set up instead of failing.</p></div>
+      <div class="card"><h3>MCP for your tools</h3><p>The same workflow operations are available to any MCP client, scoped to one workspace, with the same rules enforced.</p></div>
     </div>
   </section>
 
-  <section id="rules">
-    <div class="eyebrow">Rules the server enforces</div>
-    <h2>Shown on the page, refused on the server</h2>
-    <ol class="rules">
-      <li><span class="n">01</span><span>Every API call is checked for current membership of the workspace it names.</span></li>
-      <li><span class="n">02</span><span>An agent that must read a source and does not is failed; the evidence block lists each file as read, empty or missing.</span></li>
-      <li><span class="n">03</span><span>Approvals sign a content hash. Change the content and the signatures stop counting.</span></li>
-      <li><span class="n">04</span><span>An agent version with no passing test cannot be assigned to a stage.</span></li>
-      <li><span class="n">05</span><span>Credentials are setting names in configuration, never values. Nothing echoes a key to a page or a log.</span></li>
-      <li><span class="n">06</span><span>Outbound reads are https only, size capped, time capped, redirects refused, and checked against what was asked for.</span></li>
-    </ol>
+
+  <section id="architecture" aria-labelledby="architecture-heading">
+    <div class="eyebrow">02 / Engineering</div>
+    <h2 id="architecture-heading">One policy boundary.<br>Multiple ways to work.</h2>
+    <p class="muted">The browser presents state. The server decides what may happen. MCP clients reach the same workspace engines through scoped tools.</p>
+    <div class="request-path" aria-label="Request flow"><span>Browser / MCP</span><b aria-hidden="true">→</b><span>Identity + schema</span><b aria-hidden="true">→</b><span>Workflow engine</span><b aria-hidden="true">→</b><span>Evidence + review</span></div>
+    <div class="architecture-switch" role="group" aria-label="Architecture layers">
+      <button class="btn" data-layer="frontend" aria-pressed="true">Frontend</button>
+      <button class="btn" data-layer="backend" aria-pressed="false">Backend</button>
+      <button class="btn" data-layer="execution" aria-pressed="false">Models & tools</button>
+      <button class="btn" data-layer="company" aria-pressed="false">Company boundary</button>
+    </div>
+    <div id="architecture-detail" class="architecture-detail"></div>
+    <div class="stack-strip"><span>TypeScript / ESM</span><span>Node 22</span><span>React + HTML/CSS</span><span>Zod</span><span>MCP SDK</span><span>esbuild</span><span>JSON persistence</span></div>
+    <details class="presenter-runbook"><summary>Follow a real request through the code</summary>
+      <ol><li><code>browser.ts</code> renders the workspace and submits an action to the HTTP API.</li>
+      <li><code>server.ts</code> resolves identity, verifies workspace membership and validates the payload.</li>
+      <li><code>pipeline.ts</code> checks the run revision, stage, role and approval rules before updating state.</li>
+      <li><code>scheduler.ts</code> runs approved assistant stages with saved references. Local repository agents use <code>bot-worker.ts</code> with explicit tool policies.</li>
+      <li><code>storage.ts</code> persists workspace state. Drafts, evidence and content hashes remain available for review.</li></ol>
+    </details>
   </section>
 
-  <section id="built">
-    <div class="eyebrow">How it is built</div>
-    <h2>One process, one loopback port, files on disk</h2>
-    <div class="figure"><svg class="diagram" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
-  <defs>
-    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 z" fill="#8a8a9a"/>
-    </marker>
-  </defs>
-  <rect width="1200" height="560" rx="18" fill="#0b0b0f"/>
-  <text x="48" y="54" fill="#ededf2" font-size="24" font-weight="600">How it is built</text>
-  <text x="48" y="82" fill="#b0b0bf" font-size="15">One Node process, one loopback port, files on disk. No database, no queue, no container.</text>
+  <section id="security" aria-labelledby="security-heading">
+    <div class="eyebrow">03 / Company security</div>
+    <h2 id="security-heading">The right access.<br>At every handoff.</h2>
+    <p class="muted">A team console: choose a company, assemble its agents into a workflow, then check the configuration before handoff. Select a stage to see the application control and its proposed AWS protection.</p>
+    <div class="request-path" aria-label="Team console navigation"><span>Company + team</span><b aria-hidden="true">→</b><span>Tools + agents</span><b aria-hidden="true">→</b><span>Workflow + controls</span><b aria-hidden="true">→</b><span>Review + readiness</span></div>
+    <div class="architecture-switch security-switch" role="group" aria-label="Company security stages">
+      <button class="btn" data-security="identity" aria-pressed="true" aria-controls="security-detail">01 Sign in</button>
+      <button class="btn" data-security="read" aria-pressed="false" aria-controls="security-detail">02 Read</button>
+      <button class="btn" data-security="draft" aria-pressed="false" aria-controls="security-detail">03 Draft</button>
+      <button class="btn" data-security="approve" aria-pressed="false" aria-controls="security-detail">04 Approve</button>
+      <button class="btn" data-security="audit" aria-pressed="false" aria-controls="security-detail">05 Audit</button>
+    </div>
+    <div id="security-detail" class="security-detail" aria-live="polite" aria-atomic="true"></div>
+    <noscript><p>Enable JavaScript for the stage explorer, or read the security guide below.</p></noscript>
+    <p class="small">Illustrative control walkthrough. No authentication, AWS request or security test runs here. AWS protections require deployment and validation; they are not active in this local preview.</p>
+    <details class="presenter-runbook"><summary>Before a company goes live</summary>
+      <ol><li>Review agent assignments, model choices, references, tool permissions and execution limits. Current workflow checks report blockers; they do not deploy infrastructure.</li>
+      <li>Separate production and development accounts; scope operator, worker and deployment roles.</li>
+      <li>Test tenant isolation, denied tools, provider destinations and independent approvals.</li>
+      <li>Review vulnerabilities, rehearse incident containment and restore a workspace from backup.</li>
+      <li>Agree on data retention, region and provider use. Cloud hosting alone does not establish compliance.</li></ol>
+    </details>
+    <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/docs/aws-security.md" target="_blank" rel="noopener">Read the security control map ↗</a>
+  </section>
 
-  <!-- browser -->
-  <g transform="translate(48 120)">
-    <rect width="300" height="230" rx="14" fill="#121218" stroke="#2e2e3a"/>
-    <rect width="300" height="34" rx="14" fill="#1a1a23"/>
-    <rect y="20" width="300" height="14" fill="#1a1a23"/>
-    <circle cx="20" cy="17" r="5" fill="#8a8a9a"/><circle cx="38" cy="17" r="5" fill="#8a8a9a"/><circle cx="56" cy="17" r="5" fill="#8a8a9a"/>
-    <text x="20" y="66" fill="#ededf2" font-size="17" font-weight="600">Browser window</text>
-    <text x="20" y="90" fill="#b0b0bf" font-size="13">Pages are functions that return HTML.</text>
-    <text x="20" y="108" fill="#b0b0bf" font-size="13">One React component: the work queue.</text>
-    <g fill="#b3a7ff" font-size="13">
-      <text x="20" y="142">Workflows</text><text x="150" y="142">Output review</text>
-      <text x="20" y="164">Agent Studio</text><text x="150" y="164">Model Studio</text>
-      <text x="20" y="186">Zenfluence</text><text x="150" y="186">Chat and connections</text>
-      <text x="20" y="208">Work queue</text><text x="150" y="208">Settings</text>
-    </g>
-  </g>
-  <line x1="352" y1="235" x2="418" y2="235" stroke="#8a8a9a" stroke-width="2" marker-end="url(#a)" marker-start="url(#a)"/>
-  <text x="385" y="222" fill="#8a8a9a" font-size="12" text-anchor="middle">http</text>
-
-  <!-- server -->
-  <g transform="translate(424 120)">
-    <rect width="380" height="230" rx="14" fill="#1b1933" stroke="#3b3577"/>
-    <text x="20" y="34" fill="#ededf2" font-size="17" font-weight="600">Loopback server</text>
-    <text x="20" y="56" fill="#b0b0bf" font-size="13">127.0.0.1 only. Every rule the page shows is refused here too.</text>
-    <g font-size="13">
-      <rect x="20" y="76" width="160" height="44" rx="8" fill="#121218" stroke="#2e2e3a"/>
-      <text x="32" y="94" fill="#ededf2" font-weight="600">HTTP API</text><text x="32" y="111" fill="#b0b0bf">membership per call</text>
-      <rect x="200" y="76" width="160" height="44" rx="8" fill="#121218" stroke="#2e2e3a"/>
-      <text x="212" y="94" fill="#ededf2" font-weight="600">Schemas (zod)</text><text x="212" y="111" fill="#b0b0bf">unknown fields refused</text>
-      <rect x="20" y="132" width="160" height="44" rx="8" fill="#121218" stroke="#2e2e3a"/>
-      <text x="32" y="150" fill="#ededf2" font-weight="600">Pipeline engine</text><text x="32" y="167" fill="#b0b0bf">stages, gates, signatures</text>
-      <rect x="200" y="132" width="160" height="44" rx="8" fill="#121218" stroke="#2e2e3a"/>
-      <text x="212" y="150" fill="#ededf2" font-weight="600">Bot runtime</text><text x="212" y="167" fill="#b0b0bf">allowlist, budget, timeout</text>
-      <rect x="20" y="188" width="340" height="30" rx="8" fill="#121218" stroke="#2e2e3a"/>
-      <text x="32" y="208" fill="#ededf2" font-weight="600">MCP server <tspan fill="#b0b0bf" font-weight="400">any MCP client, same rules, scoped</tspan></text>
-    </g>
-  </g>
-  <line x1="808" y1="235" x2="874" y2="235" stroke="#8a8a9a" stroke-width="2" marker-end="url(#a)" marker-start="url(#a)"/>
-  <text x="841" y="222" fill="#8a8a9a" font-size="12" text-anchor="middle">atomic</text>
-
-  <!-- disk -->
-  <g transform="translate(880 120)">
-    <rect width="272" height="230" rx="14" fill="#121218" stroke="#2e2e3a"/>
-    <ellipse cx="60" cy="40" rx="34" ry="12" fill="#1a1a23" stroke="#42424f"/>
-    <path d="M26 40 v40 a34 12 0 0 0 68 0 v-40" fill="#1a1a23" stroke="#42424f"/>
-    <text x="110" y="46" fill="#ededf2" font-size="17" font-weight="600">Workspace on disk</text>
-    <text x="110" y="70" fill="#b0b0bf" font-size="13">A folder of JSON documents</text>
-    <text x="20" y="120" fill="#b0b0bf" font-size="13">Storage version checked on load</text>
-    <text x="20" y="142" fill="#b0b0bf" font-size="13">Write to temp, then rename</text>
-    <text x="20" y="164" fill="#b0b0bf" font-size="13">Approvals, runs, agents, tests, audit</text>
-    <text x="20" y="186" fill="#b0b0bf" font-size="13">Setting names only, never secret values</text>
-    <text x="20" y="208" fill="#6fd3a0" font-size="13">Where is my data: one folder</text>
-  </g>
-
-  <!-- outbound row -->
-  <g font-size="13">
-    <line x1="614" y1="354" x2="614" y2="392" stroke="#8a8a9a" stroke-width="2" marker-end="url(#a)"/>
-    <text x="630" y="380" fill="#8a8a9a" font-size="12">outbound, all https, size and time capped</text>
-    <g transform="translate(48 400)">
-      <rect width="256" height="110" rx="12" fill="#121218" stroke="#2e2e3a"/>
-      <text x="18" y="30" fill="#ededf2" font-weight="600">Models</text>
-      <text x="18" y="54" fill="#b0b0bf">Local Ollama on the laptop,</text>
-      <text x="18" y="72" fill="#b0b0bf">or provider keys by setting name.</text>
-      <text x="18" y="94" fill="#b0b0bf">First run explains setup.</text>
-    </g>
-    <g transform="translate(330 400)">
-      <rect width="256" height="110" rx="12" fill="#121218" stroke="#2e2e3a"/>
-      <text x="18" y="30" fill="#ededf2" font-weight="600">Atlassian (Zenfluence)</text>
-      <text x="18" y="54" fill="#b0b0bf">Read a Jira ticket or Confluence</text>
-      <text x="18" y="72" fill="#b0b0bf">page, attach a hashed snapshot.</text>
-      <text x="18" y="94" fill="#b0b0bf">Never writes to Atlassian.</text>
-    </g>
-    <g transform="translate(612 400)">
-      <rect width="256" height="110" rx="12" fill="#121218" stroke="#2e2e3a"/>
-      <text x="18" y="30" fill="#ededf2" font-weight="600">Company server</text>
-      <text x="18" y="54" fill="#b0b0bf">Same code with sign in, tenants,</text>
-      <text x="18" y="72" fill="#b0b0bf">per workspace storage and</text>
-      <text x="18" y="94" fill="#b0b0bf">independent reviewers.</text>
-    </g>
-    <g transform="translate(894 400)">
-      <rect width="258" height="110" rx="12" fill="#121218" stroke="#2e2e3a"/>
-      <text x="18" y="30" fill="#ededf2" font-weight="600">Windows package</text>
-      <text x="18" y="54" fill="#b0b0bf">Bundled runtime, Edge window,</text>
-      <text x="18" y="72" fill="#b0b0bf">SHA256 manifest, per user install,</text>
-      <text x="18" y="94" fill="#b0b0bf">uninstaller keeps data.</text>
-    </g>
-  </g>
-  <text x="48" y="542" fill="#8a8a9a" font-size="12">TypeScript end to end. Tests run the real engine, the real HTTP server on a random port, and the real bot worker against a temporary Git checkout.</text>
-</svg></div>
+  <section id="data">
+    <div class="eyebrow">Your data</div>
+    <h2>Local development. Separate company access.</h2>
     <div class="grid">
-      <div class="card"><h3>Files, not a database</h3><p>A workspace is a folder of JSON with a storage version and atomic writes. The Windows package is a bundled runtime and a browser window.</p></div>
-      <div class="card"><h3>Schemas at every boundary</h3><p>Request bodies, stored documents and configuration files are parsed with zod. A file written by a newer version is refused with a message, never rewritten in silence.</p></div>
-      <div class="card"><h3>Views as functions</h3><p>Pages return HTML strings, so a view test renders a page for owner, reviewer and viewer and asserts on the words each one may see.</p></div>
-      <div class="card"><h3>Honest states</h3><p>Every page shows loading, empty, error, not connected, not assigned, blocked and awaiting approval, each with the one step that resolves it.</p></div>
+      <div class="card"><h3>No cloud by default</h3><p>The app listens on your own machine only. Configured remote models and integrations receive the content you send to them.</p></div>
+      <div class="card"><h3>Readable storage</h3><p>Runs, approvals, agents and tests are plain documents in one workspace folder. Back it up, move it, open it.</p></div>
+      <div class="card"><h3>Separate workspaces</h3><p>Company identity and membership select access. A matching email domain alone never grants workspace authority.</p></div>
+      <div class="card"><h3>Grows to a company server</h3><p>The same product runs with sign in, tenants and independent reviewers when a team needs a shared instance.</p></div>
     </div>
   </section>
 
-  <section id="method">
-    <div class="eyebrow">How the work is run</div>
-    <h2>Every change takes the same path</h2>
-    <div class="steps">
-      <div class="step"><strong>Brief</strong><span>A Jira story with goal, routes touched, constraints and acceptance criteria.</span></div>
-      <div class="step"><strong>Plan</strong><span>Files, tests to add and risks, written on the story before code.</span></div>
-      <div class="step"><strong>Build</strong><span>In an isolated copy of the tree. New tests only; existing tests are never edited to pass.</span></div>
-      <div class="step"><strong>Verify</strong><span>Typecheck, test, build and build:workbench, with counts recorded.</span></div>
-      <div class="step"><strong>Diff review</strong><span>The patch is attached to the story before anything is applied.</span></div>
-      <div class="step"><strong>Apply</strong><span>Every target file's hash is checked before the write and after it.</span></div>
-      <div class="step"><strong>Verify on Windows</strong><span>The same four scripts on the target machine, counts recorded separately.</span></div>
-      <div class="step"><strong>Look at it</strong><span>At 1440 and 360 px, keyboard order, measured contrast, screenshots on the story.</span></div>
-    </div>
-    <p class="muted">Seven delivery epics and forty stories carry that trail. Decisions that need a product owner are their own tickets with the options written out, so nothing blocks in silence.</p>
-  </section>
-
-  <section id="verify">
-    <div class="eyebrow">Verify it in ten minutes</div>
-    <h2>Run it and try three things</h2>
+  <section id="start">
+    <div class="eyebrow">Leave the walkthrough. Open the real application.</div>
+    <h2>Two ways to demonstrate it.</h2>
     <div class="two">
-      <pre>corepack enable
-corepack pnpm install --frozen-lockfile
-corepack pnpm typecheck
+      <div class="card"><h3>Your local workspace</h3><p>The existing development server uses your saved data. Show the assigned documentation agent, draft and evidence. Stop at the approval gate if independent reviewers are unavailable.</p><a class="btn" href="http://127.0.0.1:4182/#/workspace" target="_blank" rel="noopener">Open local workspace ↗</a><span class="small">Requires the app running on this computer at port 4182.</span></div>
+      <div class="card"><h3>Reproducible product demo</h3><p>The agent demo uses a synthetic SOP, scripted model and demo reviewer identities. Its workflow engine, tool reads and approval checks are real. This does not measure model quality.</p><pre>corepack pnpm build:workbench
+corepack pnpm demo:agents</pre><span class="small">Open the printed URL. No provider key needed for the scripted demo.</span></div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="eyebrow">Questions</div>
+    <h2>Straight answers</h2>
+    <div class="two">
+      <div class="card"><h3>Does it send my documents anywhere?</h3><p>Model requests and configured external actions can send selected content outside the workspace. Review references, provider settings and message previews before sending.</p></div>
+      <div class="card"><h3>Can an agent publish or deploy on its own?</h3><p>Agents do not receive blanket deployment rights. Approval gates and integration permissions are checked by the backend; configured external actions are separate from drafting.</p></div>
+      <div class="card"><h3>Which models work?</h3><p>Installed Ollama models and supported provider integrations with valid credentials. Saved connections use server-side settings or the encrypted vault. Provider availability must be tested.</p></div>
+      <div class="card"><h3>What happens when something is not set up?</h3><p>You get the setup steps on the page. Not connected, not assigned, blocked and waiting each show the one action that resolves them.</p></div>
+    </div>
+  </section>
+
+  <section id="submission">
+    <div class="eyebrow">04 / Submission package</div>
+    <h2>What to inspect. What remains.</h2>
+    <div class="submission-grid">
+      <div><h3>Evidence you can reproduce</h3><p class="muted">Latest local application verification: October 22, 2026. These results describe the working prototype, not hosted CI or a live-provider accuracy benchmark.</p>
+        <div class="numbers"><div class="num"><strong>777</strong><span>tests passed / 778 total</span></div><div class="num"><strong>0</strong><span>failed · 1 skipped</span></div><div class="num"><strong>✓</strong><span>typecheck + both builds</span></div></div>
+        <pre>corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
-corepack pnpm build:workbench
-node .\workbench\dev.mjs --port=4182</pre>
-      <div class="card">
-        <h3>Then open http://127.0.0.1:4182</h3>
-        <p><b>1.</b> Open a run on Workflows. The evidence block names every source as read, empty or missing, and the approval block shows who may sign and who may not.</p>
-        <p><b>2.</b> In Agent Studio, change a tested agent and try to assign it. The control is disabled and the API answers 409.</p>
-        <p><b>3.</b> Stop Ollama and open Chat. You get the setup steps, not an error.</p>
+corepack pnpm build:workbench</pre>
       </div>
+      <div class="card"><h3>Current limits</h3><ul>
+        <li>This website simulates the journey; it is not an authenticated workspace.</li>
+        <li>Model completion and token counts do not establish answer accuracy. Review the cited evidence.</li>
+        <li>Company repository execution needs isolated workers before it can be enabled.</li>
+        <li>File-backed company storage assumes one writer. Hosted scale, backup and recovery need further work.</li>
+        <li>Clerk, Stripe, Slack, Jira, Lambda and Foundry require real configuration. This page connects none of them.</li>
+        <li>No claim of federal authorization, accreditation or production readiness.</li>
+      </ul></div>
     </div>
-  </section>
-
-  <section id="road">
-    <div class="eyebrow">The road to November 20</div>
-    <h2>Six milestones done, two to go</h2>
-    <div class="figure"><svg class="diagram" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
-  <rect width="1200" height="300" rx="18" fill="#0b0b0f"/>
-  <text x="48" y="50" fill="#ededf2" font-size="24" font-weight="600">The road to November 20</text>
-  <text x="48" y="76" fill="#b0b0bf" font-size="15">Seven delivery epics, forty stories, one person. Filled marks are done; hollow marks are the last stretch.</text>
-  <line x1="90" y1="160" x2="1112" y2="160" stroke="#2e2e3a" stroke-width="4"/>
-  <line x1="90" y1="160" x2="820" y2="160" stroke="#6457e0" stroke-width="4"/>
-  <g font-size="12.5" text-anchor="middle">
-    <g transform="translate(90 160)"><circle r="11" fill="#6457e0" stroke="#0b0b0f" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Kickoff</text><text y="40" fill="#b0b0bf">Problem framed,</text><text y="58" fill="#b0b0bf">engine and gates</text></g>
-    <g transform="translate(236 160)"><circle r="11" fill="#6457e0" stroke="#0b0b0f" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Output review</text><text y="40" fill="#b0b0bf">Evidence trail,</text><text y="58" fill="#b0b0bf">handoff, approval grid</text></g>
-    <g transform="translate(382 160)"><circle r="11" fill="#6457e0" stroke="#0b0b0f" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Agent Studio</text><text y="40" fill="#b0b0bf">Tests bound to the</text><text y="58" fill="#b0b0bf">agent version</text></g>
-    <g transform="translate(528 160)"><circle r="11" fill="#6457e0" stroke="#0b0b0f" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Design system</text><text y="40" fill="#b0b0bf">Tokens, dark theme,</text><text y="58" fill="#b0b0bf">360 px, 5.0:1 contrast</text></g>
-    <g transform="translate(674 160)"><circle r="11" fill="#6457e0" stroke="#0b0b0f" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Windows app</text><text y="40" fill="#b0b0bf">Installer, uninstaller,</text><text y="58" fill="#b0b0bf">update feed</text></g>
-    <g transform="translate(820 160)"><circle r="11" fill="#6457e0" stroke="#0b0b0f" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Zenfluence</text><text y="40" fill="#b0b0bf">Jira and Confluence</text><text y="58" fill="#b0b0bf">as evidence</text></g>
-    <g transform="translate(966 160)"><circle r="11" fill="#0b0b0f" stroke="#8a8a9a" stroke-width="3"/><text y="-26" fill="#ededf2" font-weight="600">Signed package</text><text y="40" fill="#b0b0bf">Windows checks,</text><text y="58" fill="#b0b0bf">signing, live Jira</text></g>
-    <g transform="translate(1112 160)"><circle r="11" fill="#0b0b0f" stroke="#e9c46a" stroke-width="3"/><text y="-26" fill="#e9c46a" font-weight="600">Nov 20 pitch</text><text y="40" fill="#b0b0bf">Install, draft, review,</text><text y="58" fill="#b0b0bf">approve, attach</text></g>
-  </g>
-</svg></div>
-    <table>
-      <thead><tr><th>Remaining</th><th>Status</th></tr></thead>
-      <tbody>
-        <tr><td>Windows verification of the current tree and the first installable package</td><td><span class="pill">queued</span></td></tr>
-        <tr><td>Live Zenfluence read against the company Jira project</td><td><span class="pill warn">credentials pending</span></td></tr>
-        <tr><td>Public dataset ingested through the Ontology path and read in a workflow</td><td><span class="pill ok">dataset mode shipped</span></td></tr>
-        <tr><td>Pitch path: install, connect a model, draft, review, approve with a second account, attach evidence</td><td><span class="pill">scripted</span></td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="about">
-    <div class="eyebrow">About</div>
-    <h2>Built by one person, run like a delivery team</h2>
-    <p class="muted">A Virginia Tech CMDA student, class of 2027. Full stack ownership: engine, HTTP API, MCP server, interface, Windows packaging, release workflow, documentation. Walkthrough and source tour on request through the repository.</p>
     <div class="hero-actions">
-      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI">Open the repository</a>
+      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI/tree/codex/published-main-preview">Inspect submission source ↗</a>
+      <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/README.md">Engineering README ↗</a>
+      <button class="btn" id="print-presentation">Print / save PDF</button>
     </div>
+    <p class="small">Presentation source: docs/site/. Open index.html directly, or run node docs/site/serve.mjs for the local preview. All sample records on this page are synthetic.</p>
   </section>
 </main>
 
-<footer><div><span>Magentic · Build Challenge submission</span><span>Virginia Tech × Accenture Federal Services · November 20, 2026</span></div></footer>
+<footer><div><span>Magentic · Build Challenge submission</span><span>Independent prototype · source and limitations included</span></div></footer>
 
 <script>
   // Magenta flow: a few translucent ribbons built from summed sine waves, drifting slowly.

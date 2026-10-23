@@ -3,7 +3,7 @@
 ## Developer workspace preview
 
 The optional workbench runs locally; its Ontology sample needs no LNKZ relay.
-See the [Foundry/Ontology guide](workbench/ONTOLOGY.md) for repository startup,
+See the [Foundry/Ontology guide](../workbench/ONTOLOGY.md) for repository startup,
 VS Code MCP setup, and live-connection requirements. After building the
 workbench and configuring a workspace, `corepack pnpm ontology:mcp` starts
 the standalone read-only Ontology server. Application packaging is deferred
@@ -101,7 +101,7 @@ MAGENTIC_LLM_PROVIDER=ollama
 MAGENTIC_LLM_BASE_URL=http://127.0.0.1:11434
 ```
 
-`LANGCHAIN.md` explains why this lives in the adapter rather than in the
+[LangChain](langchain.md) explains why this lives in the adapter rather than in the
 relay, and what each per-query cost ceiling in `.env.example` bounds.
 
 ## Claude Desktop (stdio)
@@ -151,7 +151,7 @@ It also preserves the `magentic://connectors`, `magentic://stats`, `magentic://c
 ## Run it yourself
 
 Two terminals and no deployment: the relay on 3100, the adapter built from
-this checkout, and either your desktop client or a browser. `LOCAL.md` has
+this checkout, and either your desktop client or a browser. [Local setup](local.md) has
 the whole path, including the Claude Desktop entries and how to add an agent
 of your own. `corepack pnpm agents` prints what this checkout hosts without
 starting anything.
@@ -168,7 +168,7 @@ adapter: `conversation-relay` for passing conversations between people,
 An agent is configuration and nothing else: no relay, no key, no code. It
 narrows what this deployment offers and can never widen it, so
 `MAGENTIC_SCOPES=read` makes every agent read-only whatever its own scopes
-say. `CATALOG.md` has the record format and the rules.
+say. [Relay catalog](catalog.md) has the record format and the rules.
 
 ## Hosting it
 
@@ -328,7 +328,7 @@ standalone MCP clients use a separate credential bound to one workspace.
 
 Run `corepack pnpm build:workbench` followed by `corepack pnpm local:workbench`
 for the local browser entry point, or build the Windows package with
-`corepack pnpm build:desktop`. See [local mode](workbench/LOCAL-MODE.md) for
+`corepack pnpm build:desktop`. See [local mode](../workbench/LOCAL-MODE.md) for
 storage, credentials, settings and recovery. The demo entry point remains
 available explicitly. Existing stages stay manual until bots are configured;
 Jira is a preview, and the local owner cannot approve their own work.
@@ -339,8 +339,8 @@ Local workspaces can attach an existing Git repository and assign a planner,
 coder, validator, or reviewer to each workflow phase. Bot attempts use a
 separate checkout and expose their progress, model calls, file proposals and
 check results in the timeline. Apply reviewed changes and hand off results
-without leaving your existing editor. See [bot timelines](workbench/BOT-TIMELINE.md)
+without leaving your existing editor. See [bot timelines](../workbench/BOT-TIMELINE.md)
 for execution boundaries and setup. Existing review gates remain enforced.
 
 For the current layer map, per-phase MCP tool controls, and repeatable build/test
-commands, see [architecture and verification](workbench/ARCHITECTURE.md).
+commands, see [architecture and verification](../workbench/ARCHITECTURE.md).

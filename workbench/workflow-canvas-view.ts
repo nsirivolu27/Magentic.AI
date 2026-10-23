@@ -4,7 +4,7 @@ import type { ChatModelOption } from "./chat.js";
 import { canvasAgents, type CanvasDraft } from "./workflow-canvas.js";
 import { escape, empty } from "./ui.js";
 
-export function workflowCanvasPage(snapshot: WorkbenchSnapshot, draft: CanvasDraft | undefined, query: string, models: ChatModelOption[]): Page {
+export function workflowCanvasPage(snapshot: WorkbenchSnapshot, draft: CanvasDraft | undefined, query: string, models: ChatModelOption[], libraryOpen = true): Page {
   const page = { title: "Workflow canvas", context: "Connect agents. Review the handoffs. Save for future runs." };
   if (!draft || !snapshot.pipelines) return { ...page, body: empty("Workflows are unavailable.") };
   const { config } = draft;
@@ -22,16 +22,16 @@ export function workflowCanvasPage(snapshot: WorkbenchSnapshot, draft: CanvasDra
       <div class="canvas-node-meta"><span>${stage.assistantId ? "Approved assistant binding" : stage.bot && stage.bot.kind !== "manual" ? "Agent · supervised" : "Manual stage"}</span><span>${stage.approval ? "◎ Review gate" : "Direct handoff"}</span></div>
       <div class="canvas-node-tools"><code>${escape(stage.model)}</code><span><button class="quiet small" data-canvas-move="${escape(stage.id)}" data-position="${index - 1}" aria-label="Move ${escape(stage.name)} up" ${!admin || index === 0 ? "disabled" : ""}>↑</button><button class="quiet small" data-canvas-move="${escape(stage.id)}" data-position="${index + 2}" aria-label="Move ${escape(stage.name)} down" ${!admin || index === config.stages.length - 1 ? "disabled" : ""}>↓</button></span></div>
     </article>`).join("");
-  return { ...page, actions: '<a class="secondary" href="#/marketplace">Marketplace</a><a class="secondary" href="#/workflows">Runs & settings</a>', body: `<div class="workflow-canvas">
+  return { ...page, actions: '<a class="secondary" href="#/agent-studio">Agent Studio</a><a class="secondary" href="#/workflows">Runs & settings</a>', body: `<div class="workflow-canvas">
     <div class="canvas-toolbar"><label>Workflow name<input id="canvas-name" maxlength="100" required value="${escape(config.name)}" ${disabled}></label><span id="canvas-dirty" role="status">${draft.dirty ? "Unsaved changes" : `Saved · version ${draft.version}`}</span><button class="secondary" data-canvas-discard ${!draft.dirty && !stale ? "disabled" : ""}>Reload saved</button><button class="primary" data-canvas-save ${!admin || !draft.dirty || stale ? "disabled" : ""}>Save workflow</button></div>
     ${stale ? '<p class="inline-error" role="alert">Workflow changed elsewhere. Reload saved to get the latest version; your draft has not been applied.</p>' : ""}
     <p class="canvas-note">${!admin ? "Read only. An admin saves workflow changes. " : ""}One connected sequence · ${config.stages.length}/12 stages · Saving updates this workspace’s workflow, never existing runs.</p>
     <div class="canvas-layout">
-      <aside class="canvas-library" aria-label="Agent library"><header><h2>Agents</h2><small>Drag to a ＋ connection, or use Add.</small></header><label class="canvas-search"><span class="visually-hidden">Find an agent</span><input type="search" id="canvas-search" placeholder="Find an agent…" value="${escape(query)}"></label><div class="canvas-agent-list">
+      <details class="canvas-library" aria-label="Agent library" ${libraryOpen ? "open" : ""}><summary>Agent library <span class="agent-count">(${agents.length})</span></summary><header><small>Drag to a ＋ connection, or use Add.</small><a href="#/marketplace">Browse marketplace</a></header><label class="canvas-search"><span class="visually-hidden">Find an agent</span><input type="search" id="canvas-search" placeholder="Find an agent…" value="${escape(query)}"></label><div class="canvas-agent-list">
         ${agents.map(({ agent, source }) => `<article class="canvas-agent" data-canvas-agent="${agent.id}" data-search="${escape((agent.name + " " + agent.purpose).toLowerCase())}" draggable="${admin}" ${!(agent.name + " " + agent.purpose).toLowerCase().includes(query.toLowerCase()) ? "hidden" : ""}><small>${source}</small><strong>${escape(agent.name)}</strong><p>${escape(agent.purpose)}</p><button class="secondary small" data-canvas-add="${agent.id}" ${!admin || config.stages.length >= 12 ? "disabled" : ""} aria-label="Add ${escape(agent.name)}">＋ Add</button></article>`).join("")}
-      </div></aside>
-      <section class="canvas-board" aria-label="Connected workflow"><div class="canvas-endpoint">Request received</div>${stages}${drop(config.stages.length)}<div class="canvas-endpoint">Workflow complete</div></section>
-      <aside class="canvas-inspector" aria-label="Selected stage"><h2>Stage details</h2><form id="canvas-stage-form" data-stage="${escape(selected.id)}"><fieldset ${!admin || selected.assistantId ? "disabled" : ""}>
+      </div></details>
+      <section class="canvas-surface" aria-label="Connected workflow"><header class="canvas-panel-heading"><h2>Workflow</h2><span>${config.stages.length} stages</span></header><div class="canvas-board"><div class="canvas-endpoint">Request received</div>${stages}${drop(config.stages.length)}<div class="canvas-endpoint">Workflow complete</div></div></section>
+      <aside class="canvas-inspector" aria-label="Selected stage"><header class="canvas-panel-heading"><h2>Stage details</h2><span>${config.stages.indexOf(selected) + 1} of ${config.stages.length}</span></header><form id="canvas-stage-form" data-stage="${escape(selected.id)}"><fieldset ${!admin || selected.assistantId ? "disabled" : ""}>
         <label>Stage name<input name="name" value="${escape(selected.name)}" required maxlength="80"></label>
         <label>Model<select name="model">${!selectedModel ? `<option value="${escape(selected.model)}" selected>${escape(selected.model)} · check connection</option>` : ""}${available.map(model => `<option value="${escape(model.id)}" ${model.id === selected.model ? "selected" : ""}>${escape(model.label)}</option>`).join("")}</select></label>
         <label>Instructions<textarea name="instructions" rows="5" maxlength="4000" required>${escape(selected.instructions)}</textarea></label>

@@ -102,6 +102,8 @@ export function createWorkflowCanvas(host: CanvasHost) {
       if (!writable()) return;
       insertion = Number(button.dataset.canvasInsert);
       host.notify(`Choose an agent with Add to connect it at position ${insertion + 1}.`);
+      const library = document.querySelector<HTMLDetailsElement>(".canvas-library");
+      if (library) library.open = true;
       document.querySelector<HTMLInputElement>("#canvas-search")?.focus(); return;
     }
     if (button.dataset.canvasAdd) { edit(() => add(button.dataset.canvasAdd!, insertion ?? state.config.stages.length)); return; }
@@ -175,5 +177,9 @@ export function createWorkflowCanvas(host: CanvasHost) {
     if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); }
   }, true);
   window.addEventListener("beforeunload", event => { if (draft?.dirty) { event.preventDefault(); event.returnValue = ""; } });
-  return { page(models: ChatModelOption[]) { return workflowCanvasPage(host.snapshot(), current(), query, models); } };
+  return { page(models: ChatModelOption[]) {
+    // Selecting a stage should not reopen a library the user has put away.
+    const libraryOpen = document.querySelector<HTMLDetailsElement>(".canvas-library")?.open ?? true;
+    return workflowCanvasPage(host.snapshot(), current(), query, models, libraryOpen);
+  } };
 }

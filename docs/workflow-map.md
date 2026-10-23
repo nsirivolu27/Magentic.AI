@@ -6,7 +6,7 @@ This map covers general development: software, prototypes, research, documents,
 and process improvements. Stage names and responsibilities are configurable.
 This map also defines a future Jira automation agent inside the workflow system.
 It is not a request to file a Jira issue. See
-[architecture and verification](workbench/ARCHITECTURE.md) for the current build
+[architecture and verification](../workbench/ARCHITECTURE.md) for the current build
 and test workflow. Desktop packaging is deferred until the backend layers mature.
 Repository: nsirivolu27/Magentic.AI.
 

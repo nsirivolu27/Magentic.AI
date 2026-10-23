@@ -5,7 +5,7 @@
 - In VS Code: Terminal → Run Task → `workbench: demo`. Wait for "Magentic Developer: http://127.0.0.1:4173/".
 - Ollama must be running with `qwen2.5-coder:7b` installed, or drafts will fail with "fetch failed". Check: open http://127.0.0.1:11434/api/tags in a browser and look for the model name.
 - Open http://127.0.0.1:4173/ in Chrome. Identity: Alex · Author. Refresh once.
-- Have the architecture diagram open in another tab (`docs/architecture/magentic-architecture.png`).
+- Have the [presentation architecture section](../site/index.html#architecture) open in another tab.
 
 ## 1. The workspace (1 minute)
 
@@ -41,7 +41,7 @@ Model Studio → Delivery assistant → Release → Retire (as Taylor, admin). B
 
 ## 6. Close (30 seconds)
 
-Architecture diagram tab. Trace one magenta arrow: resolveProfile. "Everything that acts goes through this one function. That is the whole governance story."
+Open the presentation's Models & tools panel. Explain how approved assistant stages resolve their release before running and receive only their granted tools. The Company boundary panel covers membership and workspace roles.
 
 ## If something goes wrong
 

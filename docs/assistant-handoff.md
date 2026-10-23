@@ -85,9 +85,9 @@ Magentic adapter/LNKZ relay boundary, backend authorization, body limit,
 frozen-run configuration, reference-data treatment, and human-review gates.
 Never commit credentials, tokens, private runtime records, or generated output.
 
-## Development handoff
+## ChatGPT / Codex handoff
 
-For continuing code development, open this repository in your development environment and start
+For continuing code development, authorize this repository in Codex and start
 from `main`. A suitable first instruction is:
 
 > Open nsirivolu27/Magentic.AI on main. Read AGENTS.md,
@@ -97,6 +97,10 @@ from `main`. A suitable first instruction is:
 > layout and existing authorization/review controls. Inspect current repository
 > state before changing anything, and verify the requested changes using the
 > pinned pnpm scripts. Do not deploy without explicit approval.
+
+OpenAI documents its ChatGPT GitHub app as read-only for repository analysis;
+it directs code editing and pushing to Codex:
+https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt
 
 Using Magentic's MCP tools inside ChatGPT is a **separate** integration task.
 No ChatGPT MCP connection or public endpoint was deployed or verified in this

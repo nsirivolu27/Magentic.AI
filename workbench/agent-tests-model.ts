@@ -67,6 +67,7 @@ export interface AgentTestsSnapshot { cases: AgentTestCase[]; runs: AgentTestRun
 export const agentTestCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("save_case"), id: z.string().uuid().optional(), agentId: z.string().uuid(), title: text(120), prompt: text(4000), expected: z.string().trim().max(2000).default(""), source: z.string().trim().max(250).default("") }).strict(),
   z.object({ action: z.literal("delete_case"), caseId: z.string().uuid() }).strict(),
+  z.object({ action: z.literal("cancel"), runId: z.string().uuid() }).strict(),
   /** expectedVersion is the workspace configuration version the person saw; a changed agent must be re-read before it is tested. */
   z.object({ action: z.literal("run"), caseId: z.string().uuid(), expectedVersion: z.number().int().min(1) }).strict(),
   z.object({ action: z.literal("review"), runId: z.string().uuid(), verdict: z.enum(["pass", "fail", "unsure"]), note: z.string().trim().max(2000).default("") }).strict(),
@@ -88,11 +89,26 @@ export function toolCallsFrom(events: readonly string[]): AgentTestRun["toolCall
   return calls.slice(0, 50);
 }
 
-/**
- * True when a saved test succeeded against the agent exactly as it is now.
- * An edit changes the hash, so an old pass never vouches for a new version.
- */
+export function blockingTestReviews(agent: AgentConfigurable, tests: Pick<AgentTestsSnapshot, "runs"> | undefined): AgentTestRun[] {
+  const current = agentHash(agent);
+  const reviewedCases = new Set<string>();
+  const blocked: AgentTestRun[] = [];
+  // A different prompt must not erase a rejection. Runs retain the case they
+  // exercised even when an author edits or deletes the saved test case.
+  for (const run of [...(tests?.runs ?? [])].reverse()) {
+    if (run.agentId !== agent.id || run.agentHash !== current || !run.review) continue;
+    const key = JSON.stringify([run.caseId, run.prompt, run.expected, run.source]);
+    if (reviewedCases.has(key)) continue;
+    reviewedCases.add(key);
+    if (run.review.verdict !== "pass" || run.status !== "succeeded") blocked.push(run);
+  }
+  return blocked;
+}
+
+// Execution alone remains sufficient for an unreviewed test, but it must
+// never override a recorded quality rejection of the same agent version.
 export function passedCurrentTest(agent: AgentConfigurable, tests: Pick<AgentTestsSnapshot, "runs"> | undefined): boolean {
   const current = agentHash(agent);
-  return (tests?.runs ?? []).some(run => run.agentId === agent.id && run.agentHash === current && run.status === "succeeded");
+  return (tests?.runs ?? []).some(run => run.agentId === agent.id && run.agentHash === current && run.status === "succeeded")
+    && blockingTestReviews(agent, tests).length === 0;
 }

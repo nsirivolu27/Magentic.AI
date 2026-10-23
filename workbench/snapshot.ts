@@ -1,4 +1,6 @@
 import type { OntologyCatalog } from "./ontology.js";
+import type { DeploymentReport } from "./deployment-report.js";
+import type { SlackSummary } from "./slack.js";
 import type { RegistryRecord } from "../registry/record.js";
 import type { AuditEvent } from "../registry/audit.js";
 import type { Workflow } from "../registry/workflow.js";
@@ -18,6 +20,8 @@ export type RecordView = RegistryRecord & { hash: string; eligible: boolean; val
 
 /** Everything GET /api/workspace returns. The pages render from this and nothing else. */
 export interface WorkbenchSnapshot {
+  deployment?: DeploymentReport;
+  slack?: SlackSummary;
   ontology?: OntologyCatalog;
   pipelines?: PipelineSnapshot;
   jira?: { canReview: boolean };

@@ -120,14 +120,14 @@ corepack pnpm agents
 ```
 
 `research-reader` goes from twelve tools to fourteen. Without this, it loads
-without them and says so, rather than refusing to start. `LANGCHAIN.md`
+without them and says so, rather than refusing to start. [LangChain](langchain.md)
 explains the cost ceilings and why this lives in the adapter.
 
 ## Making your own agent
 
 Copy any file in `agents/`, change the name, cut the tool list to what that
 job needs, and rerun `corepack pnpm agents`. A tool name that does not exist
-fails immediately and says which file. `CATALOG.md` has the record format.
+fails immediately and says which file. [Relay catalog](catalog.md) has the record format.
 
 ## When something does not start
 
