@@ -1,2 +1,0 @@
-evidenceId,companyId,runId,title,sourceUri,contentHash,retrievedAt
-demo-evidence,demo-company,demo-run,Synthetic SOP,urn:magentic:demo:sop,synthetic-not-a-verified-hash,2026-01-01T00:00:00Z

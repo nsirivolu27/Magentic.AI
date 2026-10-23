@@ -1,41 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LnkzApiError, LnkzClient } from "../client.js";
+import { createLnkzRestClient } from "../src/client.js";
 
-test("startup fails closed when either required setting is missing", () => {
-  assert.throws(() => LnkzClient.fromEnv({}), /LNKZ_BASE_URL is required/);
-  assert.throws(() => LnkzClient.fromEnv({ LNKZ_BASE_URL: "https://lnkz.example" }), /LNKZ_API_KEY is required/);
-  assert.throws(
-    () => LnkzClient.fromEnv({ LNKZ_BASE_URL: "file:///tmp/lnkz", LNKZ_API_KEY: "secret" }),
-    /must use http or https/,
-  );
+test("the REST client refuses to start without both relay settings", () => {
+  assert.throws(() => createLnkzRestClient({} as NodeJS.ProcessEnv), /LNKZ_BASE_URL and LNKZ_API_KEY are required/);
+  assert.throws(() => createLnkzRestClient({ LNKZ_BASE_URL: "http://relay" } as NodeJS.ProcessEnv), /LNKZ_BASE_URL and LNKZ_API_KEY are required/);
+  assert.throws(() => createLnkzRestClient({ LNKZ_API_KEY: "secret" } as NodeJS.ProcessEnv), /LNKZ_BASE_URL and LNKZ_API_KEY are required/);
 });
 
-test("REST calls use the configured base URL and bearer key", async () => {
-  let capturedUrl = "";
-  let capturedAuthorization = "";
-  const fetchImpl: typeof fetch = async (input, init) => {
-    capturedUrl = String(input);
-    capturedAuthorization = new Headers(init?.headers).get("authorization") ?? "";
-    return Response.json({ stats: { conversations: 0, messages: 0, providers: [], activeHandoffs: 0, events: 0 } });
+test("REST calls carry the API key and never expose it in REST errors", async () => {
+  let received: Request | undefined;
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    received = new Request(input, init);
+    return new Response(JSON.stringify({ error: "bad request" }), { status: 502, headers: { "content-type": "application/json" } });
   };
-  const client = new LnkzClient("https://lnkz.example/", "test-api-key", fetchImpl);
-
-  await client.stats();
-
-  assert.equal(capturedUrl, "https://lnkz.example/api/stats");
-  assert.equal(capturedAuthorization, "Bearer test-api-key");
-});
-
-test("API failures expose the relay message without exposing the API key", async () => {
-  const fetchImpl: typeof fetch = async () => Response.json({ error: "Unauthorized" }, { status: 401 });
-  const client = new LnkzClient("https://lnkz.example", "never-print-this-key", fetchImpl);
-
-  await assert.rejects(client.stats(), (error: unknown) => {
-    assert.ok(error instanceof LnkzApiError);
-    assert.equal(error.status, 401);
-    assert.equal(error.message, "Unauthorized");
-    assert.doesNotMatch(error.message, /never-print-this-key/);
+  const client = createLnkzRestClient({ LNKZ_BASE_URL: "http://relay.example/base", LNKZ_API_KEY: "secret-value" } as NodeJS.ProcessEnv, fetchImpl);
+  await assert.rejects(() => client.request("GET", "/health"), (error: Error) => {
+    assert.match(error.message, /HTTP 502/);
+    assert.equal(error.message.includes("secret-value"), false);
     return true;
   });
+  assert.equal(received?.url, "http://relay.example/base/health");
+  assert.equal(received?.headers.get("authorization"), "Bearer secret-value");
 });

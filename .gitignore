@@ -1,11 +1,7 @@
 node_modules/
-.magentic-dev/
 dist/
-.testbuild/
 .env
-*.db
-*.db-shm
-*.db-wal
+.env.*
+!.env.example
+coverage/
 *.log
-playwright-report/
-test-results/
