@@ -1,21 +1,24 @@
 import { useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { WorkbenchSnapshot } from "./snapshot.js";
-import { filterQueue, operationsQueue, QUEUE_LABELS, type QueueFilter } from "./operations-model.js";
+import { filterQueue, operationsQueue, queueForAudience, QUEUE_LABELS, type QueueFilter, type QueueAudience } from "./operations-model.js";
 
 // Keep filters across snapshot refreshes, but never share them across identities
 // or workspaces. No credentials, content or preferences go to browser storage.
-let preferences: { scope: string; filter: QueueFilter; query: string } | undefined;
+let preferences: { scope: string; filter: QueueFilter; query: string; audience: QueueAudience } | undefined;
 
 export function OperationsQueue({ snapshot }: { snapshot: WorkbenchSnapshot }) {
   const scope = `${snapshot.workspaceId}\0${snapshot.actor}`;
   const [filter, setFilter] = useState<QueueFilter>(preferences?.scope === scope ? preferences.filter : "all");
   const [query, setQuery] = useState(preferences?.scope === scope ? preferences.query : "");
-  const items = operationsQueue(snapshot);
+  const [audience, setAudience] = useState<QueueAudience>(preferences?.scope === scope ? preferences.audience : "team");
+  const allItems = operationsQueue(snapshot);
+  const items = queueForAudience(allItems, snapshot.actor, audience);
   const modelUnavailable = !snapshot.studio || Boolean(snapshot.studioError);
   const visible = filterQueue(items, filter, query);
-  const change = (nextFilter: QueueFilter, nextQuery: string) => {
-    preferences = { scope, filter: nextFilter, query: nextQuery };
+  const change = (nextFilter: QueueFilter, nextQuery: string, nextAudience = audience) => {
+    preferences = { scope, filter: nextFilter, query: nextQuery, audience: nextAudience };
+    setAudience(nextAudience);
     setFilter(nextFilter); setQuery(nextQuery);
   };
   const counts = (key: QueueFilter) => key === "all" ? items.length : items.filter(item => item.state === key).length;
@@ -38,6 +41,7 @@ export function OperationsQueue({ snapshot }: { snapshot: WorkbenchSnapshot }) {
     </div>
     {modelUnavailable && <p className="queue-data-warning" role="status">Model project data is unavailable. Counts cover only the workflow data that loaded; they do not mean all work is clear.</p>}
     <div className="queue-toolbar">
+      <label className="queue-audience">Show<select value={audience} onChange={event => change("all", "", event.target.value as QueueAudience)}><option value="team">All team work</option><option value="mine">My work &amp; reviews</option></select></label>
       <div className="queue-filters" role="group" aria-label="Filter work queue">
         {(Object.keys(QUEUE_LABELS) as QueueFilter[]).map(key => <button type="button" key={key}
           aria-pressed={filter === key} onClick={() => change(key, query)}>

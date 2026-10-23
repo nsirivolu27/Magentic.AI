@@ -1,6 +1,8 @@
 import { ZenfluenceError, type ZenfluenceDirectory } from "./zenfluence.js";
+import { deploymentReport } from "./deployment-report.js";
+import { SlackError, slackCommandSchema, type Slack } from "./slack.js";
 import { newlyAssigned } from "./agent-configurables.js";
-import { passedCurrentTest } from "./agent-tests-model.js";
+import { blockingTestReviews, passedCurrentTest } from "./agent-tests-model.js";
 import { pipelineSchema, type PipelineConfig } from "./pipeline.js";
 import { zenfluenceCommand } from "./zenfluence-api.js";
 import { AutomationError, type AutomationRuntime } from "./automation-runtime.js";
@@ -44,6 +46,7 @@ export interface WorkspaceIdentity {
   // A standalone MCP credential must not inherit local delivery authority.
   canDeliverJira?: boolean;
   canRunAutomations?: boolean;
+  canSendSlack?: boolean;
 }
 export interface WorkbenchOptions {
   context: TransitionContext;
@@ -60,6 +63,7 @@ export interface WorkbenchOptions {
   guard?: (request: IncomingMessage, response: ServerResponse) => { status: number; message: string } | undefined;
   accounts?: AccountsConfig;
   companies?: CompanyAccess;
+  slack?: Slack;
   billing?: Billing;
   demo?: boolean;
   email?: EmailPortal;
@@ -105,6 +109,15 @@ class RequestError extends Error {
 }
 
 export function createWorkbenchServer(options: WorkbenchOptions) {
+  const inspectDeployment = (workspaceId: string) => deploymentReport({
+    workspaceId, mode: options.companies ? "company" : options.demo ? "demo" : "local",
+    requiredApprovals: (options.context.workflow ?? DEFAULT_WORKFLOW).requiredApprovals,
+    ...(options.pipelines ? { pipeline: options.pipelines.snapshot(workspaceId) } : {}),
+    ...(options.studio ? { studio: options.studio } : {}),
+    scheduler: !!options.scheduler,
+    modelConfigured: !!options.chat?.model && options.chat.provider !== "unconfigured",
+    repositoryWorker: !!options.bots, repositoryAttached: !!options.bots?.snapshot(workspaceId).project,
+  });
   // Jobs run in the background; a failure is recorded on the job, never thrown at a request.
   const tickScheduler = (workspaceId: string) => {
     try { options.learning?.tick(workspaceId); } catch { /* a cycle that throws is recorded on its run; the request already answered */ }
@@ -164,6 +177,11 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       const { workspaceId, actor } = identity;
       const roles = await options.context.members!.rolesFor(workspaceId, actor);
       if (!roles.length) throw new PermissionError("You are not a member of this workspace.");
+      if (request.method === "GET" && path === "/api/deployment-report") {
+        if (new URL(request.url!, "http://localhost").search) throw new RequestError(400, "The deployment report uses the signed-in workspace; no query parameters are accepted.");
+        await pending;
+        send(response, 200, inspectDeployment(workspaceId)); return;
+      }
       if (request.method === "GET" && path === "/api/zenfluence") {
         // The workspace id is included so an unconfigured page can show exactly
         // what to put in the connection file.
@@ -204,6 +222,9 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
           ...(options.learning ? { learning: options.learning.snapshot(workspaceId) } : {}),
           ...(options.documents ? { documents: options.documents.snapshot(workspaceId) } : {}),
           workspaceId, actor, roles, workflow, demo: options.demo ?? false,
+          deployment: inspectDeployment(workspaceId),
+          slack: options.slack?.summary(workspaceId, !!identity.canSendSlack && roles.includes("admin"))
+            ?? { configured: false, ready: false, canSend: false, receipts: [] },
           ...(options.jira ? { jira: { canReview: !!identity.canDeliverJira && roles.includes("admin") } } : {}),
           ...studioSnapshot(options.studio, workspaceId),
           canAuthor: roles.includes("admin") || roles.includes(workflow.roles.author),
@@ -266,6 +287,22 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         throw new RequestError(403, "Cross-origin writes are not allowed.");
       }
       const raw = await body(request);
+      if (path === "/api/slack") {
+        if (!identity.canSendSlack || !roles.includes("admin")) throw new PermissionError("Slack sending requires a company administrator session.");
+        if (!options.slack) throw new RequestError(503, "Slack is not configured on this server.");
+        const input = slackCommandSchema.parse(raw);
+        if (input.action === "send") {
+          send(response, 200, await options.slack.send(workspaceId, actor, input.previewId, input.expectedHash)); return;
+        }
+        const report = inspectDeployment(workspaceId);
+        const audit = ["Magentic workflow audit snapshot", "Workspace: " + workspaceId, "Checked: " + report.checkedAt,
+          "Workflow version: " + (report.workflow?.version ?? "Unavailable"),
+          "Workflow hash: " + (report.workflow?.hash ?? "Unavailable"),
+          "Readiness: " + report.status, "Stages: " + report.stages.length,
+          "Blockers: " + (report.blockers.length + report.stages.reduce((n, stage) => n + stage.blockers.length, 0)),
+          "This notification does not approve or execute work."].join("\n");
+        send(response, 200, options.slack.preview(workspaceId, actor, input.kind, input.note, audit)); return;
+      }
       if (path === "/api/zenfluence") {
         if (!options.zenfluence) throw new RequestError(404, "Zenfluence is not configured.");
         send(response, 200, await zenfluenceCommand(options.zenfluence, options.pipelines, { workspaceId, actor, roles }, raw)); return;
@@ -385,7 +422,11 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         else {
           // The studio shows "test before assigning"; the server holds the same line.
           if (options.agentTests && isConfigure(raw)) {
-            const untested = newlyAssigned(options.pipelines.snapshot(workspaceId).config, raw.config).filter(agent => !passedCurrentTest(agent, options.agentTests!.snapshot(workspaceId)));
+            const tests = options.agentTests.snapshot(workspaceId);
+            const assigned = newlyAssigned(options.pipelines.snapshot(workspaceId).config, raw.config);
+            const rejected = assigned.filter(agent => blockingTestReviews(agent, tests).length);
+            if (rejected.length) throw new RequestError(409, `Quality review blocks assignment of ${rejected.map(agent => agent.name).join(", ")}. Rerun the rejected cases and obtain a passing review, or revise the agent and test the new version.`);
+            const untested = assigned.filter(agent => !passedCurrentTest(agent, tests));
             if (untested.length) throw new RequestError(409, `Run a passing test on the current version of ${untested.map(agent => agent.name).join(", ")} before assigning it to a stage.`);
           }
           send(response, 200, options.pipelines.execute(workspaceId, actor, roles, raw, approvals));
@@ -538,7 +579,7 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       send(response, 200, await run);
     } catch (error) {
       if (response.headersSent) { response.destroy(); return; }
-      if (error instanceof ZenfluenceError || error instanceof AutomationError || error instanceof ChatAccessError || error instanceof BillingError || error instanceof RequestError || error instanceof PipelineError || error instanceof JiraApiError || error instanceof StudioError || error instanceof DocumentError) send(response, error.status, { error: error.message });
+      if (error instanceof SlackError || error instanceof ZenfluenceError || error instanceof AutomationError || error instanceof ChatAccessError || error instanceof BillingError || error instanceof RequestError || error instanceof PipelineError || error instanceof JiraApiError || error instanceof StudioError || error instanceof DocumentError) send(response, error.status, { error: error.message });
       else if (error instanceof StudioStorageError) send(response, 409, { error: error.message });
       else if (error instanceof OntologyError) send(response, 502, { error: error.message });
       else if (error instanceof PermissionError) send(response, 403, { error: error.message });

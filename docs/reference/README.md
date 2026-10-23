@@ -15,7 +15,7 @@ existing engines, or a tool a person can run beside the workbench.
 | `third-party/task-observer/` | rebelytics/one-skill-to-rule-them-all | CC BY 4.0 | The observation log format and the signal catalogue for turning corrections into skill improvements. |
 | `third-party/headroom-llms.txt` | headroomlabs-ai/headroom | Apache 2.0 | Context compression and token accounting as a local proxy. Index only; the repo is large. |
 | `third-party/omniroute-llm.txt` | diegosouzapw/OmniRoute | MIT | One OpenAI compatible endpoint in front of many providers. Index only. |
-| `third-party/memory-search-reference.md` | thedotmack/claude-mem | Apache 2.0 | The three layer memory search pattern: index, timeline, details. |
+| `third-party/claude-mem-how-it-works.md` | thedotmack/claude-mem | Apache 2.0 | The three layer memory search pattern: index, timeline, details. |
 
 `claude-code-setup` is an editor plugin that inspects a repository and
 recommends hooks and configuration. Nothing to vendor; the idea is recorded

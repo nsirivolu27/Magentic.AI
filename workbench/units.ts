@@ -80,7 +80,10 @@ export function stageNodes(snapshot: WorkbenchSnapshot): GraphNode[] {
     const unit = stage.assistantId ? units.find((item) => item.profile.id === stage.assistantId) : undefined;
     const gate = stage.approval ? "Review gate" : "No gate";
     const href = `#/workflows/${stage.id}`;
-    if (!stage.assistantId) return { id: stage.id, label: stage.name, value: stage.agent, note: `By hand · ${gate}`, state: "pending", href };
+    if (!stage.assistantId) {
+      const execution = stage.bot && stage.bot.kind !== "manual" ? "Repository agent" : "By hand";
+      return { id: stage.id, label: stage.name, value: stage.agent, note: `${execution} · ${gate}`, state: "pending", href };
+    }
     if (!unit) return { id: stage.id, label: stage.name, value: "Assistant missing", note: gate, state: "broken", href };
     if (!unit.usable) return { id: stage.id, label: stage.name, value: unit.profile.name, note: unit.reason.replace(/\.$/, ""), state: "broken", href };
     return { id: stage.id, label: stage.name, value: unit.profile.name, note: `${unit.working ? "Working · " : ""}${gate}`, state: unit.working ? "active" : "linked", href };

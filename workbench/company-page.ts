@@ -33,6 +33,9 @@ export const companyClientScript = `
       for (const company of companies) {
         const card = document.createElement('section'); card.className = 'account-panel';
         const name = document.createElement('h3'); name.textContent = company.name;
+        const access = document.createElement('p');
+        const labels = {admin:'Administrator', author:'Author', approver:'Reviewer'};
+        access.textContent = 'Your roles: ' + company.roles.map(role => labels[role]).join(' · ');
         const button = document.createElement('button'); button.className = 'primary';
         button.textContent = company.workspaceId ? 'Open workspace' : company.canCreate ? 'Set up workspace' : 'Waiting for admin';
         button.disabled = !company.workspaceId && !company.canCreate;
@@ -41,10 +44,10 @@ export const companyClientScript = `
           try {
             const result = await request('/api/companies/open', {organizationId:company.organizationId});
             sessionStorage.setItem('magentic.companyWorkspace', result.workspaceId);
-            location.assign('/#/marketplace');
+            location.assign('/#/onboarding');
           } catch (failure) { error.textContent = failure.message; button.disabled = false; }
         };
-        card.append(name, button); list.appendChild(card);
+        card.append(name, access, button); list.appendChild(card);
       }
     } catch (failure) { list.textContent = ''; error.textContent = failure.message; }
     finally { refresh.disabled = false; }
