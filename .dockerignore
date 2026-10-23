@@ -1,0 +1,20 @@
+# Keep local workspaces, credentials and unrelated checkouts out of the image context.
+**
+!Dockerfile
+!package.json
+!pnpm-lock.yaml
+!tsconfig.json
+!build.mjs
+!*.ts
+!llm/
+!llm/**
+!catalog/
+!catalog/**
+!registry/
+!registry/**
+!agents/
+!agents/**
+**/.env*
+**/*.pem
+**/*.key
+**/*.db
