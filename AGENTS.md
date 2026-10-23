@@ -6,7 +6,7 @@ authorization and business logic in LNKZ; do not import src/lnkz from another
 checkout. LNKZ's embedded MCP and stdio surfaces remain part of LNKZ.
 
 Inspect the branch, dirty diff and worktree list before editing. Preserve local
-changes. Use a separate task branch and worktree for independent tasks, and
+changes. Use a separate codex/ branch and worktree for independent tasks, and
 reuse an existing task's checkout when continuing its work. The installed
 github-management skill provides local checkout selection and launch commands.
 

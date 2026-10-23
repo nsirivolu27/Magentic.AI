@@ -10,7 +10,7 @@ export function pipelineView(snapshot: PipelineSnapshot | undefined, actor: stri
   if (!snapshot) return '<p class="empty">Pipelines are not configured for this deployment.</p>';
   const { config, runs } = snapshot;
   const editable = draft ?? config;
-  const run = selected === undefined ? runs[0] : runs.find(item => item.id === selected);
+  const run = runs.find(item => item.id === selected) ?? runs[0];
   const admin = roles.includes("admin");
   const canStart = admin || roles.includes("author");
   const stage = run?.stages[run.current];

@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
 import { materialsSchema, type Material } from "./materials.js";
-import { agentConfigurableSchema, configurableStages } from "./agent-configurables.js";
+import { agentConfigurableSchema } from "./agent-configurables.js";
 import { botPolicySchema } from "./bot-schema.js";
 import type { Role } from "../registry/roles.js";
 
@@ -39,7 +39,6 @@ export const DEFAULT_PIPELINE: PipelineConfig = DEVELOPMENT_WORKFLOW;
 export const pipelineCommandSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("configure"), expectedVersion: z.number().int().min(1), config: pipelineSchema }).strict(),
   z.object({ action: z.literal("start"), requestId: z.string().uuid(), title: z.string().trim().min(3).max(160), brief: text,
-    expectedVersion: z.number().int().min(1).optional(), configurableId: z.string().uuid().optional(),
     materials: materialsSchema.optional(), issueKey: z.string().regex(/^[A-Z][A-Z0-9]{1,19}-[1-9][0-9]*$/).optional() }).strict(),
   z.object({ action: z.enum(["complete", "approve", "pause", "resume", "block", "retry", "cancel"]),
     runId: z.string().uuid(), expectedRevision: z.number().int().min(1), note: text.optional() }).strict(),
@@ -163,8 +162,7 @@ function createEngine(persistence: PipelinePersistence | undefined, guards: Pipe
       if (run.revision !== input.expectedRevision) throw new PipelineError(409, "This run changed. Refresh before acting.");
       const index = run.config.stages.findIndex(stage => stage.id === input.stageId);
       if (run.status !== "running" || index !== run.current || run.stages[index]!.status !== "active") throw new PipelineError(409, "That stage is no longer active.");
-      const text = input.text.trim();
-      if (text.length > 4000) throw new PipelineError(400, "A draft must not exceed 4000 characters; it was not saved.");
+      const text = input.text.trim().slice(0, 4000);
       if (!text) throw new PipelineError(400, "A draft needs text.");
       run.stages[index]!.draft = { text, hash: createHash("sha256").update(text).digest("hex"), by: input.by, jobId: input.jobId, at: new Date().toISOString() };
       event(run, input.by, "draft_ready", `Draft prepared by ${input.by}. A person completes the stage with it or writes their own output.`);
@@ -204,20 +202,7 @@ function createEngine(persistence: PipelinePersistence | undefined, guards: Pipe
             || JSON.stringify(existing.materials ?? []) !== JSON.stringify(input.materials ?? [])) {
             throw new PipelineError(409, "This request ID was already used for different work.");
           }
-          if (input.expectedVersion !== undefined && existing.version !== input.expectedVersion) {
-            throw new PipelineError(409, "This request ID belongs to another workflow version.");
-          }
-          if (input.configurableId) {
-            const agent = existing.config.configurables?.find(item => item.id === input.configurableId);
-            if (!agent || !configurableStages(existing.config, agent).length) throw new PipelineError(409, "This run does not use the saved agent.");
-          }
           return publish();
-        }
-        if (input.expectedVersion !== undefined && input.expectedVersion !== value.version) throw new PipelineError(409, "Workflow changed. Refresh before starting.");
-        if (input.configurableId) {
-          if (input.expectedVersion === undefined) throw new PipelineError(400, "Agent runs require a workflow version.");
-          const agent = value.config.configurables?.find(item => item.id === input.configurableId);
-          if (!agent || !configurableStages(value.config, agent).length) throw new PipelineError(409, "Assign the saved agent to a stage before starting.");
         }
         if (value.runs.length >= 100) throw new PipelineError(409, "This in-memory workspace holds at most 100 runs.");
         if (!Number.isInteger(requiredApprovals) || requiredApprovals < 1 || requiredApprovals > 10) throw new PipelineError(400, "Invalid approval policy.");

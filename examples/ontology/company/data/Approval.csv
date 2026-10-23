@@ -1,2 +1,0 @@
-approvalId,companyId,runId,reviewerId,decision,contentHash,decidedAt
-demo-approval,demo-company,demo-run,synthetic-reviewer,pending,synthetic-not-a-verified-hash,

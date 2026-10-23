@@ -12,16 +12,11 @@ export const BOT_REPOSITORY_TOOLS = ["list_project_files", "read_project_file", 
 export const botPolicySchema = z.object({
   kind: z.enum(BOT_KINDS), maxSteps: z.number().int().min(1).max(12),
   profile: z.enum(BOT_PROFILE_IDS).optional(),
-  timeoutSeconds: z.number().int().min(15).max(900),
+  timeoutSeconds: z.number().int().min(15).max(300),
   allowedTools: z.array(z.enum(BOT_REPOSITORY_TOOLS)).max(3).refine(tools => new Set(tools).size === tools.length,
     "Tool names must be unique.").optional(),
   maxToolCalls: z.number().int().min(0).max(11).optional(),
-  requireSourceRead: z.boolean().optional(),
 }).strict().superRefine((bot, context) => {
-  if (bot.requireSourceRead && (bot.kind === "manual" || !(bot.allowedTools ?? BOT_REPOSITORY_TOOLS).includes("read_project_file")
-    || bot.maxSteps < 2 || bot.maxToolCalls === 0)) {
-    context.addIssue({ code: "custom", path: ["requireSourceRead"], message: "A required source read needs file access, at least two model calls and one tool call." });
-  }
   if (bot.profile && bot.kind !== BOT_PROFILE_KINDS[bot.profile]) {
     context.addIssue({ code: "custom", path: ["profile"], message: `${bot.profile} requires the ${BOT_PROFILE_KINDS[bot.profile]} bot type.` });
   }

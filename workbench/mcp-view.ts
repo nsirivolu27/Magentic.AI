@@ -36,26 +36,17 @@ export function mcpView(overview: McpOverview, inspector: InspectorState, endpoi
 
 let requestId = 0;
 export async function mcpRequest(token: string, method: string, params: unknown, protocolVersion?: string, headers: Record<string, string> = {}): Promise<Record<string, unknown>> {
-  const notification = method.startsWith("notifications/");
-  const id = notification ? undefined : ++requestId;
   const response = await fetch("/api/mcp", {
     method: "POST", headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers, "Content-Type": "application/json", Accept: "application/json, text/event-stream",
       ...(protocolVersion ? { "MCP-Protocol-Version": protocolVersion } : {}),
     },
-    body: JSON.stringify({ jsonrpc: "2.0", ...(notification ? {} : { id }), method, params }),
+    body: JSON.stringify({ jsonrpc: "2.0", ...(method.startsWith("notifications/") ? {} : { id: ++requestId }), method, params }),
     signal: AbortSignal.timeout(15_000), cache: "no-store",
   });
-  if (response.status === 202 && notification) return {};
-  if (response.status === 202) throw new Error("MCP did not return a result for this request.");
-  let message;
-  try { message = await response.json(); }
-  catch { throw new Error("MCP returned an invalid response. Reconnect and try again."); }
-  if (!message || typeof message !== "object" || Array.isArray(message)) throw new Error("MCP returned an invalid response.");
+  if (response.status === 202) return {};
+  const message = await response.json();
   if (!response.ok || message.error) throw new Error(typeof message.error === "string" ? message.error : message.error?.message ?? `MCP request failed (${response.status}).`);
-  if (message.jsonrpc !== "2.0" || message.id !== id || !message.result || typeof message.result !== "object" || Array.isArray(message.result)) {
-    throw new Error("MCP response did not match this request. Reconnect before running another tool.");
-  }
   return message.result;
 }
 

@@ -134,7 +134,6 @@ export function createScheduler(options: SchedulerOptions): Scheduler {
       // Attach only if the stage is still where the job left it.
       const latest = options.pipelines.snapshot(workspace).runs.find((item) => item.id === job.runId);
       if (!latest || latest.status !== "running" || latest.config.stages[latest.current]?.id !== job.stageId) throw new Cancelled("The stage is no longer active; the workflow moved on or stopped.");
-      if (latest.revision !== run.revision) throw new Cancelled("The workflow context changed while drafting. Review the current sources and try again.");
       const after = options.pipelines.draft(workspace, { runId: job.runId, stageId: job.stageId, expectedRevision: latest.revision, text, by: unit.name, jobId: job.id });
       job.draftHash = after.runs.find((item) => item.id === job.runId)!.stages[latest.current]!.draft!.hash;
       job.status = "ready";
@@ -209,28 +208,17 @@ export function stagePrompt(unit: AssistantBinding, run: PipelineRun): string {
 
 /** The draft text from whatever the model returned: the JSON shape asked for, a chat style answer, or plain text. */
 export function draftText(content: unknown): string {
-  // Text blocks are common provider output. Tool calls and other blocks are not stage evidence.
-  if (Array.isArray(content)) {
-    if (!content.every(block => block && block.type === "text" && typeof block.text === "string")) return "";
-    content = content.map(block => block.text).join("\n");
+  const raw = typeof content === "string" ? content : content && typeof content === "object" ? JSON.stringify(content) : "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    const text = parsed && typeof parsed === "object" ? (typeof parsed.text === "string" ? parsed.text : typeof parsed.content === "string" ? parsed.content : "") : "";
+    return text.trim().slice(0, DRAFT_LIMIT);
+  } catch {
+    // Not JSON: plain prose is still a draft, as long as it is not a stray JSON looking fragment.
+    return trimmed.startsWith("{") ? "" : trimmed.slice(0, DRAFT_LIMIT);
   }
-  let raw = typeof content === "string" ? content.trim() : content && typeof content === "object" ? JSON.stringify(content) : "";
-  if (!raw) return "";
-  const fence = raw.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i);
-  if (fence) raw = fence[1]!.trim();
-  let text = raw;
-  if (raw.startsWith("{") || raw.startsWith("[")) {
-    let parsed: unknown;
-    try { parsed = JSON.parse(raw); } catch { return ""; }
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
-    const value = parsed as Record<string, unknown>;
-    if (value.type !== undefined && value.type !== "draft") return "";
-    text = typeof value.text === "string" ? value.text : typeof value.content === "string" ? value.content : "";
-  }
-  text = text.trim();
-  // A clipped conclusion can reverse a recommendation or remove its caveats.
-  if (text.length > DRAFT_LIMIT) throw new Error(`The draft exceeds ${DRAFT_LIMIT} characters. Shorten the stage request and try again.`);
-  return text;
 }
 
 /** One JSON file per workspace, written atomically like the bot timeline. */
