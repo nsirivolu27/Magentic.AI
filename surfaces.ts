@@ -2,7 +2,6 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerExportTool } from "./export.js";
 import { registerGraphTools } from "./graph.js";
 import { registerPublishTools } from "./publish.js";
-import { registerLlmTools } from "./llm/tools.js";
 import type { LnkzClientLike } from "./client.js";
 
 /**
@@ -19,6 +18,4 @@ export function registerSurfaces(server: McpServer, client: LnkzClientLike): voi
   registerExportTool(server, client);
   registerGraphTools(server, client);
   registerPublishTools(server, client);
-  // Registers nothing unless MAGENTIC_LLM_PROVIDER is set. See llm/tools.ts.
-  registerLlmTools(server, client);
 }

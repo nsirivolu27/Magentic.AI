@@ -1,13 +1,8 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
 import { z } from "zod";
 import { LnkzApiError, type LnkzClientLike } from "./client.js";
 import { registerSurfaces } from "./surfaces.js";
 import { registerWorkspaceTools } from "./workspace.js";
-import { createSuggestions, resolveConversation, shortId } from "./suggest.js";
-import { askHandoffChoices, clientSupportsElicitation, missingChoices } from "./elicit.js";
-import { setting } from "./env.js";
-import { legacyUrisEnabled, registerAliasedResource, LEGACY_SCHEME, SCHEME } from "./resources.js";
 import {
   analyzeSchema,
   appendMessagesSchema,
@@ -18,7 +13,6 @@ import {
   continueConversationSchema,
   conversationInputSchema,
   createHandoffSchema,
-  HANDOFF_FALLBACKS,
   duplicateSchema,
   importSchema,
   importUrlSchema,
@@ -34,14 +28,14 @@ import {
   type MessageInput,
 } from "./contract.js";
 
-export const MAGENTIC_VERSION = "0.2.0";
+export const LNKZ_VERSION = "0.2.0";
 
 /**
  * Tools that change something: on this relay, on someone else's, or to a
  * link's remaining uses. redeem_handoff is here because redeeming spends a
  * use, which is a change even though nothing is stored locally.
  */
-export const WRITE_TOOLS: ReadonlySet<string> = new Set([
+const WRITE_TOOLS = new Set([
   "save_conversation",
   "import_conversation",
   "import_from_url",
@@ -71,78 +65,27 @@ export interface McpServerOptions {
    * proposals to delete things it was never going to be allowed to delete.
    */
   allowWrites?: boolean;
-
-  /**
-   * Restrict this server to a named set of tools. Absent means every tool,
-   * which is what a direct connection to the adapter gets.
-   *
-   * This is how one hosted process serves several agents: a request arriving
-   * at an agent's endpoint builds a server with that agent's allowlist, so
-   * the tools outside it are not registered rather than registered and
-   * refusing. allowWrites still applies on top, and an allowlist cannot
-   * widen it: a read-only deployment stays read-only however an agent is
-   * defined.
-   */
-  tools?: ReadonlySet<string>;
-
-  /**
-   * Replace the server instructions a client reads on connect. An agent is
-   * mostly a description of what it is for, and the instructions are where a
-   * model actually reads that.
-   */
-  instructions?: string;
-
-  /**
-   * Every tool name the server considered registering, appended as it goes.
-   * Only magenticToolNames uses it, to learn what this build actually exposes
-   * rather than trusting a list someone typed.
-   */
-  collect?: string[];
 }
 
 /** Read the exposure setting. Anything other than an explicit read-only wins nothing. */
 export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): McpServerOptions {
-  const declared = (setting("MAGENTIC_SCOPES", env) ?? "").trim().toLowerCase();
+  const declared = (env.LNKZ_MCP_SCOPES ?? "").trim().toLowerCase();
   if (!declared) return { allowWrites: true };
   const scopes = new Set(declared.split(/[\s,]+/).filter(Boolean));
   return { allowWrites: scopes.has("write") };
 }
 
-const DEFAULT_INSTRUCTIONS = [
-  "LNKZ carries portable conversation context between people, devices, and LLM clients.",
-  "Save or import a chat, build a context packet when another model needs the gist,",
-  "and create a handoff when a human or a different client needs the whole thread.",
-  "Treat handoff tokens as bearer secrets and never echo them into shared output.",
-].join(" ");
-
-/**
- * Every tool this build registers, read from the build rather than listed by
- * hand. A hand-written list is a list that drifts, and the thing it would
- * drift away from is what an agent definition is checked against.
- *
- * The probe client throws on any call, which is safe because registration
- * only describes tools; nothing reaches the relay until one is invoked.
- */
-let toolNames: readonly string[] | undefined;
-export function magenticToolNames(): readonly string[] {
-  if (toolNames) return toolNames;
-  const collect: string[] = [];
-  const probe = new Proxy({}, {
-    get: () => () => {
-      throw new Error("The tool-name probe must not reach the relay.");
-    },
-  }) as LnkzClientLike;
-  createMagenticMcpServer(probe, { allowWrites: true, collect });
-  toolNames = [...new Set(collect)].sort();
-  return toolNames;
-}
-
-export function createMagenticMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
+export function createLnkzMcpServer(client: LnkzClientLike, options: McpServerOptions = {}): McpServer {
   const allowWrites = options.allowWrites ?? true;
   const server = new McpServer(
-    { name: "magentic", version: MAGENTIC_VERSION },
+    { name: "lnkz", version: LNKZ_VERSION },
     {
-      instructions: options.instructions?.trim() || DEFAULT_INSTRUCTIONS,
+      instructions: [
+        "LNKZ carries portable conversation context between people, devices, and LLM clients.",
+        "Save or import a chat, build a context packet when another model needs the gist,",
+        "and create a handoff when a human or a different client needs the whole thread.",
+        "Treat handoff tokens as bearer secrets and never echo them into shared output.",
+      ].join(" "),
     },
   );
   const originalRegisterTool = server.registerTool.bind(server);
@@ -152,13 +95,9 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
     handler: (input: unknown) => Promise<unknown>,
   ) => unknown;
   server.registerTool = ((name: string, config: unknown, handler: (input: unknown) => Promise<unknown>) => {
-    options.collect?.push(name);
     // Not registered rather than registered-and-refusing. A tool a model
     // cannot see is a tool it will not build a plan around.
     if (!allowWrites && WRITE_TOOLS.has(name)) return undefined as never;
-    // The allowlist is checked after the write gate, never instead of it.
-    // An agent narrows what this deployment offers; it cannot widen it.
-    if (options.tools && !options.tools.has(name)) return undefined as never;
     return register(name, config, async (input: unknown) => {
       try {
         return await handler(input);
@@ -167,10 +106,6 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
       }
     });
   }) as typeof server.registerTool;
-
-  // One suggestion source per server, so a burst of keystrokes shares a
-  // single relay request. See suggest.ts.
-  const suggestions = createSuggestions(client);
 
   registerWorkspaceTools(server, client);
 
@@ -314,45 +249,16 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
     "create_handoff",
     {
       title: "Create conversation handoff",
-      description: "Mints an expiring, use-limited bearer link that another person, device, or LLM client can redeem for portable context. Leave ttlMinutes, maxUses or redact out and the person is asked, so the link matches the situation instead of a default; pass them to decide without a prompt. Redaction strips names, addresses and keys before the packet leaves.",
+      description: "Mints an expiring, use-limited bearer link that another person, device, or LLM client can redeem for portable context. Optionally redacts secrets before the packet leaves.",
       inputSchema: createHandoffSchema.shape,
       annotations: { readOnlyHint: false, idempotentHint: false },
     },
     async (input) => {
       const options = createHandoffSchema.parse(input);
-      const unanswered = missingChoices(options);
-
-      // Only looked up when there is a question to put a name on. A client
-      // that cannot be asked should not pay for a listing nobody reads.
-      const willAsk = unanswered.length > 0 && clientSupportsElicitation(server);
-      const title = willAsk
-        ? (await suggestions.conversations().catch(() => []))
-            .find((entry) => entry.id === options.conversationId)?.title
-        : undefined;
-
-      const asked = await askHandoffChoices(server, title ?? "this conversation", unanswered);
-      if (asked.asked && !asked.accepted) {
-        // Being shown the question and dismissing it is not agreement to an
-        // hour-long unredacted link, so nothing is minted.
-        return toolError(
-          `No handoff was created: the ${asked.reason === "declined" ? "request was declined" : "prompt was dismissed"}. `
-          + "Pass ttlMinutes, maxUses and redact directly to skip the question.",
-        );
-      }
-
       const { conversationId, ...request } = options;
-      const chosen = asked.asked && asked.accepted ? asked.choices : {};
-      // Fallbacks last and only where still unset, so an answer beats them
-      // and an explicit argument beats everything.
-      const handoff = await client.createHandoff(conversationId, {
-        ...HANDOFF_FALLBACKS,
-        ...clean(request),
-        ...clean(chosen),
-      });
+      const handoff = await client.createHandoff(conversationId, request);
       return ok(
-        `Handoff ${handoff.id}${title ? ` for "${title}"` : ""} expires ${handoff.expiresAt} `
-        + `after up to ${handoff.maxUses} use(s)`
-        + `${handoff.redact ? ", redacted" : ", not redacted"}: ${handoff.shareUrl}`,
+        `Handoff ${handoff.id} expires ${handoff.expiresAt} after up to ${handoff.maxUses} use(s): ${handoff.shareUrl}`,
         { ...handoff },
       );
     },
@@ -659,70 +565,32 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
 
   // ------------------------------------------------------------------- resources
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "connector-status",
-    "connectors",
-    { title: "Connector status", description: "Configured and disabled connector inventory.", mimeType: "application/json" },
-    async (uri) => jsonResource(uri, await client.listConnectors()),
+    "lnkz://connectors",
+    { title: "LNKZ connector status", description: "Configured and disabled connector inventory.", mimeType: "application/json" },
+    async () => jsonResource("lnkz://connectors", await client.listConnectors()),
   );
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "workspace-stats",
-    "stats",
-    { title: "Workspace statistics", description: "Conversation, message, provider, and handoff counts.", mimeType: "application/json" },
-    async (uri) => jsonResource(uri, (await client.stats()).stats),
+    "lnkz://stats",
+    { title: "LNKZ workspace statistics", description: "Conversation, message, provider, and handoff counts.", mimeType: "application/json" },
+    async () => jsonResource("lnkz://stats", (await client.stats()).stats),
   );
 
-  registerAliasedResource(
-    server,
+  server.registerResource(
     "recent-conversations",
-    "conversations",
-    { title: "Recent conversations", description: "The 25 most recently updated conversations.", mimeType: "application/json" },
-    async (uri) => jsonResource(uri, await client.listConversations({ limit: 25 })),
+    "lnkz://conversations",
+    { title: "Recent LNKZ conversations", description: "The 25 most recently updated conversations.", mimeType: "application/json" },
+    async () => jsonResource("lnkz://conversations", await client.listConversations({ limit: 25 })),
   );
 
-  const conversationTemplateOptions = (scheme: string) => ({
-    // A list callback is what puts conversations in a client's resource
-    // picker, so a person points at one by title instead of a model going
-    // looking for it by id. The completion callback narrows that list as
-    // they type. The protocol only completes prompt arguments and resource
-    // template variables, never tool arguments, so this and the prompts
-    // below are the whole of where completion can help.
-    list: async () => {
-        const conversations = await suggestions.conversations().catch(() => []);
-        return {
-          resources: conversations.map((conversation) => ({
-            uri: `${scheme}://conversation/${conversation.id}`,
-            name: conversation.title,
-            description: `${conversation.source.provider} \u00b7 ${conversation.messageCount} messages \u00b7 ${shortId(conversation.id)}`,
-            mimeType: "text/markdown",
-          })),
-        };
-      },
-      complete: {
-        id: async (value: string) => {
-          const conversations = await suggestions.conversations().catch(() => []);
-          const needle = value.trim().toLowerCase();
-          return conversations
-            .filter((conversation) =>
-              !needle
-              || conversation.id.startsWith(needle)
-              || conversation.title.toLowerCase().includes(needle))
-            .slice(0, 25)
-            .map((conversation) => conversation.id);
-        },
-      },
-  });
-
-  const conversationConfig = {
-    title: "Conversation",
-    description: "One conversation as a portable Markdown transcript.",
-    mimeType: "text/markdown",
-  };
-
-  const readConversation = async (uri: URL, variables: Record<string, string | string[]>) => {
+  server.registerResource(
+    "conversation",
+    new ResourceTemplate("lnkz://conversation/{id}", { list: undefined }),
+    { title: "LNKZ conversation", description: "One conversation as a portable Markdown transcript.", mimeType: "text/markdown" },
+    async (uri, variables) => {
       const id = Array.isArray(variables.id) ? variables.id[0] : variables.id;
       if (!id) {
         return { contents: [{ uri: uri.href, mimeType: "text/plain", text: "Conversation not found." }] };
@@ -742,23 +610,8 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
         }
         throw error;
       }
-    };
-
-  server.registerResource(
-    "conversation",
-    new ResourceTemplate(`${SCHEME}://conversation/{id}`, conversationTemplateOptions(SCHEME)),
-    conversationConfig,
-    readConversation,
+    },
   );
-
-  if (legacyUrisEnabled()) {
-    server.registerResource(
-      "conversation-legacy",
-      new ResourceTemplate(`${LEGACY_SCHEME}://conversation/{id}`, conversationTemplateOptions(LEGACY_SCHEME)),
-      { ...conversationConfig, description: `${conversationConfig.description} Deprecated alias for ${SCHEME}://conversation/{id}.` },
-      readConversation,
-    );
-  }
 
   // --------------------------------------------------------------------- prompts
 
@@ -781,7 +634,7 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
     {
       title: "Cross-source research brief",
       description: "Builds a sourced brief from conversations and connected work systems.",
-      argsSchema: { topic: completable(z.string().min(1), (value) => suggestions.tags(value ?? "")) },
+      argsSchema: { topic: z.string().min(1) },
     },
     async ({ topic }) => userPrompt(
       `Call build_context_packet with query "${topic}". Write a brief that separates verified facts, decisions, assumptions, and open questions. `
@@ -794,26 +647,14 @@ export function createMagenticMcpServer(client: LnkzClientLike, options: McpServ
     {
       title: "Prepare a conversation for handoff",
       description: "Summarize a conversation, then mint a scoped handoff for a named recipient.",
-      // A title or an id. Completion offers titles because nobody recognises
-      // a uuid, and the handler resolves whichever arrived back to one
-      // conversation before the model sees it.
-      argsSchema: {
-        conversation: completable(z.string().min(1), (value) => suggestions.conversationTitles(value ?? "")),
-        audience: z.string().min(1),
-        ttlMinutes: z.string().optional(),
-      },
+      argsSchema: { conversationId: z.string().uuid(), audience: z.string().min(1), ttlMinutes: z.string().optional() },
     },
-    async ({ conversation, audience, ttlMinutes }) => {
-      const found = await resolveConversation(client, conversation, suggestions);
-      if (!found.ok) return userPrompt(found.message);
-      const conversationId = found.conversation.id;
-      return userPrompt(
-      `Call analyze_conversation for ${conversationId} ("${found.conversation.title}") and summarize what the recipient needs: the decision, the reason, and what is still open. `
+    async ({ conversationId, audience, ttlMinutes }) => userPrompt(
+      `Call analyze_conversation for ${conversationId} and summarize what the recipient needs: the decision, the reason, and what is still open. `
       + `Then call create_handoff for that conversation with audience "${audience}"`
       + `${ttlMinutes ? `, ttlMinutes ${ttlMinutes}` : ""}, redact true, and maxUses 3. `
       + "Give the recipient the share URL and the summary together, and say when it expires.",
-      );
-    },
+    ),
   );
 
   server.registerPrompt(
@@ -874,11 +715,6 @@ function section(heading: string, values: string[]): string {
 
 function ok(text: string, structuredContent: Record<string, unknown>) {
   return { content: [{ type: "text" as const, text }], structuredContent };
-}
-
-/** Drop absent keys so a spread cannot overwrite a set value with undefined. */
-function clean<T extends object>(value: T): Partial<T> {
-  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>;
 }
 
 function toolError(message: string) {

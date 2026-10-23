@@ -7,20 +7,9 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "jsx": "react-jsx",
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "noEmit": true
   },
-  "include": [
-    "*.ts",
-    "llm/**/*.ts",
-    "catalog/**/*.ts",
-    "tests/**/*.ts",
-    "workbench/**/*.ts",
-    "workbench/**/*.tsx"
-  ]
+  "include": ["*.ts", "tests/**/*.ts"]
 }
