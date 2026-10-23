@@ -23,27 +23,6 @@ The sample is explicitly synthetic, not a live Foundry connection or a public da
 
 Workspace chat can also call `get_ontology_catalog`, `list_ontology_objects`, `get_ontology_object`, and `list_ontology_links`. For example: “Read the demo-service Service object and its dependencies. Clearly distinguish synthetic facts from unknowns.” The existing MCP inspector discovers these tools when configured.
 
-## Ingest a dataset and read it locally
-
-The dataset mode is the reproducible path when no Foundry tenant is available yet. A blueprint (the same design document used to create object types in Ontology Manager) and one CSV file per object type become a single dataset file:
-
-```powershell
-corepack pnpm build:workbench
-corepack pnpm ontology:ingest --blueprint .\examples\ontology\company\blueprint.json --data .\examples\ontology\company\data --out .\.magentic-dev\company-dataset.json
-```
-
-Every row is checked before anything is written: unknown or missing columns, values that do not match the declared type, empty or duplicate keys, links whose target does not exist, and links that cross the blueprint's scope property. The first failure stops the run and names the file, row and column. The output records each source file's SHA-256 and row count, so a reference snapshot can be traced back to the exact input.
-
-Point a workspace at the file (the path is relative to the configuration file):
-
-```json
-{ "version": 1, "workspaces": [{ "workspaceId": "workspace", "mode": "dataset", "file": "company-dataset.json" }] }
-```
-
-Set `MAGENTIC_ONTOLOGY_FILE` to that configuration and start the workbench as above. The reference form, the four MCP tools and the standalone `ontology:mcp` server read the dataset with real paging (`pageSize` up to 10, explicit `nextPageToken`) and links that follow the blueprint's foreign keys, so `list_ontology_links` returns the one object a link points at. An optional `objectTypes` list on the connection narrows the dataset to fewer types, properties or links; it can never add one the blueprint does not define. `get_ontology_catalog` includes the lineage block (dataset name, ingestion time, file hash, source files).
-
-`examples/ontology/openfema` applies the same path to a public dataset, FEMA's Disaster Declarations Summaries, with the download command and a State reference table.
-
 ## Connect a real development environment
 
 Create a local configuration outside the repository or in an ignored directory:
@@ -99,4 +78,4 @@ Foundry owns ingestion and semantic modeling; this adapter consumes existing Ont
 
 Each returned object includes its identity, retrieval time, mode and API source URL. Workflow snapshots include a content hash for comparison, not a cryptographic approval or proof that upstream data was true. Imported source text is untrusted. Configured model providers receive selected excerpts when a chat or phase runs.
 
-Automated tests exercise mocked Foundry HTTP responses, ingested datasets, and real local MCP transports, authentication, projections, links, paging and the workflow reference path. A real Foundry tenant has not been verified until its live object read succeeds. The dataset mode gives the challenge a selected public dataset and a reproducible local demonstration today; ingestion into a Foundry environment follows the same blueprint when a tenant is available.
+Automated tests exercise mocked Foundry HTTP responses and real local MCP transports, authentication, projections, links, paging and the workflow reference path. A real Foundry tenant has not been verified until its live object read succeeds. The challenge still needs a selected public dataset, ingestion into Foundry, and a reproducible live demonstration; synthetic samples do not satisfy that requirement.

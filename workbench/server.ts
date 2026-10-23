@@ -1,19 +1,3 @@
-import { ZenfluenceError, type ZenfluenceDirectory } from "./zenfluence.js";
-import { newlyAssigned } from "./agent-configurables.js";
-import { passedCurrentTest } from "./agent-tests-model.js";
-import { pipelineSchema, type PipelineConfig } from "./pipeline.js";
-import { zenfluenceCommand } from "./zenfluence-api.js";
-import { AutomationError, type AutomationRuntime } from "./automation-runtime.js";
-import { ChatHistoryError } from "./chat-history.js";
-import type { CompanyAccess } from "./company-access.js";
-import { companyPage, companyClientScript } from "./company-page.js";
-import { ChatAccessError, type ChatAccess } from "./chat-access.js";
-import { handleChatMcp } from "./chat-mcp.js";
-import { contextMessages } from "./chat-settings.js";
-import { welcomePage } from "./welcome-view.js";
-import type { AccountsConfig } from "./accounts.js";
-import { accountPublicConfig, loginPage, accountClientScript } from "./account-portal.js";
-import { BillingError, type Billing } from "./billing.js";
 import { OntologyError, ontologyMaterial, type OntologyDirectory } from "./ontology.js";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { z } from "zod";
@@ -27,7 +11,6 @@ import { chatRequestSchema, runBaseChat, runWorkspaceAgent, untilAborted, type C
 import type { EmailPortal } from "./email.js";
 
 import { PipelineError, type PipelineEngine } from "./pipeline.js";
-import type { AgentTestsEngine } from "./agent-tests.js";
 import { handlePipelineMcp } from "./pipeline-mcp.js";
 
 import { JiraApiError, type JiraRuntime } from "./jira-runtime.js";
@@ -43,7 +26,6 @@ export interface WorkspaceIdentity {
   workspaceId: string; actor: string;
   // A standalone MCP credential must not inherit local delivery authority.
   canDeliverJira?: boolean;
-  canRunAutomations?: boolean;
 }
 export interface WorkbenchOptions {
   context: TransitionContext;
@@ -58,18 +40,12 @@ export interface WorkbenchOptions {
    * deployment that had none, which is all of them until local mode.
    */
   guard?: (request: IncomingMessage, response: ServerResponse) => { status: number; message: string } | undefined;
-  accounts?: AccountsConfig;
-  companies?: CompanyAccess;
-  billing?: Billing;
   demo?: boolean;
   email?: EmailPortal;
   chat?: ChatConfiguration;
-  chatAccess?: ChatAccess;
   ontology?: OntologyDirectory;
   pipelines?: PipelineEngine;
   jira?: JiraRuntime;
-  automations?: AutomationRuntime;
-  zenfluence?: ZenfluenceDirectory;
   bots?: import("./bot-runtime.js").BotRuntime;
   workspaces?: import("./workspace-directory.js").WorkspaceDirectory;
   mcpAccess?: (workspaceId: string) => { workspaceId: string; tokenFile: string };
@@ -81,8 +57,6 @@ export interface WorkbenchOptions {
   learning?: LearningEngine;
   /** The documentation portal: documents attached to runs or added to projects. */
   documents?: DocumentsEngine;
-  /** Agent Studio tests: saved prompts run against a saved agent version, reviewed separately from execution. */
-  agentTests?: AgentTestsEngine;
 }
 
 const draftSchema = z.object({ definition: agentSchema, expectedHash: z.string().optional() }).strict();
@@ -124,23 +98,6 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       const refusal = options.guard?.(request, response);
       if (refusal) throw new RequestError(refusal.status, refusal.message);
       const path = new URL(request.url ?? "/", "http://localhost").pathname;
-      if (options.accounts) {
-        const issuer = options.accounts.clerk.issuer;
-        response.setHeader("Content-Security-Policy", `default-src 'self'; script-src 'self' ${issuer} https://challenges.cloudflare.com https://*.protect.clerk.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ${issuer} https://*.protect.clerk.com; img-src 'self' https://img.clerk.com data:; frame-src https://challenges.cloudflare.com https://*.protect.clerk.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`);
-      }
-      if (options.companies && request.method === "GET" && (path === "/companies" || path === "/company-client.js")) {
-        response.setHeader("Content-Type", path === "/companies" ? "text/html; charset=utf-8" : "text/javascript; charset=utf-8");
-        response.end(path === "/companies" ? companyPage() : companyClientScript); return;
-      }
-      if (request.method === "GET" && path === "/welcome") {
-        response.setHeader("Content-Type", "text/html; charset=utf-8");
-        response.end(welcomePage()); return;
-      }
-      if (request.method === "GET" && path === "/api/account/config") { send(response, 200, accountPublicConfig(options.accounts)); return; }
-      if (request.method === "GET" && (path === "/login" || path === "/account-client.js")) {
-        response.setHeader("Content-Type", path === "/login" ? "text/html; charset=utf-8" : "text/javascript; charset=utf-8");
-        response.end(path === "/login" ? loginPage(options.accounts, new URL(request.url!, "http://localhost").searchParams.get("next")) : accountClientScript); return;
-      }
       if (!path.startsWith("/api/")) {
         const asset = options.assets.get(path);
         if (request.method !== "GET" || !asset) throw new RequestError(404, "Not found.");
@@ -148,50 +105,13 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         response.end(asset.body);
         return;
       }
-      if (options.companies && ["/api/companies", "/api/companies/open", "/api/workspaces"].includes(path)) {
-        const actor = options.companies.actor(request);
-        if (!actor) throw new RequestError(401, "Sign in to choose a company.");
-        if (request.method === "GET" && path === "/api/companies") { send(response, 200, await options.companies.list(actor)); return; }
-        if (request.method === "GET" && path === "/api/workspaces") { send(response, 200, await options.companies.listing(actor)); return; }
-        if (request.method !== "POST" || path !== "/api/companies/open") throw new RequestError(405, "Use company setup to create a workspace.");
-        if (!request.headers["content-type"]?.startsWith("application/json")) throw new RequestError(415, "Use application/json.");
-        if (request.headers.origin && !options.accounts?.clerk.authorizedParties.includes(request.headers.origin)) throw new RequestError(403, "Use the company portal origin.");
-        if (!request.headers.authorization?.startsWith("Bearer ") && !request.headers.origin) throw new RequestError(403, "Browser writes require the company portal origin.");
-        send(response, 200, await options.companies.open(actor, await body(request))); return;
-      }
       const identity = await options.authenticate(request);
       if (!identity) throw new RequestError(401, "Sign in with a workspace access token.");
       const { workspaceId, actor } = identity;
       const roles = await options.context.members!.rolesFor(workspaceId, actor);
       if (!roles.length) throw new PermissionError("You are not a member of this workspace.");
-      if (request.method === "GET" && path === "/api/zenfluence") {
-        // The workspace id is included so an unconfigured page can show exactly
-        // what to put in the connection file.
-        send(response, 200, { workspaceId, ...(options.zenfluence?.(workspaceId)?.summary() ?? { configured: false }) }); return;
-      }
-      if (request.method === "GET" && path === "/api/automation-units" && options.automations) {
-        send(response, 200, options.automations.inspect(workspaceId, Object.fromEntries(new URL(request.url!, "http://localhost").searchParams))); return;
-      }
-      if (request.method === "GET" && path === "/api/chat/history" && options.chatAccess) {
-        send(response, 200, options.chatAccess.history.list(workspaceId, actor)); return;
-      }
-      if (request.method === "GET" && path === "/api/chat/access" && options.chatAccess) {
-        send(response, 200, await options.chatAccess.summary(workspaceId, actor)); return;
-      }
-      if (request.method === "GET" && path === "/api/account") {
-        const account = { managed: !!options.accounts, actor, workspaceId, canManageBilling: roles.includes("admin") };
-        try { send(response, 200, { ...account, ...(account.canManageBilling && options.billing ? { billing: await options.billing.inspect(workspaceId) } : {}) }); }
-        catch { send(response, 200, { ...account, billingError: "Could not verify billing with Stripe. Refresh to retry." }); }
-        return;
-      }
       if (request.method === "GET" && path === "/api/workspaces" && options.workspaces) {
-        const listing = options.workspaces.list();
-        if (options.accounts) {
-          listing.workspaces = listing.workspaces.filter(entry => options.accounts!.members.some(member => member.workspaceId === entry.id && member.actor === actor));
-          listing.lastWorkspaceId = workspaceId;
-          listing.directory = "Managed workspace";
-        }
-        send(response, 200, listing); return;
+        send(response, 200, options.workspaces.list()); return;
       }
       if (request.method === "GET" && path === "/api/workspace") {
         await pending;
@@ -230,17 +150,7 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       if (path === "/api/bots" && request.method === "GET" && options.bots) {
         send(response, 200, options.bots.snapshot(workspaceId)); return;
       }
-      if (path === "/api/agent-tests" && request.method === "GET" && options.agentTests) {
-        send(response, 200, options.agentTests.snapshot(workspaceId)); return;
-      }
-      if ((path === "/api/chat/models" || path === "/api/agent-studio/models") && request.method === "GET") {
-        // Personal chat connections do not grant credentials to workflow agents.
-        if (path === "/api/chat/models" && options.chatAccess) {
-          const config = await options.chatAccess.configuration(workspaceId, actor);
-          const choices = await config.modelOptions!();
-          send(response, 200, { models: choices.filter(model => model.available).map(model => model.id), options: choices,
-            access: await options.chatAccess.summary(workspaceId, actor) }); return;
-        }
+      if (path === "/api/chat/models" && request.method === "GET") {
         if (!options.chat) { send(response, 200, { models: [] }); return; }
         try {
           if (options.chat.modelOptions) {
@@ -253,7 +163,7 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         } catch { throw new RequestError(503, "Could not list models. Make sure Ollama is running, then refresh models."); }
         return;
       }
-      if ((path === "/api/mcp" || path === "/api/pipeline-mcp" || path === "/api/chat-mcp") && request.method !== "POST") {
+      if ((path === "/api/mcp" || path === "/api/pipeline-mcp") && request.method !== "POST") {
         response.setHeader("Allow", "POST");
         throw new RequestError(405, "This MCP endpoint accepts POST requests.");
       }
@@ -266,40 +176,6 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         throw new RequestError(403, "Cross-origin writes are not allowed.");
       }
       const raw = await body(request);
-      if (path === "/api/zenfluence") {
-        if (!options.zenfluence) throw new RequestError(404, "Zenfluence is not configured.");
-        send(response, 200, await zenfluenceCommand(options.zenfluence, options.pipelines, { workspaceId, actor, roles }, raw)); return;
-      }
-      if (path === "/api/automation-units" && options.automations) {
-        if (!identity.canRunAutomations) throw new PermissionError("Automation commands require the company application session.");
-        send(response, 200, await options.automations.execute({ workspaceId, actor, roles }, raw)); return;
-      }
-      if (path === "/api/chat/history" && options.chatAccess) {
-        try { send(response, 200, options.chatAccess.history.execute(workspaceId, actor, raw)); }
-        catch (error) { if (error instanceof ChatHistoryError) throw new RequestError(error.status, error.message); throw error; }
-        return;
-      }
-      if (path === "/api/chat/connections" && options.chatAccess) {
-        await options.chatAccess.connect(workspaceId, actor, raw);
-        send(response, 200, await options.chatAccess.summary(workspaceId, actor)); return;
-      }
-      if (path === "/api/chat/access" && options.chatAccess) {
-        const input = z.object({ action: z.enum(["issue", "revoke"]) }).strict().parse(raw);
-        if (input.action === "revoke") { options.chatAccess.revokeToken(workspaceId, actor); send(response, 200, { revoked: true }); }
-        else send(response, 200, options.chatAccess.issueToken(workspaceId, actor));
-        return;
-      }
-      if (path === "/api/chat-mcp" && options.chatAccess) {
-        await handleChatMcp(options.chatAccess, workspaceId, actor, async () => (await options.context.members!.rolesFor(workspaceId, actor)).length > 0, request, response, raw);
-        return;
-      }
-      if (path === "/api/account/billing") {
-        if (!roles.includes("admin")) throw new PermissionError("Only a workspace administrator may manage billing.");
-        if (!options.billing || !options.accounts) throw new RequestError(503, "Billing is not configured.");
-        const origin = request.headers.origin;
-        if (!origin || !options.accounts.clerk.authorizedParties.includes(origin)) throw new RequestError(403, "Use the configured application origin for billing.");
-        send(response, 200, await options.billing.open(workspaceId, raw, origin)); return;
-      }
       if (path === "/api/ontology/reference") {
         const ontology = options.ontology?.(workspaceId);
         if (!ontology) throw new RequestError(404, "Ontology is not configured for this workspace.");
@@ -356,17 +232,7 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         send(response, 200, await options.bots.execute(workspaceId, actor, roles, raw, (options.context.workflow ?? DEFAULT_WORKFLOW).requiredApprovals));
         return;
       }
-      if (path === "/api/agent-tests" && options.agentTests) {
-        send(response, 200, await options.agentTests.execute(workspaceId, actor, roles, raw));
-        return;
-      }
       if (options.workspaces && (path === "/api/workspaces" || path === "/api/workspaces/open" || path === "/api/workspaces/mcp-access")) {
-        if (options.accounts) {
-          if (path !== "/api/workspaces/open") throw new PermissionError("Managed workspace access is configured by the server administrator.");
-          const selected = z.object({ workspaceId: z.string() }).strict().parse(raw);
-          if (!(await options.context.members!.rolesFor(selected.workspaceId, actor)).length) throw new PermissionError("You are not a member of this workspace.");
-          send(response, 200, { workspaceId: selected.workspaceId }); return;
-        }
         if (!roles.includes("admin")) throw new PermissionError("Only the local owner may manage workspaces.");
         if (path === "/api/workspaces") send(response, 201, options.workspaces.create(raw));
         else if (path === "/api/workspaces/open") send(response, 200, options.workspaces.open(raw));
@@ -381,15 +247,8 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
         if (!options.pipelines) throw new RequestError(404, "Pipelines are not configured.");
         await pending;
         const approvals = (options.context.workflow ?? DEFAULT_WORKFLOW).requiredApprovals;
-        if (path === "/api/pipeline-mcp") await handlePipelineMcp(options.pipelines, workspaceId, actor, roles, approvals, request, response, raw, options.bots, options.jira, options.studio ? assistantDirectory(options.studio) : undefined, options.learning, options.documents, options.automations, options.zenfluence);
-        else {
-          // The studio shows "test before assigning"; the server holds the same line.
-          if (options.agentTests && isConfigure(raw)) {
-            const untested = newlyAssigned(options.pipelines.snapshot(workspaceId).config, raw.config).filter(agent => !passedCurrentTest(agent, options.agentTests!.snapshot(workspaceId)));
-            if (untested.length) throw new RequestError(409, `Run a passing test on the current version of ${untested.map(agent => agent.name).join(", ")} before assigning it to a stage.`);
-          }
-          send(response, 200, options.pipelines.execute(workspaceId, actor, roles, raw, approvals));
-        }
+        if (path === "/api/pipeline-mcp") await handlePipelineMcp(options.pipelines, workspaceId, actor, roles, approvals, request, response, raw, options.bots, options.jira, options.studio ? assistantDirectory(options.studio) : undefined, options.learning, options.documents);
+        else send(response, 200, options.pipelines.execute(workspaceId, actor, roles, raw, approvals));
         tickScheduler(workspaceId);
         return;
       }
@@ -413,60 +272,42 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
           persona = { name: resolved.profile.name, instructions: resolved.profile.instructions,
             release: `${resolved.project.name} v${resolved.release.version} (${resolved.job.artifact?.label ?? "unknown"} artifact)` };
         }
-        if (input.routing === "auto" && !options.chatAccess) throw new RequestError(503, "Automatic routing is not configured.");
-        const prepared = await options.chatAccess?.prepare(workspaceId, actor, input);
-        const chat = prepared?.config ?? options.chat;
-        const outputLimit = prepared ? prepared.maxOutputTokens : input.maxOutputTokens;
-        const selectedModel = prepared?.model ?? input.model ?? chat.model;
-        if (chat.modelOptions) {
-          const choice = (await chat.modelOptions()).find((model) => model.id === selectedModel);
+        const selectedModel = input.model ?? options.chat.model;
+        if (options.chat.modelOptions) {
+          const choice = (await options.chat.modelOptions()).find((model) => model.id === selectedModel);
           if (!choice) throw new RequestError(400, "Choose a model from the model selector.");
           if (!choice.available) throw new RequestError(503, choice.detail);
-          if (outputLimit !== undefined && !choice.outputLimit) throw new RequestError(400, "This model uses the provider default output cap.");
         } else {
           let models: string[];
-          try { models = chat.listModels ? await chat.listModels() : [chat.model]; }
+          try { models = options.chat.listModels ? await options.chat.listModels() : [options.chat.model]; }
           catch { throw new RequestError(503, "Could not reach the model service. Check its connection and refresh models."); }
-          if (outputLimit !== undefined && !chat.outputLimit) throw new RequestError(400, "This model uses the provider default output cap.");
           if (!models.includes(selectedModel)) throw new RequestError(400, "Choose a connected model from the model selector. Refresh the list if it changed.");
         }
         const key = JSON.stringify([workspaceId, actor]);
         if (activeChats.has(key) || activeChats.size >= 4) throw new RequestError(429, "A chat is already running. Wait for it to finish or stop it before trying again.");
-        const releaseAccess = options.chatAccess?.acquire(workspaceId, actor);
         activeChats.add(key);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 120_000);
         response.once("close", () => controller.abort());
-        const started = performance.now();
-        const messages = contextMessages(input.messages, input.history ?? "all");
         const emit = (event: ChatEvent) => {
-          const result = event.type === "answer" && input.metrics ? { ...event, elapsedMs: Math.round(performance.now() - started) } : event;
-          if (!response.destroyed) response.write(JSON.stringify(result) + "\n");
+          if (!response.destroyed) response.write(JSON.stringify(event) + "\n");
         };
-        // Long CPU inference can leave the stream idle. Opt-in clients receive
-        // progress so an intermediary need not mistake a quiet model for a lost connection.
-        const heartbeat = input.metrics ? setInterval(() => {
-          if (response.headersSent && !controller.signal.aborted) emit({ type: "thinking", message: "Still working…" });
-        }, 15_000) : undefined;
         try {
           await pending;
           response.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8", "X-Accel-Buffering": "no" });
           emit({ type: "thinking", message: "Connecting to the model…" });
-          if (prepared?.route) emit({ type: "route", ...prepared.route });
-          const model = await untilAborted(chat.loadModel(selectedModel, outputLimit === undefined ? undefined : { maxOutputTokens: outputLimit }), controller.signal);
-          if (baseChat) await runBaseChat(messages, model, controller.signal, emit);
-          else await runWorkspaceAgent(options.context, workspaceId, actor, messages, model, controller.signal, emit, options.ontology?.(workspaceId), persona, { pipelines: options.pipelines, documents: options.documents });
-        } catch (error) {
+          const model = await untilAborted(options.chat.loadModel(selectedModel), controller.signal);
+          if (baseChat) await runBaseChat(input.messages, model, controller.signal, emit);
+          else await runWorkspaceAgent(options.context, workspaceId, actor, input.messages, model, controller.signal, emit, options.ontology?.(workspaceId), persona);
+        } catch {
           // Provider errors can include endpoint details or credentials. The
           // browser receives a useful failure without echoing those internals.
-          emit({ type: "error", message: error instanceof ChatAccessError ? error.message : controller.signal.aborted
+          emit({ type: "error", message: controller.signal.aborted
             ? "The request stopped or exceeded two minutes. Try a shorter question."
             : "The model could not complete this request. Check its connection and model settings, then try again." });
         } finally {
           clearTimeout(timeout);
-          clearInterval(heartbeat);
           activeChats.delete(key);
-          releaseAccess?.();
           response.end();
         }
         return;
@@ -538,7 +379,7 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       send(response, 200, await run);
     } catch (error) {
       if (response.headersSent) { response.destroy(); return; }
-      if (error instanceof ZenfluenceError || error instanceof AutomationError || error instanceof ChatAccessError || error instanceof BillingError || error instanceof RequestError || error instanceof PipelineError || error instanceof JiraApiError || error instanceof StudioError || error instanceof DocumentError) send(response, error.status, { error: error.message });
+      if (error instanceof RequestError || error instanceof PipelineError || error instanceof JiraApiError || error instanceof StudioError || error instanceof DocumentError) send(response, error.status, { error: error.message });
       else if (error instanceof StudioStorageError) send(response, 409, { error: error.message });
       else if (error instanceof OntologyError) send(response, 502, { error: error.message });
       else if (error instanceof PermissionError) send(response, 403, { error: error.message });
@@ -581,10 +422,4 @@ async function body(request: IncomingMessage): Promise<unknown> {
 function send(response: ServerResponse, status: number, data: unknown): void {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(data));
-}
-
-/** A configure command carries a full pipeline config; anything else is left to the engine to validate. */
-function isConfigure(raw: unknown): raw is { action: "configure"; config: PipelineConfig } {
-  if (!raw || typeof raw !== "object" || (raw as { action?: unknown }).action !== "configure") return false;
-  return pipelineSchema.safeParse((raw as { config?: unknown }).config).success;
 }

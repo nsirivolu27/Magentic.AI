@@ -1,18 +1,12 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { setting } from "../../env.js";
 import { startRuntime, stopRuntime, edgeArguments } from "./runtime.js";
-import { checkForUpdate, describe } from "./update.js";
 
 const root = fileURLToPath(new URL("./", import.meta.url));
-const version = JSON.parse(await readFile(join(root, "version.json"), "utf8")) as { version: string; runtime: string };
-console.log(`Magentic Developer ${version.version} (built with Node ${version.runtime}, running ${process.version})`);
-// One read of the update feed when a feed is configured; the result goes to the log and never delays the window.
-const feed = setting("MAGENTIC_UPDATE_FEED")?.trim();
-if (feed) void checkForUpdate(feed, version.version).then(check => console.log(describe(check, version.version)));
 const smoke = process.argv.includes("--smoke-test");
 const data = join(setting("LOCALAPPDATA") ?? join(homedir(), "AppData", "Local"), "MagenticDeveloper", "data");
 let edge: string | undefined;

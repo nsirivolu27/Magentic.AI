@@ -5,7 +5,7 @@ import type { PipelineRun } from "./pipeline.js";
 import { ago, callout, detail, empty, escape, graph, hint, menu, more, panel, plural, status, table, when } from "./ui.js";
 import { viewerOf } from "./studio-model.js";
 import { agenticUnits, jobFor, runNodes, runStatusLabel, stageNodes, stageUnit, type Stage } from "./units.js";
-import { outputReview, runNow } from "./output-review.js";
+import { formatTokens } from "./model-usage.js";
 
 /**
  * Workflows: the stages work moves through, each staffed by an agentic unit.
@@ -42,9 +42,9 @@ export function workflowPage(snapshot: WorkbenchSnapshot, stageParam: string | u
   const body = `${confirmTemplate}${chain}${hint("Each box is a stage. A solid box is staffed by an approved assistant; a dashed box is done by hand. Click a stage to change who does it.")}
     ${viewer.admin && templates ? more("Choose a workflow template", `<div class="actions">${templates}</div>`) : ""}
     ${stagePanel(snapshot, stage, viewer.admin, ui)}
-    ${panel("Runs", runsBody(snapshot, runs, ui), { count: runs.length ? `${plural(open.length, "open run")} · ${runs.length} total` : "" })}`;
+    ${panel("Runs", runsBody(snapshot, runs), { count: runs.length ? `${plural(open.length, "open run")} · ${runs.length} total` : "" })}`;
   return { title: config.name, context: `${config.description} · ${plural(config.stages.length, "stage")} · ${plural(units.filter((unit) => unit.usable).length, "assistant")} available`,
-    actions: `<a class="secondary" href="#/canvas">Open canvas</a>${headerStatus}${primary}${overflow}`, body };
+    actions: `${headerStatus}${primary}${overflow}`, body };
 }
 
 function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean, ui?: StudioUi): string {
@@ -86,31 +86,22 @@ function stagePanel(snapshot: WorkbenchSnapshot, stage: Stage, admin: boolean, u
   return `<section class="panel section"><div class="panel-head"><h2>${index}. ${escape(stage.name)}</h2><span class="count">${stage.assistantId ? "Staffed by an assistant" : "Done by hand"}</span></div><div class="panel-body">${state}${detail(rows, true)}${form}</div></section>`;
 }
 
-function runsBody(snapshot: WorkbenchSnapshot, runs: PipelineRun[], ui?: StudioUi): string {
+function runsBody(snapshot: WorkbenchSnapshot, runs: PipelineRun[]): string {
   if (!runs.length) return empty("No runs yet. Runs are started and worked from the work desk.", { label: "Open work desk", href: "#/desk" });
   const viewer = viewerOf(snapshot.actor, snapshot.roles);
   const jobs = snapshot.schedule?.jobs;
-  const units = agenticUnits(snapshot);
   const rows = [...runs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 8).map((run) => {
     const tone = run.status === "complete" ? "ok" : run.status === "running" ? "accent" : run.status === "cancelled" ? "neutral" : "bad";
     const stage = run.config.stages[run.current]!;
     const progress = run.stages[run.current]!;
     const job = jobFor(jobs, run, stage.id);
     const owner = viewer.admin || (viewer.author && run.owner === snapshot.actor);
-    const unit = stage.assistantId ? units.find((item) => item.profile.id === stage.assistantId) : undefined;
-    const attempt = snapshot.bots?.attempts.filter((item) => item.runId === run.id && item.stageId === stage.id).at(-1);
-    const now = runNow(run, { ...(jobs ? { jobs } : {}), ...(attempt ? { attempt } : {}), actor: snapshot.actor, roles: snapshot.roles, ...(stage.assistantId ? { assistantUsable: !!unit?.usable } : {}) });
-    // One line answers the four questions: which stage, who is responsible, what state the output is in, what happens next.
-    const nowLine = run.status === "running" || run.status === "paused" || run.status === "blocked"
-      ? `<div class="run-now"><span><span class="label">Stage</span>${run.current + 1} of ${run.stages.length} · ${escape(stage.name)}</span><span><span class="label">Responsible</span>${escape(now.who)}</span><span><span class="label">Output</span>${status(now.state.tone, now.state.label)}</span><a class="btn small" href="${escape(now.href)}">${escape(now.action)}</a></div>`
+    // What the assistant left on the current stage, and what the owner can do with it.
+    const draft = run.status === "running" && progress.status === "active" && progress.draft
+      ? `<div class="draft"><div class="draft-head"><strong>Draft for ${escape(stage.name)}</strong><small class="text-3">${escape(progress.draft.by)} · ${ago(progress.draft.at)}${job?.usage ? ` · ${escape(formatTokens(job.usage))}` : ""}</small></div><pre class="pre">${escape(progress.draft.text)}</pre>${owner ? `<div class="actions mt8"><button class="primary small" data-run-draft="${run.id}" data-revision="${run.revision}">Use draft to complete ${escape(stage.name)}</button><a class="quiet small" href="#/desk">Write my own</a></div>` : `<p class="fine">The run owner completes the stage with this draft or writes their own output.</p>`}</div>`
+      : job && job.status === "failed" && run.status === "running" ? `<div class="draft"><div class="draft-head"><strong>The assistant could not draft ${escape(stage.name)}</strong></div><p class="text-2">${escape(job.error)}</p>${owner ? `<div class="actions mt8"><button class="secondary small" data-job-retry="${job.id}">Try again</button><a class="quiet small" href="#/desk">Write my own</a></div>` : ""}</div>`
       : "";
-    // The review grid opens here only when something waits on a person: a draft to review, or a failed draft to retry.
-    // Approvals happen on the work item, which the now line already points at.
-    const failed = job && (job.status === "failed" || job.status === "cancelled");
-    const review = run.status === "running" && progress.status === "active" && (progress.draft || failed)
-      ? `<div class="review-wrap">${progress.draft ? "" : `<p class="review-title">The assistant could not draft ${escape(stage.name)}</p>`}${outputReview({ run, phase: run.current, actor: snapshot.actor, roles: snapshot.roles, ...(jobs ? { jobs } : {}), ...(attempt ? { attempt } : {}), ...(ui ? { ui } : {}), where: "workflows" })}${!progress.draft && owner && job ? `<div class="actions mt8"><button class="secondary small" data-job-retry="${job.id}">Try again</button><a class="quiet small" href="#/desk/${run.id}">Write my own</a></div>` : ""}</div>`
-      : "";
-    return `<article class="flow-row ${review ? "flow-row-tall" : ""}" role="listitem"><div class="flow-head"><a class="flow-name" href="#/desk/${run.id}">${escape(run.title)}</a><small class="flow-meta">${escape(run.owner)} · started ${when(run.createdAt)}</small>${status(tone, runStatusLabel(run))}<small class="flow-note">${run.status === "complete" ? "All stages done" : `Stage ${run.current + 1} of ${run.stages.length}`} · ${ago(run.updatedAt)}</small></div><div>${nowLine}${graph(runNodes(run, jobs), undefined, { compact: true, label: `${run.title} progress` })}${review}</div></article>`;
+    return `<article class="flow-row ${draft ? "flow-row-tall" : ""}" role="listitem"><div class="flow-head"><a class="flow-name" href="#/desk">${escape(run.title)}</a><small class="flow-meta">${escape(run.owner)} · started ${when(run.createdAt)}</small>${status(tone, runStatusLabel(run))}<small class="flow-note">${run.status === "complete" ? "All stages done" : `Stage ${run.current + 1} of ${run.stages.length}`} · ${ago(run.updatedAt)}</small></div><div>${graph(runNodes(run, jobs), undefined, { compact: true, label: `${run.title} progress` })}${draft}</div></article>`;
   });
   return `<div class="flow-list" role="list" aria-label="Runs">${rows.join("")}</div>${runs.length > 8 ? more("Earlier runs", table([{ label: "Run" }, { label: "Status" }, { label: "Owner" }, { label: "Updated" }], runs.slice(8).map((run) => ({ cells: [escape(run.title), status(run.status === "complete" ? "ok" : "neutral", runStatusLabel(run)), escape(run.owner), ago(run.updatedAt)] })), { compact: true })) : ""}`;
 }
