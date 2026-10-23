@@ -20,10 +20,8 @@
  * The provider is also the reason the LLM tools are off by default. Embedding
  * a conversation means sending it somewhere. On a relay whose whole premise is
  * that conversations stay on the instance that holds them, that has to be a
- * decision the operator makes out loud, which is what MAGENTIC_LLM_PROVIDER is.
+ * decision the operator makes out loud, which is what LNKZ_LLM_PROVIDER is.
  */
-
-import { setting } from "../env.js";
 
 /** The shape LangChain's Embeddings classes already have. */
 export interface EmbeddingsLike {
@@ -36,7 +34,7 @@ export interface ChatModelLike {
   invoke(input: string): Promise<{ content: unknown }>;
 }
 
-export type LlmProviderId = "openai" | "ollama" | "azure" | "google";
+export type LlmProviderId = "openai" | "ollama";
 
 export interface LlmConfig {
   provider: LlmProviderId;
@@ -61,43 +59,35 @@ export interface LlmConfig {
 const DEFAULTS = {
   openai: { chatModel: "gpt-4o-mini", embeddingModel: "text-embedding-3-small" },
   ollama: { chatModel: "llama3.1", embeddingModel: "nomic-embed-text" },
-  // Azure names a deployment rather than a model, so these defaults are the
-  // deployment names most people give theirs. Override them; a wrong
-  // deployment name is the usual first failure on Azure.
-  azure: { chatModel: "gpt-4o-mini", embeddingModel: "text-embedding-3-small" },
-  google: { chatModel: "gemini-2.0-flash", embeddingModel: "text-embedding-004" },
 } as const satisfies Record<LlmProviderId, { chatModel: string; embeddingModel: string }>;
-
-/** Every provider this build understands, for error messages and docs. */
-export const PROVIDERS = Object.keys(DEFAULTS) as LlmProviderId[];
 
 /**
  * Read the integration's configuration, or undefined when the operator has
  * not turned it on. Undefined is the normal case and is not an error.
  */
 export function llmConfigFromEnv(env: NodeJS.ProcessEnv = process.env): LlmConfig | undefined {
-  const declared = (setting("MAGENTIC_LLM_PROVIDER", env) ?? "").trim().toLowerCase();
+  const declared = (env.LNKZ_LLM_PROVIDER ?? "").trim().toLowerCase();
   if (!declared) return undefined;
-  if (!(PROVIDERS as string[]).includes(declared)) {
-    throw new Error(`MAGENTIC_LLM_PROVIDER must be one of: ${PROVIDERS.join(", ")}.`);
+  if (declared !== "openai" && declared !== "ollama") {
+    throw new Error("LNKZ_LLM_PROVIDER must be openai or ollama.");
   }
-  const provider = declared as LlmProviderId;
+  const provider: LlmProviderId = declared;
   const defaults = DEFAULTS[provider];
-  const baseUrl = setting("MAGENTIC_LLM_BASE_URL", env)?.trim();
+  const baseUrl = env.LNKZ_LLM_BASE_URL?.trim();
   if (baseUrl) assertPlainHttpUrl(baseUrl);
   return {
     provider,
-    chatModel: setting("MAGENTIC_LLM_CHAT_MODEL", env)?.trim() || defaults.chatModel,
-    embeddingModel: setting("MAGENTIC_LLM_EMBEDDING_MODEL", env)?.trim() || defaults.embeddingModel,
+    chatModel: env.LNKZ_LLM_CHAT_MODEL?.trim() || defaults.chatModel,
+    embeddingModel: env.LNKZ_LLM_EMBEDDING_MODEL?.trim() || defaults.embeddingModel,
     // exactOptionalPropertyTypes: an absent base URL is an absent key, not an
     // explicit undefined.
     ...(baseUrl ? { baseUrl } : {}),
-    maxConversations: bounded(setting("MAGENTIC_LLM_MAX_CONVERSATIONS", env), 40, 1, 500),
-    maxChunks: bounded(setting("MAGENTIC_LLM_MAX_CHUNKS", env), 12, 1, 100),
-    chunkChars: bounded(setting("MAGENTIC_LLM_CHUNK_CHARS", env), 1_600, 200, 20_000),
-    batchSize: bounded(setting("MAGENTIC_LLM_BATCH_SIZE", env), 64, 1, 512),
-    maxContextChars: bounded(setting("MAGENTIC_LLM_MAX_CONTEXT_CHARS", env), 24_000, 500, 400_000),
-    cacheSize: bounded(setting("MAGENTIC_LLM_CACHE_SIZE", env), 4_000, 0, 200_000),
+    maxConversations: bounded(env.LNKZ_LLM_MAX_CONVERSATIONS, 40, 1, 500),
+    maxChunks: bounded(env.LNKZ_LLM_MAX_CHUNKS, 12, 1, 100),
+    chunkChars: bounded(env.LNKZ_LLM_CHUNK_CHARS, 1_600, 200, 20_000),
+    batchSize: bounded(env.LNKZ_LLM_BATCH_SIZE, 64, 1, 512),
+    maxContextChars: bounded(env.LNKZ_LLM_MAX_CONTEXT_CHARS, 24_000, 500, 400_000),
+    cacheSize: bounded(env.LNKZ_LLM_CACHE_SIZE, 4_000, 0, 200_000),
   };
 }
 
@@ -112,13 +102,13 @@ function assertPlainHttpUrl(value: string): void {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("MAGENTIC_LLM_BASE_URL must be a valid URL.");
+    throw new Error("LNKZ_LLM_BASE_URL must be a valid URL.");
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("MAGENTIC_LLM_BASE_URL must use http or https.");
+    throw new Error("LNKZ_LLM_BASE_URL must use http or https.");
   }
   if (url.username || url.password) {
-    throw new Error("MAGENTIC_LLM_BASE_URL must not contain credentials; use the provider's key variable.");
+    throw new Error("LNKZ_LLM_BASE_URL must not contain credentials; use the provider's key variable.");
   }
 }
 
@@ -134,7 +124,7 @@ async function loadOptional(specifier: string, install: string): Promise<Record<
     return (await import(specifier)) as Record<string, unknown>;
   } catch (cause) {
     throw new Error(
-      `${specifier} is not installed, and MAGENTIC_LLM_PROVIDER asks for it. Install it with: pnpm add ${install}`,
+      `${specifier} is not installed, and LNKZ_LLM_PROVIDER asks for it. Install it with: pnpm add ${install}`,
       { cause },
     );
   }
@@ -176,23 +166,6 @@ async function buildEmbeddings(config: LlmConfig): Promise<EmbeddingsLike> {
       ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
     });
   }
-  if (config.provider === "google") {
-    const module = await loadOptional("@langchain/google-genai", "@langchain/google-genai");
-    return construct<EmbeddingsLike>(module, "GoogleGenerativeAIEmbeddings", {
-      model: config.embeddingModel,
-      apiKey: requireKey("GOOGLE_API_KEY", "google"),
-    });
-  }
-  if (config.provider === "azure") {
-    const module = await loadOptional("@langchain/openai", "@langchain/openai");
-    return construct<EmbeddingsLike>(module, "AzureOpenAIEmbeddings", {
-      azureOpenAIApiDeploymentName: config.embeddingModel,
-      azureOpenAIApiKey: requireKey("AZURE_OPENAI_API_KEY", "azure"),
-      azureOpenAIApiInstanceName: requireAzureInstance(),
-      azureOpenAIApiVersion: azureApiVersion(),
-      batchSize: config.batchSize,
-    });
-  }
   const module = await loadOptional("@langchain/openai", "@langchain/openai");
   return construct<EmbeddingsLike>(module, "OpenAIEmbeddings", {
     model: config.embeddingModel,
@@ -214,24 +187,6 @@ async function buildChatModel(config: LlmConfig): Promise<ChatModelLike> {
       ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
     });
   }
-  if (config.provider === "google") {
-    const module = await loadOptional("@langchain/google-genai", "@langchain/google-genai");
-    return construct<ChatModelLike>(module, "ChatGoogleGenerativeAI", {
-      model: config.chatModel,
-      temperature: 0,
-      apiKey: requireKey("GOOGLE_API_KEY", "google"),
-    });
-  }
-  if (config.provider === "azure") {
-    const module = await loadOptional("@langchain/openai", "@langchain/openai");
-    return construct<ChatModelLike>(module, "AzureChatOpenAI", {
-      azureOpenAIApiDeploymentName: config.chatModel,
-      temperature: 0,
-      azureOpenAIApiKey: requireKey("AZURE_OPENAI_API_KEY", "azure"),
-      azureOpenAIApiInstanceName: requireAzureInstance(),
-      azureOpenAIApiVersion: azureApiVersion(),
-    });
-  }
   const module = await loadOptional("@langchain/openai", "@langchain/openai");
   return construct<ChatModelLike>(module, "ChatOpenAI", {
     model: config.chatModel,
@@ -244,29 +199,7 @@ async function buildChatModel(config: LlmConfig): Promise<ChatModelLike> {
 }
 
 function requireOpenAiKey(): string {
-  return requireKey("OPENAI_API_KEY", "openai");
-}
-
-/** A provider's key, named in the error so the fix is the message. */
-function requireKey(variable: string, provider: LlmProviderId): string {
-  const key = process.env[variable]?.trim();
-  if (!key) throw new Error(`${variable} is required when MAGENTIC_LLM_PROVIDER is ${provider}.`);
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) throw new Error("OPENAI_API_KEY is required when LNKZ_LLM_PROVIDER is openai.");
   return key;
-}
-
-/**
- * The Azure resource name, taken from the portal URL: the first label of
- * <name>.openai.azure.com. Required, because unlike the other providers
- * Azure has no shared endpoint to fall back to.
- */
-function requireAzureInstance(): string {
-  const name = process.env.AZURE_OPENAI_INSTANCE?.trim();
-  if (!name) {
-    throw new Error("AZURE_OPENAI_INSTANCE is required when MAGENTIC_LLM_PROVIDER is azure. It is the first label of <name>.openai.azure.com.");
-  }
-  return name;
-}
-
-function azureApiVersion(): string {
-  return process.env.AZURE_OPENAI_API_VERSION?.trim() || "2024-10-21";
 }

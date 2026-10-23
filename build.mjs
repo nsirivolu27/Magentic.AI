@@ -3,10 +3,9 @@ import { rm } from "node:fs/promises";
 
 await rm("dist", { recursive: true, force: true });
 await build({
-  // Three entry points: the adapter as a subprocess of one person's client,
-  // the adapter hosted for many, and a command that prints the catalog
-  // without starting either.
-  entryPoints: ["stdio.ts", "http-main.ts", "list.ts"],
+  // Two entry points, two ways to run the same adapter: as a subprocess of
+  // one person's client, or hosted for many.
+  entryPoints: ["stdio.ts", "http-main.ts"],
   bundle: true,
   platform: "node",
   format: "esm",

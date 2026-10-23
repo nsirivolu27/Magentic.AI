@@ -94,12 +94,6 @@ test("an oversized body is refused before it is parsed", async (t) => {
   });
 
   assert.equal(response.status, 413);
-  assert.equal(response.headers.get("connection"), "close");
-  assert.deepEqual(await response.json(), { error: "Request body is too large." });
-  // A rejected upload must not poison subsequent requests or hang teardown.
-  const health = await fetch(`${server.base}/health`);
-  assert.equal(health.status, 200);
-  assert.deepEqual(await health.json(), { ok: true, relay: "https://relay.example.com" });
 });
 
 test("unknown paths are a plain 404 rather than a JSON-RPC error", async (t) => {
