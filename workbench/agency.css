@@ -166,6 +166,14 @@ footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10
 .console-menu nav a:hover { background: var(--accent-soft); }
 .console-drawer { padding: 16px; border-top: 1px solid var(--line); }
 .console-drawer h2 { font-size: 16px; }
+.workspace-next { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--raised); }
+.workspace-next > div { min-width: 0; }
+.workspace-next h2 { font-size: 18px; line-height: 1.4; margin: 8px 0; overflow-wrap: anywhere; }
+.workspace-next p { color: var(--text-2); margin: 0; max-width: 70ch; overflow-wrap: anywhere; }
+.workspace-next > a { flex-shrink: 0; text-align: center; }
+@media (max-width: 720px) {
+  .workspace-next { flex-direction: column; align-items: stretch; gap: 16px; padding: 16px; }
+}
 .console-drawer label { display: grid; gap: 6px; max-width: 620px; margin: 12px 0; }
 .console-close { display: block; margin: 0 16px 12px; font-size: 12px; }
 .console-checks { list-style: none; padding: 0; }

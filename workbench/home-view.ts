@@ -6,6 +6,7 @@ import { flowRow } from "./studio-view.js";
 import { agenticUnits, stageNodes } from "./units.js";
 import { formatTokens } from "./model-usage.js";
 import { canReviewTask } from "./employee-view.js";
+import { workspaceNextPanel } from "./workspace-next.js";
 
 /**
  * Workspace home: the operational starting point.
@@ -94,6 +95,7 @@ export function homeView(snapshot: WorkbenchSnapshot): string {
     : "";
 
   return `${snapshot.studioError ? `<div class="inline-error" role="alert">Model Studio data could not be loaded: ${escape(snapshot.studioError)}</div>` : ""}
+    ${workspaceNextPanel(snapshot)}
     <div id="operations-queue"><p class="loading" role="status">Preparing your work queue…</p></div>
     <section class="operations-policy" aria-label="Operating boundaries">
       <div><span class="policy-mark" aria-hidden="true">◇</span><div><strong>Human review is an operating control</strong><p>Registry policy requires ${snapshot.workflow.requiredApprovals} distinct ${snapshot.workflow.requiredApprovals === 1 ? "signature" : "signatures"}. Other records retain their own signing rules; inspect the item before approving it.</p></div></div>

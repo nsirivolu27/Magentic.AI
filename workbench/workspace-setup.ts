@@ -1,6 +1,7 @@
 import type { WorkbenchSnapshot } from "./snapshot.js";
 import type { Page } from "./studio-view.js";
 import { escape, more, status } from "./ui.js";
+import { workspaceNextPanel } from "./workspace-next.js";
 
 export interface WorkspaceSetupStep {
   id: string; title: string; state: "pending" | "recorded" | "unavailable";
@@ -50,7 +51,7 @@ export function workspaceSetupPage(snapshot: WorkbenchSnapshot, company: boolean
   const approvals = snapshot.workflow.requiredApprovals;
   return { title: "Workspace setup", context: `${company ? "Company" : "Local"} workspace · ${name}`,
     actions: company ? '<a class="secondary" href="/companies">Companies &amp; team</a>' : '<a class="secondary" href="#/account">Account settings</a>',
-    body: `<section class="panel account-panel"><span class="eyebrow">YOUR ACCESS</span><h2>${escape(name)}</h2>
+    body: `${workspaceNextPanel(snapshot)}<section class="panel account-panel"><span class="eyebrow">YOUR ACCESS</span><h2>${escape(name)}</h2>
       <p>${roles.filter(role => snapshot.roles.includes(role.id as "author" | "approver" | "admin")).map(role => role.name).join(" · ") || "No workspace roles"}</p>
       <p class="text-3">${company ? "Membership and roles are verified through Clerk on each request." : "This is local access, not company sign-in."}</p>
       ${more("What each role does", `<ul>${roleGuide}</ul><p>Roles can be combined. Administrators cannot bypass independent approval rules.</p>`)}
