@@ -45,9 +45,9 @@ code { font-family: var(--mono); font-size: .9em; }
 .bar-inner { max-width: var(--column); margin: 0 auto; padding-block: 16px; padding-left: var(--gutter-left); padding-right: var(--gutter-right); display: flex; align-items: center; gap: 20px; }
 .wordmark { font-weight: 300; font-size: 22px; letter-spacing: 0.34em; text-transform: uppercase; text-decoration: none; }
 .challenge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--fg-3); }
-.bar-right { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+.bar-right { margin-left: auto; display: flex; align-items: center; gap: 22px; flex-shrink: 0; }
 .menu { position: relative; }
-.menu summary { list-style: none; font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; padding: 10px 4px; }
+.menu summary { list-style: none; font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; padding: 10px 4px; white-space: nowrap; cursor: pointer; }
 .menu summary::-webkit-details-marker { display: none; }
 .menu summary::after { content: " +"; }
 .menu[open] summary::after { content: " −"; }
@@ -61,7 +61,7 @@ code { font-family: var(--mono); font-size: .9em; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn.small { min-height: 40px; padding: 8px 14px; font-size: 14px; gap: 14px; }
-.bar .btn { min-height: 44px; padding: 8px 18px; font-size: 15px; gap: 18px; }
+.bar .btn { min-height: 44px; padding: 8px 18px; font-size: 15px; gap: 18px; white-space: nowrap; }
 .text-link { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 1px; }
 .text-link:hover { color: var(--accent); }
 .text-button { padding: 10px 0; border: 0; background: transparent; color: var(--fg-2); text-decoration: underline; text-underline-offset: 5px; font-size: 14px; }
@@ -239,9 +239,14 @@ details.plain p, .presenter-runbook ol, .presenter-runbook p { margin-top: 12px;
 }
 @media (max-width: 560px) {
   .challenge { display: none; }
-  .bar-inner { gap: 12px; }
-  .bar-right { gap: 10px; }
-  .bar .btn { padding: 8px 12px; font-size: 14px; gap: 10px; }
+  .bar-inner { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; padding-block: 10px; }
+  .bar-right { display: contents; }
+  .bar .btn { grid-column: 1 / -1; justify-content: center; padding: 8px 12px; font-size: 14px; gap: 10px; }
+  .menu { position: static; }
+  .menu summary { min-height: 44px; display: flex; align-items: center; }
+  /* Anchor to the header so the dropdown cannot extend beyond a narrow screen. */
+  .menu-list { left: var(--gutter-left); right: var(--gutter-right); top: 100%; min-width: 0; max-height: 60vh; overflow-y: auto; }
+  .hero h1 { font-size: clamp(40px, 11.5vw, 54px); }
   .wordmark { font-size: 18px; letter-spacing: 0.28em; }
   .row { grid-template-columns: 40px minmax(0, 1fr) 24px; gap: 12px; }
   .rows .more { grid-column: 1 / -1; }
