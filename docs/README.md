@@ -36,6 +36,9 @@ External services need real credentials and permissions. Synthetic examples and 
 ## Implementation and design
 
 - [Security controls and AWS design](aws-security.md): implemented application controls, proposed cloud protections and verification evidence.
+- [Audit package](audit-package.md): one run's chain of custody as a file, with offline hash verification (`audit:verify`).
+- [Handling marking](handling-marking.md): the agency's marking on every page and every export, from one setting.
+- [Federal readiness](federal-readiness.md): product behaviour mapped to NIST SP 800-53 control families, Section 508 notes, data handling and known gaps.
 - [Architecture and verification](../workbench/ARCHITECTURE.md): engine and MCP design; early milestone descriptions are historical where newer company or packaging code supersedes them.
 - [Bot timeline](../workbench/BOT-TIMELINE.md): repository execution and evidence.
 - [Design tokens](design-tokens.md) and [UI components](ui-components.md): interface conventions.

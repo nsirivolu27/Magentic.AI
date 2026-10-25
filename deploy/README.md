@@ -1,6 +1,6 @@
 # Deployment and stack decision
 
-Magentic uses the Anthropic/OpenAI API track described in the supplied build
+Magentic uses the hosted model API track described in the supplied build
 brief as its product direction. Keep the existing TypeScript, Node 22, zod and
 MCP SDK foundation. Model providers remain adapters; Ollama stays available for
 local work. A model selector does not establish that a provider is connected.

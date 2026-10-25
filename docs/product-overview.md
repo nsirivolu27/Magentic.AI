@@ -37,7 +37,7 @@ Website: [Magentic Build Challenge](https://claude.ai/artifact/M7Nbm6cZLEwNfBZjv
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | 116 | 103 | 27,800 | 724 | 0 | 7 | 40 | 5.0:1 |
 
-Counts are from the workbench on branch `codex/published-main-preview`; six tests are skipped because they need a live model.
+Counts are from the workbench on the current branch; six tests are skipped because they need a live model.
 
 ## What a person can do today
 

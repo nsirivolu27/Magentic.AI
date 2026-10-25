@@ -81,7 +81,7 @@ byId("demo").addEventListener("click", event => {
   else if (button.id === "demo-back") navigate(current - 1);
   else if (button.id === "demo-reset") { revision = 1; signatures.clear(); navigate(0); }
 });
-const source = "https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/";
+const source = "https://github.com/nsirivolu27/Magentic.AI/blob/main/";
 const layers = {
   frontend: { title: "A workspace UI over typed state", stack: "HTML · CSS tokens · TypeScript · React 19",
     detail: "Hash-based navigation opens workspace views, evidence and review controls. Most pages render HTML from a typed snapshot; React powers the interactive work queue. esbuild bundles the browser.",

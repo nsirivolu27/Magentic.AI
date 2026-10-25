@@ -28,6 +28,7 @@ import { assistantGuards, studioAssistants } from "./assistant-resolver.js";
 import { chatModelLoader, createScheduler, fileSchedulePersistence } from "./scheduler.js";
 import { createLearningSchedule, fileLearningPersistence, folderImports } from "./learning-schedule.js";
 import { createDocuments, fileDocumentStore } from "./documents.js";
+import { loadHandlingMarking } from "./handling-marking.js";
 
 /**
  * The local application, composed.
@@ -120,6 +121,7 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
   const billing = createBilling(accounts?.billing, setting("MAGENTIC_STRIPE_SECRET_KEY"));
   const dataDir = options.dataDir ?? workspacesDirectory();
   const ontology = loadOntologyDirectory();
+  const handling = loadHandlingMarking();
   // Same connector as the company server, so a developer can read real tickets
   // and pages locally. Without MAGENTIC_ZENFLUENCE_FILE the page shows setup.
   const zenfluence = loadZenfluenceDirectory();
@@ -219,6 +221,7 @@ export async function startLocalWorkbench(options: LocalWorkbenchOptions = {}): 
       context, billing, chatAccess, ...(accounts ? { accounts } : {}),
       assets: assets(),
       pipelines, bots: runtime, jira: jiraRuntime, ontology, zenfluence, studio, scheduler, learning, documents, agentTests,
+      ...(handling ? { handling } : {}),
       guard: session.guard,
       async authenticate(request) {
         const path = new URL(request.url ?? "/", "http://localhost").pathname;

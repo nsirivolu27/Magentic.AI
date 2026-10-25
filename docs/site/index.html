@@ -3,159 +3,176 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Magentic lets delivery teams use AI on real work without losing the chain of custody. AI drafts, people decide, every approval is a signature.">
-<title>Magentic — workflow demo & engineering</title>
-<style>
-  /* Layout: one centered column over a fixed magenta flow. A quiet fixed header carries the
-     challenge watermark on the left and the product mark on the right. Dark by choice, so the
-     brand tokens from brand/tokens.css apply directly. */
-  :root {
-    color-scheme: dark;
-    --bg: #0A0610;
-    --surface: rgba(20, 12, 26, 0.82);
-    --surface-strong: #140C1A;
-    --line: rgba(243, 234, 241, 0.12);
-    --line-strong: rgba(243, 234, 241, 0.24);
-    --fg: #F3EAF1;
-    --fg-2: #BDAFBA;
-    --fg-3: #8E7F8B;
-    --accent: #E84BA3;
-    --accent-soft: rgba(232, 75, 163, 0.14);
-    --on-accent: #12060E;
-    --ok: #6FD3A0;
-    --warn: #E9C46A;
-    --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    --measure: 64ch;
-    --radius: 14px;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 17px; line-height: 1.55; overflow-x: hidden; }
-  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-  a { color: inherit; }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
-  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
-
-  /* The flow. A fixed canvas draws slow magenta ribbons; a veil keeps text readable. */
-  #flow { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
-  #veil { position: fixed; inset: 0; z-index: 1; pointer-events: none;
-    background: linear-gradient(180deg, rgba(10, 6, 16, 0.08) 0%, rgba(10, 6, 16, 0.55) 38%, rgba(10, 6, 16, 0.86) 70%, rgba(10, 6, 16, 0.94) 100%); }
-
-  /* Header: watermark left, mark right. */
-  .bar { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    padding-block: 14px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
-  .mark-text { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--fg); opacity: 0.5; white-space: nowrap; line-height: 1.5; }
-  .mark-text b { font-weight: 500; font-size: 15px; display: block; opacity: 1; }
-  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); font-weight: 600; letter-spacing: 0.01em; }
-  .logo svg { width: 36px; height: 36px; display: block; }
-
-  /* Page column. */
-  main { position: relative; z-index: 2; max-width: 1080px; margin: 0 auto; padding-block: 128px 96px;
-    padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); display: grid; gap: 96px; }
-  section { display: grid; gap: 28px; min-width: 0; }
-  h1, h2, h3 { margin: 0; text-wrap: balance; line-height: 1.08; letter-spacing: -0.02em; }
-  h1 { font-size: clamp(44px, 7.5vw, 84px); font-weight: 700; }
-  h2 { font-size: clamp(30px, 4vw, 42px); font-weight: 600; }
-  h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
-  p { margin: 0; max-width: var(--measure); }
-  .lede { font-size: clamp(19px, 2.2vw, 23px); color: var(--fg-2); max-width: 46ch; }
-  .eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-3); }
-  .muted { color: var(--fg-2); }
-  .small { font-size: 15px; color: var(--fg-3); }
-
-  .hero { gap: 24px; padding-top: 24px; }
-  .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 8px; font-weight: 600; text-decoration: none; border: 1px solid var(--line-strong); color: var(--fg); background: var(--surface-strong); transition: background .15s ease, transform .15s ease; }
-  .btn:hover { background: #1D1224; }
-  .btn:active { transform: translateY(1px); }
-  .btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
-  .btn.primary:hover { background: #F06BB5; }
-  .badges { display: flex; flex-wrap: wrap; gap: 8px; }
-  .badge { font-family: var(--font-mono); font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); }
-  .badge b { color: var(--fg); font-weight: 500; }
-
-  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; display: grid; gap: 10px; align-content: start; min-width: 0; backdrop-filter: blur(8px); }
-  .card p { max-width: none; color: var(--fg-2); font-size: 16px; }
-  .card .eyebrow { color: var(--accent); }
-
-  .numbers { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-  .num { background: var(--surface-strong); padding: 20px 18px; display: grid; gap: 4px; }
-  .num strong { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .num span { font-size: 14px; color: var(--fg-3); }
-
-  .figure { border: 1px solid var(--line); border-radius: 20px; overflow: hidden; background: #0b0b0f; }
-  .figure svg { display: block; width: 100%; height: auto; }
-  .figure .diagram { font-family: var(--font-sans); }
-
-  .rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--line); max-width: 760px; }
-  .rules li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); color: var(--fg-2); }
-  .rules .n { font-family: var(--font-mono); color: var(--fg-3); font-size: 14px; padding-top: 3px; }
-
-  .steps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); counter-reset: step; }
-  .step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 6px; min-width: 0; }
-  .step::before { counter-increment: step; content: counter(step, decimal-leading-zero); font-family: var(--font-mono); font-size: 12px; color: var(--accent); letter-spacing: 0.1em; }
-  .step strong { font-weight: 600; }
-  .step span { color: var(--fg-2); font-size: 15px; }
-
-  pre { margin: 0; background: var(--surface-strong); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; overflow-x: auto; font-family: var(--font-mono); font-size: 14px; line-height: 1.6; color: var(--fg-2); max-width: 760px; }
-  pre b { color: var(--fg); font-weight: 500; }
-  .two { display: grid; gap: 28px; grid-template-columns: 1fr 1fr; align-items: start; }
-  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
-
-  table { border-collapse: collapse; width: 100%; max-width: 760px; font-size: 16px; }
-  th, td { text-align: left; padding: 12px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-weight: 500; color: var(--fg-3); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
-  .pill { display: inline-block; font-family: var(--font-mono); font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--fg-2); white-space: nowrap; }
-  .pill.ok { color: var(--ok); border-color: rgba(111, 211, 160, 0.4); }
-  .pill.warn { color: var(--warn); border-color: rgba(233, 196, 106, 0.4); }
-
-  footer { position: relative; z-index: 2; border-top: 1px solid var(--line); padding-block: 28px 48px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
-  footer div { max-width: 1080px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; color: var(--fg-3); font-size: 14px; }
-  @media (max-width: 560px) { .mark-text span { display: none; } main { padding-top: 104px; gap: 72px; } }
-</style>
+<meta name="description" content="Magentic is a supervised AI workflow workspace. AI drafts, people decide, every approval is a signature over the content. Built for the Virginia Tech x Accenture Federal Services Build Challenge.">
+<title>Magentic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="./presentation.css">
 <script src="./presentation.js" defer></script>
 </head>
 <body>
-<canvas id="flow" aria-hidden="true"></canvas>
-<div id="veil"></div>
+<div id="progress" aria-hidden="true"></div>
+<a class="skip" href="#main">Skip to content</a>
 
 <header class="bar">
-  <div class="mark-text"><b>VT × Accenture</b><span>Build Challenge 2026</span></div>
-  <a class="logo" href="https://github.com/nsirivolu27/Magentic.AI" aria-label="Magentic repository on GitHub">
-    <svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#141519"/><path d="M105 346V166h59v24c28-35 82-38 109 3 34-43 99-41 126-6 14 19 17 42 17 73v86h-61v-90c0-33-11-49-31-49-22 0-35 17-35 48v91h-61v-90c0-33-11-49-31-49-21 0-32 17-32 48v91Z" fill="#ed87cf"/></svg>
-    Magentic
-  </a>
+  <div class="bar-inner">
+    <a class="wordmark" href="#top">Magentic</a>
+    <span class="challenge">VT × Accenture Federal Services · Build Challenge</span>
+    <div class="bar-right">
+      <details class="menu">
+        <summary>Menu</summary>
+        <nav class="menu-list" aria-label="Sections">
+          <a href="#features">What it does <span>01</span></a>
+          <a href="#demo">Walkthrough <span>02</span></a>
+          <a href="#evidence">Evidence <span>03</span></a>
+          <a href="#architecture">Engineering <span>04</span></a>
+          <a href="#security">Company security <span>05</span></a>
+          <a href="#questions">Questions <span>06</span></a>
+          <a href="#submission">Submission <span>07</span></a>
+        </nav>
+      </details>
+      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI/releases">Get Magentic <span aria-hidden="true">↓</span></a>
+    </div>
+  </div>
 </header>
 
-<a class="skip" href="#main">Skip to content</a>
 <main id="main">
-  <section class="hero">
-    <div class="eyebrow">Working prototype · presentation & submission</div>
-    <h1>AI drafts.<br>People decide.</h1>
-    <p class="lede">A company workspace for grounded agent drafts, reviewable evidence, and controlled handoffs. Follow one documentation request from intake to independent review.</p>
-    <div class="hero-actions">
-      <a class="btn primary" href="#demo">Walk through the demo <span aria-hidden="true">↗</span></a>
-      <a class="btn" href="#architecture">Explore the engineering</a>
+  <section class="hero" id="top">
+    <h1>Magentic</h1>
+    <p class="lede">A supervised AI workflow workspace. Agents draft, people decide, and every approval is a signature over the content it approved.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI/releases">Get Magentic for Windows <span aria-hidden="true">↓</span></a>
+      <a class="text-link" href="#demo">See how it works <span aria-hidden="true">↗</span></a>
     </div>
-    <div class="badges">
-      <span class="badge">Runs on <b>your laptop</b></span>
-      <span class="badge">Local model or <b>your provider</b></span>
-      <span class="badge">Data in <b>one folder</b></span>
-      <span class="badge">Company access <b>role scoped</b></span>
-      <span class="badge">MCP <b>shared tools</b></span>
-    </div>
+    <div class="product"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="The Magentic output review: evidence, original output, handoff and approval side by side" font-family="DM Sans, ui-sans-serif, system-ui, sans-serif">
+  <defs>
+    <style>
+      .t { fill: #F0EBEE; } .m { fill: #A79EA8; } .d { fill: #6F6772; } .a { fill: #E84BA3; } .ok { fill: #6FD3A0; } .w { fill: #E9C46A; }
+      .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+      .line { fill: #2A2330; }
+      .panel { fill: #15111A; stroke: #2A2330; }
+    </style>
+  </defs>
+  <rect width="1200" height="700" fill="#0B090D"/>
+  <!-- window chrome -->
+  <rect width="1200" height="44" fill="#120E16"/>
+  <rect y="44" width="1200" height="1" class="line"/>
+  <circle cx="22" cy="22" r="5" fill="#3A3240"/><circle cx="40" cy="22" r="5" fill="#3A3240"/><circle cx="58" cy="22" r="5" fill="#3A3240"/>
+  <rect x="420" y="12" width="360" height="20" rx="3" fill="#1C1721"/>
+  <text x="600" y="26" text-anchor="middle" class="mono d" font-size="11">127.0.0.1:4182/#/desk/run-9f3a</text>
+  <rect x="1040" y="12" width="140" height="20" fill="#E9C46A" opacity=".9"/>
+  <text x="1110" y="26" text-anchor="middle" class="mono" font-size="10" fill="#1a1500" font-weight="700" letter-spacing="1.5">CUI//SP-PRVCY</text>
+
+  <!-- sidebar -->
+  <rect x="0" y="45" width="220" height="655" fill="#0E0B11"/>
+  <rect x="220" y="45" width="1" height="655" class="line"/>
+  <text x="24" y="86" class="t" font-size="15" font-weight="500" letter-spacing="4">MAGENTIC</text>
+  <text x="24" y="124" class="mono d" font-size="9" letter-spacing="2">OPERATIONS</text>
+  <text x="24" y="152" class="m" font-size="13">Workspace</text>
+  <rect x="0" y="166" width="2" height="26" class="a"/>
+  <text x="24" y="183" class="t" font-size="13">Work items</text>
+  <text x="24" y="214" class="m" font-size="13">Workflows</text>
+  <text x="24" y="245" class="m" font-size="13">Team agents</text>
+  <text x="24" y="276" class="m" font-size="13">Reference documents</text>
+  <text x="24" y="318" class="mono d" font-size="9" letter-spacing="2">ASSURANCE</text>
+  <text x="24" y="346" class="m" font-size="13">Release approvals</text>
+  <text x="24" y="377" class="m" font-size="13">Audit trail</text>
+  <text x="24" y="408" class="m" font-size="13">Readiness</text>
+  <text x="24" y="660" class="mono d" font-size="10">alex.writer · author</text>
+
+  <!-- header of the run -->
+  <text x="256" y="92" class="mono d" font-size="10" letter-spacing="2">WORK ITEM · DOC-001</text>
+  <text x="256" y="128" class="t" font-size="24" font-weight="500" letter-spacing="-0.5">How do I request repository access?</text>
+  <text x="256" y="152" class="m" font-size="13">Documentation request · revision 3 · owner alex.writer</text>
+
+  <!-- stage rail -->
+  <g transform="translate(256 178)">
+    <rect width="150" height="34" fill="#15111A" stroke="#2A2330"/><text x="14" y="22" class="ok" font-size="12">✓</text><text x="32" y="22" class="t" font-size="13">Intake</text>
+    <rect x="158" width="150" height="34" fill="#15111A" stroke="#2A2330"/><text x="172" y="22" class="ok" font-size="12">✓</text><text x="190" y="22" class="t" font-size="13">Grounding</text>
+    <rect x="316" width="150" height="34" fill="#1C1721" stroke="#E84BA3"/><text x="330" y="22" class="a" font-size="12">●</text><text x="348" y="22" class="t" font-size="13">Review</text>
+    <rect x="474" width="150" height="34" fill="#15111A" stroke="#2A2330"/><text x="488" y="22" class="d" font-size="12">○</text><text x="506" y="22" class="m" font-size="13">Handoff</text>
+    <text x="650" y="22" class="mono w" font-size="11" letter-spacing="1">AWAITING APPROVAL · 1 OF 2</text>
+  </g>
+
+  <!-- review grid -->
+  <!-- Evidence -->
+  <g transform="translate(256 236)">
+    <rect width="448" height="214" class="panel"/>
+    <text x="18" y="30" class="mono d" font-size="10" letter-spacing="2">EVIDENCE</text>
+    <text x="400" y="30" text-anchor="end" class="mono m" font-size="10">1 source · 1 tool · 2 checks</text>
+    <rect x="18" y="46" width="412" height="1" class="line"/>
+    <text x="18" y="76" class="ok" font-size="12">●</text><text x="36" y="76" class="t" font-size="13">SOP.md §2 Repository access</text><text x="430" y="76" text-anchor="end" class="mono m" font-size="11">read · 1,240 chars</text>
+    <text x="18" y="108" class="ok" font-size="12">●</text><text x="36" y="108" class="t" font-size="13">read_project_file</text><text x="430" y="108" text-anchor="end" class="mono m" font-size="11">1 call of 5</text>
+    <text x="18" y="140" class="ok" font-size="12">●</text><text x="36" y="140" class="t" font-size="13">Every claim cites a source</text><text x="430" y="140" text-anchor="end" class="mono ok" font-size="11">passed</text>
+    <text x="18" y="172" class="ok" font-size="12">●</text><text x="36" y="172" class="t" font-size="13">No access was granted</text><text x="430" y="172" text-anchor="end" class="mono ok" font-size="11">passed</text>
+    <text x="18" y="200" class="mono d" font-size="10">Sources named read, empty or missing. Missing fails the draft.</text>
+  </g>
+  <!-- Original output -->
+  <g transform="translate(720 236)">
+    <rect width="448" height="214" class="panel"/>
+    <text x="18" y="30" class="mono d" font-size="10" letter-spacing="2">ORIGINAL OUTPUT</text>
+    <text x="430" y="30" text-anchor="end" class="mono m" font-size="10">qwen2.5-coder:7b · 00:41</text>
+    <rect x="18" y="46" width="412" height="1" class="line"/>
+    <text x="18" y="74" class="m" font-size="13">1. Obtain team owner approval. [SOP.md §2]</text>
+    <text x="18" y="98" class="m" font-size="13">2. Response target is two business days after</text>
+    <text x="18" y="118" class="m" font-size="13">    approval. [SOP.md §2]</text>
+    <text x="18" y="142" class="m" font-size="13">3. Requests without approval are returned. [SOP.md §2]</text>
+    <text x="18" y="176" class="m" font-size="13">No access has been granted.</text>
+    <text x="18" y="200" class="mono d" font-size="10">hash 9f3a71c0…c2e1 · read only</text>
+  </g>
+  <!-- Handoff -->
+  <g transform="translate(256 466)">
+    <rect width="448" height="214" class="panel"/>
+    <text x="18" y="30" class="mono d" font-size="10" letter-spacing="2">HANDOFF</text>
+    <text x="430" y="30" text-anchor="end" class="mono m" font-size="10">edited by alex.writer · 2 min ago</text>
+    <rect x="18" y="46" width="412" height="1" class="line"/>
+    <text x="18" y="74" class="t" font-size="13">Ask your team owner for approval in the access</text>
+    <text x="18" y="94" class="t" font-size="13">request form. Expect a reply within two business</text>
+    <text x="18" y="114" class="t" font-size="13">days. Unapproved requests come back to you.</text>
+    <text x="18" y="146" class="m" font-size="13">Source: SOP.md §2. No access is granted by this answer.</text>
+    <rect x="18" y="168" width="150" height="30" fill="none" stroke="#45394D"/>
+    <text x="93" y="188" text-anchor="middle" class="t" font-size="12">Edit handoff</text>
+    <text x="186" y="188" class="mono d" font-size="10">any edit voids the signatures below</text>
+  </g>
+  <!-- Approval -->
+  <g transform="translate(720 466)">
+    <rect width="448" height="214" class="panel"/>
+    <text x="18" y="30" class="mono d" font-size="10" letter-spacing="2">APPROVAL</text>
+    <text x="430" y="30" text-anchor="end" class="mono w" font-size="10">1 OF 2</text>
+    <rect x="18" y="46" width="412" height="1" class="line"/>
+    <text x="18" y="76" class="ok" font-size="12">✓</text><text x="36" y="76" class="t" font-size="13">sam.reviewer</text><text x="430" y="76" text-anchor="end" class="mono m" font-size="11">signed 9f3a71c0…c2e1</text>
+    <text x="18" y="108" class="d" font-size="12">○</text><text x="36" y="108" class="m" font-size="13">jordan.reviewer</text><text x="430" y="108" text-anchor="end" class="mono d" font-size="11">waiting</text>
+    <text x="18" y="140" class="d" font-size="12">—</text><text x="36" y="140" class="d" font-size="13">alex.writer</text><text x="430" y="140" text-anchor="end" class="mono d" font-size="11">owner, cannot sign</text>
+    <rect x="18" y="164" width="196" height="34" fill="#E84BA3"/>
+    <text x="116" y="186" text-anchor="middle" font-size="13" font-weight="500" fill="#12060E">Approve this handoff</text>
+    <text x="230" y="186" class="mono d" font-size="10">signs the content hash, not the page</text>
+  </g>
+</svg></div>
+    <div class="facts"><span>Runs on <b>your laptop</b></span><span>Local model or <b>your provider</b></span><span>Data in <b>one folder</b></span><span>Connectors <b>read only</b></span><span>Rules enforced <b>on the server</b></span></div>
   </section>
 
-
-  <nav class="section-nav" aria-label="Presentation sections">
-    <a href="#demo">01 / Workflow demo</a><a href="#architecture">02 / Engineering</a><a href="#security">03 / Company security</a><a href="#submission">04 / Submission</a>
+  <nav class="section-nav" aria-label="Page sections">
+    <a href="#features">01 What it does</a><a href="#demo">02 Walkthrough</a><a href="#evidence">03 Evidence</a><a href="#architecture">04 Engineering</a><a href="#security">05 Company security</a><a href="#questions">06 Questions</a><a href="#submission">07 Submission</a>
   </nav>
+
+  <section id="features">
+    <span class="label">01 / What it does</span>
+    <h2>The tools to<br><span class="dim">trust the draft.</span></h2>
+    <ol class="rows">
+      <li><details><summary class="row"><span class="n">01</span><span><h3>Workflows</h3><p>Every run on one page: the stage it is on, who owns it, the state of its output and the one next action.</p></span><span class="plus" aria-hidden="true"></span></summary><div class="more"><p>Blocked, waiting and done look different at a glance. A run keeps its own frozen copy of the workflow it started with, so a template edit never changes work already in flight.</p></div></details></li>
+      <li><details><summary class="row"><span class="n">02</span><span><h3>Output review</h3><p>Evidence, original output, your edits and the approval state side by side.</p></span><span class="plus" aria-hidden="true"></span></summary><div class="more"><p>The evidence names each source as read, empty or missing, so a confident draft built on nothing is caught before anyone signs it.</p></div></details></li>
+      <li><details><summary class="row"><span class="n">03</span><span><h3>Approval gates</h3><p>Independent reviewers sign a hash of the content. The owner and the author can never approve their own stage.</p></span><span class="plus" aria-hidden="true"></span></summary><div class="more"><p>Change the content after signing and the signatures stop counting. The server enforces this, not the page, so any client that skips the interface meets the same rule.</p></div></details></li>
+      <li><details><summary class="row"><span class="n">04</span><span><h3>Agent Studio</h3><p>Build agents from honest templates, grant tools with call budgets and timeouts, and test them before they touch a stage.</p></span><span class="plus" aria-hidden="true"></span></summary><div class="more"><p>A saved test is bound to the agent version it was written for. An agent without a passing test on its current version cannot be assigned; the API answers 409.</p></div></details></li>
+      <li><details><summary class="row"><span class="n">05</span><span><h3>Connectors</h3><p>Attach a reviewed, hashed snapshot of a Jira ticket, a Confluence page or an Ontology dataset to a run.</p></span><span class="plus" aria-hidden="true"></span></summary><div class="more"><p>Evidence reads are read only and separate from configured actions such as a Jira update, a Slack message or a reviewed Lambda invocation. A public dataset enters through <code>ontology:ingest</code> with each source file's hash recorded.</p></div></details></li>
+      <li><details><summary class="row"><span class="n">06</span><span><h3>Audit package</h3><p>Any run exports as Markdown or JSON with every output, signer and hash, and verifies offline.</p></span><span class="plus" aria-hidden="true"></span></summary><div class="more"><p><code>corepack pnpm audit:verify file.json</code> recomputes every hash and names each problem. A handling marking such as CUI appears on every page and on the first and last line of every package.</p></div></details></li>
+    </ol>
+  </section>
+
   <section id="demo" aria-labelledby="demo-heading">
-    <div class="eyebrow">01 / An internal documentation request</div>
-    <h2 id="demo-heading">From a question to a reviewed handoff.</h2>
-    <p class="muted">An employee needs the repository-access process. The agent must use the SOP, show its evidence, and wait for independent review.</p>
+    <span class="label">02 / Walkthrough</span>
+    <h2 id="demo-heading">One request,<br><span class="dim">start to signed handoff.</span></h2>
+    <p class="copy">An employee needs the repository access process. The agent must use the SOP, show its evidence, and wait for independent review. Scripted, synthetic, no network calls.</p>
     <div class="demo-shell">
       <div class="demo-top"><span class="pill warn">Illustrative walkthrough</span><span>Synthetic SOP · scripted output · no network calls</span></div>
       <div class="demo-layout">
@@ -165,14 +182,14 @@
           <h3 id="demo-title"></h3><p id="demo-description" class="muted"></p>
           <div id="demo-artifact"></div>
           <div class="demo-boundary"><strong>Backend responsibility</strong><p id="demo-backend"></p></div>
-          <details><summary>Presenter notes</summary><p id="demo-notes"></p></details>
+          <details class="plain"><summary>Presenter notes</summary><p id="demo-notes"></p></details>
           <p id="demo-feedback" class="demo-feedback" role="status"></p>
           <div class="demo-actions"><button class="btn" id="demo-back">Back</button><button class="btn primary" id="demo-next">Next</button><button class="text-button" id="demo-reset">Reset walkthrough</button></div>
         </div>
       </div>
     </div>
     <noscript><p>This walkthrough needs JavaScript. The full sequence is: choose a workspace, attach the SOP, configure tools, inspect the draft, request independent review, hand off, and record an audit update. No live operations occur on this page.</p></noscript>
-    <details class="presenter-runbook"><summary>Five-minute presentation route</summary><ol>
+    <details class="presenter-runbook"><summary>Five minute presentation route</summary><ol>
       <li><b>30 seconds:</b> describe the documentation request and why a chat answer alone is insufficient.</li>
       <li><b>90 seconds:</b> walk through the source, tool grant and draft. Separate execution success from answer quality.</li>
       <li><b>60 seconds:</b> try owner approval, simulate two independent reviewers, then revise the draft to show why it needs review again.</li>
@@ -181,127 +198,45 @@
     </ol></details>
   </section>
 
-  <section id="who">
-    <div class="eyebrow">Who it is for</div>
-    <h2>Teams that are allowed to use AI only if they can show their work</h2>
-    <div class="grid">
-      <div class="card">
-        <span class="eyebrow">The lead</span>
-        <h3>Answer "where did this come from" in one click</h3>
-        <p>Open any run and see the sources the agent read, the tools it called, who edited the handoff and who signed it. No digging through chat history.</p>
-      </div>
-      <div class="card">
-        <span class="eyebrow">The reviewer</span>
-        <h3>Read the draft next to its evidence</h3>
-        <p>The original output, the edited handoff and the evidence sit in one grid. Sign when it is right. If anyone changes the output afterwards, your signature stops counting.</p>
-      </div>
-      <div class="card">
-        <span class="eyebrow">The builder</span>
-        <h3>Trust an agent only after it passes a test</h3>
-        <p>Give an agent read only tools with limits, write a test case, run it. An agent that has not passed on its current version cannot be put on a stage.</p>
-      </div>
+  <section id="evidence">
+    <span class="label">03 / Evidence</span>
+    <h2>Signatures,<br><span class="dim">in context.</span></h2>
+    <p class="copy">A run's record as an auditor reads it. Every stage carries the hash of its output, who produced it and who signed it. The accent column is the one a reviewer is being asked to sign now.</p>
+    <div class="ledger-wrap">
+      <table class="ledger" aria-label="Sample run record">
+        <thead><tr><th>Stage</th><th>Output hash</th><th>Author</th><th>Signed by</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td>Intake</td><td class="hash">4b1e9d…08a7</td><td>alex.writer</td><td class="hash">no gate</td><td><span class="state ok">complete</span></td></tr>
+          <tr><td>Grounding</td><td class="hash">c07f2a…51d3</td><td>docs agent</td><td class="hash">sam.reviewer · jordan.reviewer</td><td><span class="state ok">complete</span></td></tr>
+          <tr><td>Review</td><td class="hash acc">9f3a71…c2e1</td><td>alex.writer</td><td class="hash acc">sam.reviewer · 1 of 2</td><td><span class="state warn">awaiting approval</span></td></tr>
+          <tr><td>Handoff</td><td class="hash">—</td><td>—</td><td class="hash">—</td><td><span class="state">pending</span></td></tr>
+        </tbody>
+      </table>
     </div>
+    <p class="small">Sample values. In the application the hash is SHA-256 over the output text; the audit package carries the full digest and <code>audit:verify</code> recomputes it.</p>
   </section>
 
-  <section id="stage">
-    <div class="eyebrow">How it works</div>
-    <h2>The handoff is a controlled boundary.</h2>
-    <p class="muted">A workflow is a sequence of stages such as intake, discovery, design, build, review and release. Gated stages require the configured independent approvals; ungated stages follow their own completion policy.</p>
-    <div class="figure"><svg class="diagram" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
-  <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0 0 L10 5 L0 10 z" fill="#8a8a9a"/>
-    </marker>
-  </defs>
-  <rect width="1200" height="400" rx="18" fill="#0b0b0f"/>
-  <text x="48" y="58" fill="#ededf2" font-size="26" font-weight="600">One workflow stage in Magentic</text>
-  <text x="48" y="88" fill="#b0b0bf" font-size="16">AI drafts. People decide. Nothing advances on its own.</text>
-
-  <!-- step 1 -->
-  <g transform="translate(48 130)">
-    <rect width="200" height="150" rx="14" fill="#121218" stroke="#2e2e3a"/>
-    <circle cx="36" cy="38" r="16" fill="#1b1933" stroke="#3b3577"/>
-    <text x="36" y="43" fill="#b3a7ff" font-size="14" text-anchor="middle" font-weight="700">1</text>
-    <text x="20" y="86" fill="#ededf2" font-size="17" font-weight="600">Agent drafts</text>
-    <text x="20" y="110" fill="#b0b0bf" font-size="13">Read only tools, call budget,</text>
-    <text x="20" y="128" fill="#b0b0bf" font-size="13">timeout, required sources</text>
-  </g>
-  <line x1="256" y1="205" x2="282" y2="205" stroke="#8a8a9a" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- step 2 -->
-  <g transform="translate(286 130)">
-    <rect width="200" height="150" rx="14" fill="#121218" stroke="#2e2e3a"/>
-    <circle cx="36" cy="38" r="16" fill="#1b1933" stroke="#3b3577"/>
-    <text x="36" y="43" fill="#b3a7ff" font-size="14" text-anchor="middle" font-weight="700">2</text>
-    <text x="20" y="86" fill="#ededf2" font-size="17" font-weight="600">Evidence attached</text>
-    <text x="20" y="110" fill="#b0b0bf" font-size="13">Files read, tools called,</text>
-    <text x="20" y="128" fill="#b0b0bf" font-size="13">checks passed or failed</text>
-  </g>
-  <line x1="494" y1="205" x2="520" y2="205" stroke="#8a8a9a" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- step 3 -->
-  <g transform="translate(524 130)">
-    <rect width="200" height="150" rx="14" fill="#121218" stroke="#2e2e3a"/>
-    <circle cx="36" cy="38" r="16" fill="#1b1933" stroke="#3b3577"/>
-    <text x="36" y="43" fill="#b3a7ff" font-size="14" text-anchor="middle" font-weight="700">3</text>
-    <text x="20" y="86" fill="#ededf2" font-size="17" font-weight="600">Person reviews</text>
-    <text x="20" y="110" fill="#b0b0bf" font-size="13">Draft beside the evidence,</text>
-    <text x="20" y="128" fill="#b0b0bf" font-size="13">edits the handoff</text>
-  </g>
-  <line x1="732" y1="205" x2="758" y2="205" stroke="#8a8a9a" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- step 4 -->
-  <g transform="translate(762 130)">
-    <rect width="200" height="150" rx="14" fill="#121218" stroke="#2e2e3a"/>
-    <circle cx="36" cy="38" r="16" fill="#1b1933" stroke="#3b3577"/>
-    <text x="36" y="43" fill="#b3a7ff" font-size="14" text-anchor="middle" font-weight="700">4</text>
-    <text x="20" y="86" fill="#ededf2" font-size="17" font-weight="600">Reviewer signs</text>
-    <text x="20" y="110" fill="#b0b0bf" font-size="13">Never the author or owner,</text>
-    <text x="20" y="128" fill="#b0b0bf" font-size="13">signs a content hash</text>
-  </g>
-  <line x1="970" y1="205" x2="996" y2="205" stroke="#8a8a9a" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- step 5 -->
-  <g transform="translate(1000 130)">
-    <rect width="152" height="150" rx="14" fill="#10261b" stroke="#1f5a3d"/>
-    <circle cx="36" cy="38" r="16" fill="#0b0b0f" stroke="#1f5a3d"/>
-    <text x="36" y="44" fill="#6fd3a0" font-size="16" text-anchor="middle" font-weight="700">✓</text>
-    <text x="20" y="86" fill="#ededf2" font-size="17" font-weight="600">Locked</text>
-    <text x="20" y="110" fill="#b0b0bf" font-size="13">Stage advances,</text>
-    <text x="20" y="128" fill="#b0b0bf" font-size="13">trail kept</text>
-  </g>
-
-  <!-- footer rule -->
-  <rect x="48" y="312" width="1104" height="52" rx="10" fill="#2a230e" stroke="#6b5518"/>
-  <text x="72" y="344" fill="#e9c46a" font-size="15" font-weight="600">If the output changes after signing, the signatures stop counting. The server enforces this, not the page.</text>
-</svg></div>
+  <section id="how">
+    <span class="label">How a stage works</span>
+    <h2>Five steps.<br><span class="dim">No shortcuts.</span></h2>
+    <ol class="rows">
+      <li><div class="row"><span class="n">01</span><span><h3>Agent drafts</h3><p>Read only tools, a call budget, a timeout and the sources it must read.</p></span></div></li>
+      <li><div class="row"><span class="n">02</span><span><h3>Evidence attached</h3><p>Files read, tools called, checks passed or failed, all named.</p></span></div></li>
+      <li><div class="row"><span class="n">03</span><span><h3>Person reviews</h3><p>The draft sits beside its evidence. The owner edits the handoff.</p></span></div></li>
+      <li><div class="row"><span class="n">04</span><span><h3>Reviewer signs</h3><p>Never the author, never the owner. The signature is over a content hash.</p></span></div></li>
+      <li><div class="row"><span class="n">05</span><span><h3>Stage locks</h3><p>The run advances and the trail stays. Edit the output and the signatures are void.</p></span></div></li>
+    </ol>
   </section>
-
-  <section id="features">
-    <div class="eyebrow">What you get</div>
-    <h2>The whole loop, from draft to signed release</h2>
-    <div class="grid">
-      <div class="card"><h3>Workflows</h3><p>Every run on one page: the stage it is on, who owns it, the state of its output and the one next action. Blocked, waiting and done look different at a glance.</p></div>
-      <div class="card"><h3>Output review</h3><p>Evidence, original output, your edits and the approval state side by side. The evidence names each source as read, empty or missing, so a confident draft built on nothing is caught.</p></div>
-      <div class="card"><h3>Approval gates</h3><p>Independent reviewers sign a hash of the content. The owner and the author can never approve their own stage, on a laptop or on a company server.</p></div>
-      <div class="card"><h3>Agent Studio</h3><p>Build agents from honest templates, grant tools with call budgets and timeouts, save tests bound to the agent version, and record execution, checks and human review as three separate facts.</p></div>
-      <div class="card"><h3>Model Studio</h3><p>Configure training, evaluate a candidate, review a release and assign an assistant. The development provider creates labeled placeholder artifacts, not trained model weights.</p></div>
-      <div class="card"><h3>Connectors</h3><p>Attach a reviewed, hashed snapshot of a Jira ticket, a Confluence page or an Ontology dataset to a run. Evidence reads are separate from explicitly configured actions such as Jira updates, Slack messages and reviewed Lambda invocation.</p></div>
-      <div class="card"><h3>Chat</h3><p>Talk to a local Ollama model or your own provider key. The first run tells you what to set up instead of failing.</p></div>
-      <div class="card"><h3>MCP for your tools</h3><p>The same workflow operations are available to any MCP client, scoped to one workspace, with the same rules enforced.</p></div>
-    </div>
-  </section>
-
 
   <section id="architecture" aria-labelledby="architecture-heading">
-    <div class="eyebrow">02 / Engineering</div>
-    <h2 id="architecture-heading">One policy boundary.<br>Multiple ways to work.</h2>
-    <p class="muted">The browser presents state. The server decides what may happen. MCP clients reach the same workspace engines through scoped tools.</p>
+    <span class="label">04 / Engineering</span>
+    <h2 id="architecture-heading">One policy boundary.<br><span class="dim">Many ways to work.</span></h2>
+    <p class="copy">The browser presents state. The server decides what may happen. MCP clients reach the same workspace engines through scoped tools.</p>
     <div class="request-path" aria-label="Request flow"><span>Browser / MCP</span><b aria-hidden="true">→</b><span>Identity + schema</span><b aria-hidden="true">→</b><span>Workflow engine</span><b aria-hidden="true">→</b><span>Evidence + review</span></div>
     <div class="architecture-switch" role="group" aria-label="Architecture layers">
       <button class="btn" data-layer="frontend" aria-pressed="true">Frontend</button>
       <button class="btn" data-layer="backend" aria-pressed="false">Backend</button>
-      <button class="btn" data-layer="execution" aria-pressed="false">Models & tools</button>
+      <button class="btn" data-layer="execution" aria-pressed="false">Models &amp; tools</button>
       <button class="btn" data-layer="company" aria-pressed="false">Company boundary</button>
     </div>
     <div id="architecture-detail" class="architecture-detail"></div>
@@ -316,9 +251,9 @@
   </section>
 
   <section id="security" aria-labelledby="security-heading">
-    <div class="eyebrow">03 / Company security</div>
-    <h2 id="security-heading">The right access.<br>At every handoff.</h2>
-    <p class="muted">A team console: choose a company, assemble its agents into a workflow, then check the configuration before handoff. Select a stage to see the application control and its proposed AWS protection.</p>
+    <span class="label">05 / Company security</span>
+    <h2 id="security-heading">The right access.<br><span class="dim">At every handoff.</span></h2>
+    <p class="copy">Choose a company, assemble its agents into a workflow, then check the configuration before handoff. Select a stage to see the application control and its proposed AWS protection.</p>
     <div class="request-path" aria-label="Team console navigation"><span>Company + team</span><b aria-hidden="true">→</b><span>Tools + agents</span><b aria-hidden="true">→</b><span>Workflow + controls</span><b aria-hidden="true">→</b><span>Review + readiness</span></div>
     <div class="architecture-switch security-switch" role="group" aria-label="Company security stages">
       <button class="btn" data-security="identity" aria-pressed="true" aria-controls="security-detail">01 Sign in</button>
@@ -337,130 +272,104 @@
       <li>Review vulnerabilities, rehearse incident containment and restore a workspace from backup.</li>
       <li>Agree on data retention, region and provider use. Cloud hosting alone does not establish compliance.</li></ol>
     </details>
-    <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/docs/aws-security.md" target="_blank" rel="noopener">Read the security control map ↗</a>
+    <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/main/docs/aws-security.md" target="_blank" rel="noopener">Read the security control map <span aria-hidden="true">↗</span></a>
   </section>
 
   <section id="data">
-    <div class="eyebrow">Your data</div>
-    <h2>Local development. Separate company access.</h2>
-    <div class="grid">
-      <div class="card"><h3>No cloud by default</h3><p>The app listens on your own machine only. Configured remote models and integrations receive the content you send to them.</p></div>
-      <div class="card"><h3>Readable storage</h3><p>Runs, approvals, agents and tests are plain documents in one workspace folder. Back it up, move it, open it.</p></div>
-      <div class="card"><h3>Separate workspaces</h3><p>Company identity and membership select access. A matching email domain alone never grants workspace authority.</p></div>
-      <div class="card"><h3>Grows to a company server</h3><p>The same product runs with sign in, tenants and independent reviewers when a team needs a shared instance.</p></div>
-    </div>
+    <span class="label">Your data</span>
+    <h2>One folder on disk.<br><span class="dim">That is the whole story.</span></h2>
+    <dl class="facts-list">
+      <div><dt>No cloud by default</dt><dd>The app listens on your own machine only. Configured remote models and integrations receive the content you send to them, and nothing else.</dd></div>
+      <div><dt>Readable storage</dt><dd>Runs, approvals, agents and tests are plain documents in one workspace folder. Back it up, move it, open it.</dd></div>
+      <div><dt>Separate workspaces</dt><dd>Company identity and membership select access. A matching email domain alone never grants workspace authority.</dd></div>
+      <div><dt>Grows to a company server</dt><dd>The same product runs with sign in, tenants and independent reviewers when a team needs a shared instance.</dd></div>
+      <div><dt>Handling marking</dt><dd>One setting puts the agency's marking, for example CUI, on every page and into every audit package.</dd></div>
+      <div><dt>Federal readiness</dt><dd>Product behaviour mapped to NIST SP 800-53 control families, with the file and test behind each line. <a href="https://github.com/nsirivolu27/Magentic.AI/blob/main/docs/federal-readiness.md">Read the map ↗</a></dd></div>
+    </dl>
   </section>
 
   <section id="start">
-    <div class="eyebrow">Leave the walkthrough. Open the real application.</div>
-    <h2>Two ways to demonstrate it.</h2>
-    <div class="two">
-      <div class="card"><h3>Your local workspace</h3><p>The existing development server uses your saved data. Show the assigned documentation agent, draft and evidence. Stop at the approval gate if independent reviewers are unavailable.</p><a class="btn" href="http://127.0.0.1:4182/#/workspace" target="_blank" rel="noopener">Open local workspace ↗</a><span class="small">Requires the app running on this computer at port 4182.</span></div>
-      <div class="card"><h3>Reproducible product demo</h3><p>The agent demo uses a synthetic SOP, scripted model and demo reviewer identities. Its workflow engine, tool reads and approval checks are real. This does not measure model quality.</p><pre>corepack pnpm build:workbench
+    <span class="label">Leave the walkthrough</span>
+    <h2>Two ways<br><span class="dim">to demonstrate it.</span></h2>
+    <div class="split">
+      <div><h3>Your local workspace</h3><p>The development server uses your saved data. Show the assigned documentation agent, the draft and its evidence. Stop at the approval gate if independent reviewers are unavailable.</p><a class="btn" href="http://127.0.0.1:4182/#/workspace" target="_blank" rel="noopener">Open local workspace <span aria-hidden="true">↗</span></a><span class="small">Requires the app running on this computer at port 4182.</span></div>
+      <div><h3>Reproducible product demo</h3><p>The agent demo uses a synthetic SOP, a scripted model and demo reviewer identities. Its workflow engine, tool reads and approval checks are real. It does not measure model quality.</p><pre>corepack pnpm build:workbench
 corepack pnpm demo:agents</pre><span class="small">Open the printed URL. No provider key needed for the scripted demo.</span></div>
     </div>
   </section>
 
-  <section id="faq">
-    <div class="eyebrow">Questions</div>
-    <h2>Straight answers</h2>
-    <div class="two">
-      <div class="card"><h3>Does it send my documents anywhere?</h3><p>Model requests and configured external actions can send selected content outside the workspace. Review references, provider settings and message previews before sending.</p></div>
-      <div class="card"><h3>Can an agent publish or deploy on its own?</h3><p>Agents do not receive blanket deployment rights. Approval gates and integration permissions are checked by the backend; configured external actions are separate from drafting.</p></div>
-      <div class="card"><h3>Which models work?</h3><p>Installed Ollama models and supported provider integrations with valid credentials. Saved connections use server-side settings or the encrypted vault. Provider availability must be tested.</p></div>
-      <div class="card"><h3>What happens when something is not set up?</h3><p>You get the setup steps on the page. Not connected, not assigned, blocked and waiting each show the one action that resolves them.</p></div>
+  <section id="questions">
+    <span class="label">06 / Questions</span>
+    <h2>A few things<br><span class="dim">worth knowing.</span></h2>
+    <div class="faq">
+      <details><summary>Does it send my documents anywhere?</summary><p>Model requests and configured external actions can send selected content outside the workspace. Review references, provider settings and message previews before sending. Nothing leaves the machine on its own.</p></details>
+      <details><summary>Can an agent publish or deploy on its own?</summary><p>No. Agents receive no deployment rights. Approval gates and integration permissions are checked by the backend, and configured external actions are separate from drafting.</p></details>
+      <details><summary>Which models work?</summary><p>Installed Ollama models and supported provider integrations with valid credentials. Saved connections use server side settings or the encrypted vault. Credentials are referenced by setting name and never stored by Magentic.</p></details>
+      <details><summary>What happens when something is not set up?</summary><p>You get the setup steps on the page. Not connected, not assigned, blocked and waiting each show the one action that resolves them.</p></details>
+      <details><summary>Is this a compliance claim?</summary><p>No. The federal readiness map shows which behaviours support which control families and names the known gaps. An authorization decision belongs to the agency and its assessors.</p></details>
     </div>
   </section>
 
   <section id="submission">
-    <div class="eyebrow">04 / Submission package</div>
-    <h2>What to inspect. What remains.</h2>
-    <div class="submission-grid">
-      <div><h3>Evidence you can reproduce</h3><p class="muted">Latest local application verification: October 22, 2026. These results describe the working prototype, not hosted CI or a live-provider accuracy benchmark.</p>
+    <span class="label">07 / Submission</span>
+    <h2>What to inspect.<br><span class="dim">What remains.</span></h2>
+    <div class="split">
+      <div><h3>Evidence you can reproduce</h3><p>Latest local application verification: October 22, 2026. These results describe the working prototype, not hosted CI or a live provider accuracy benchmark.</p>
         <div class="numbers"><div class="num"><strong>777</strong><span>tests passed / 778 total</span></div><div class="num"><strong>0</strong><span>failed · 1 skipped</span></div><div class="num"><strong>✓</strong><span>typecheck + both builds</span></div></div>
         <pre>corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
 corepack pnpm build:workbench</pre>
       </div>
-      <div class="card"><h3>Current limits</h3><ul>
+      <div><h3>Current limits</h3><ul class="limits">
         <li>This website simulates the journey; it is not an authenticated workspace.</li>
         <li>Model completion and token counts do not establish answer accuracy. Review the cited evidence.</li>
         <li>Company repository execution needs isolated workers before it can be enabled.</li>
-        <li>File-backed company storage assumes one writer. Hosted scale, backup and recovery need further work.</li>
+        <li>File backed company storage assumes one writer. Hosted scale, backup and recovery need further work.</li>
         <li>Clerk, Stripe, Slack, Jira, Lambda and Foundry require real configuration. This page connects none of them.</li>
         <li>No claim of federal authorization, accreditation or production readiness.</li>
       </ul></div>
     </div>
-    <div class="hero-actions">
-      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI/tree/codex/published-main-preview">Inspect submission source ↗</a>
-      <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/codex/published-main-preview/README.md">Engineering README ↗</a>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI/tree/main">Inspect submission source <span aria-hidden="true">↗</span></a>
+      <a class="btn" href="https://github.com/nsirivolu27/Magentic.AI/blob/main/README.md">Engineering README <span aria-hidden="true">↗</span></a>
       <button class="btn" id="print-presentation">Print / save PDF</button>
     </div>
     <p class="small">Presentation source: docs/site/. Open index.html directly, or run node docs/site/serve.mjs for the local preview. All sample records on this page are synthetic.</p>
   </section>
+
+  <section class="download" id="download">
+    <span class="label">Built for delivery teams. Open by design.</span>
+    <h2>Install it, connect a model,<br><span class="dim">run one workflow.</span></h2>
+    <p class="copy">Download the Windows package and run Install.cmd. No administrator rights. Point it at Ollama on your laptop or a provider key by setting name, start a run, read the evidence beside the draft, sign it as a second account.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/nsirivolu27/Magentic.AI/releases">Get Magentic for Windows <span aria-hidden="true">↓</span></a>
+      <a class="text-link" href="https://github.com/nsirivolu27/Magentic.AI">View on GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+  </section>
 </main>
 
-<footer><div><span>Magentic · Build Challenge submission</span><span>Independent prototype · source and limitations included</span></div></footer>
+<footer>
+  <div class="foot">
+    <a class="wordmark" href="#top">Magentic</a>
+    <nav aria-label="Footer"><a href="#features">What it does</a><a href="#demo">Walkthrough</a><a href="#architecture">Engineering</a><a href="#security">Security</a><a href="https://github.com/nsirivolu27/Magentic.AI">GitHub</a></nav>
+    <span class="small">Virginia Tech × Accenture Federal Services Build Challenge · pitch on November 20, 2026 · an independent prototype with its source and limits included.</span>
+  </div>
+</footer>
 
 <script>
-  // Magenta flow: a few translucent ribbons built from summed sine waves, drifting slowly.
-  // Reduced motion gets one still frame. The canvas is behind a veil so text keeps its contrast.
+  // Scroll progress line and a menu that closes after a choice. Nothing else runs on this page.
   (function () {
-    const canvas = document.getElementById("flow");
-    const ctx = canvas.getContext("2d");
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const ribbons = [
-      { y: 0.16, amp: 0.10, speed: 0.11, width: 0.18, alpha: 0.78, hue: "232, 75, 163" },
-      { y: 0.30, amp: 0.13, speed: 0.08, width: 0.24, alpha: 0.55, hue: "214, 54, 142" },
-      { y: 0.46, amp: 0.09, speed: 0.14, width: 0.16, alpha: 0.70, hue: "240, 107, 181" },
-      { y: 0.62, amp: 0.12, speed: 0.07, width: 0.28, alpha: 0.45, hue: "178, 34, 115" },
-      { y: 0.80, amp: 0.08, speed: 0.10, width: 0.20, alpha: 0.40, hue: "232, 75, 163" },
-    ];
-    let width = 0, height = 0, scale = 1;
-
-    function resize() {
-      scale = Math.min(window.devicePixelRatio || 1, 2);
-      width = window.innerWidth; height = window.innerHeight;
-      canvas.width = Math.floor(width * scale); canvas.height = Math.floor(height * scale);
-      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    const bar = document.getElementById("progress");
+    function update() {
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - doc.clientHeight;
+      bar.style.width = (max > 0 ? (doc.scrollTop / max) * 100 : 0) + "%";
     }
-
-    function edge(x, t, r, phase) {
-      // Three waves of different lengths so the ribbon never repeats visibly.
-      return Math.sin(x * 0.0021 + t * r.speed + phase) * r.amp * height * 0.55
-        + Math.sin(x * 0.0052 - t * r.speed * 0.6 + phase * 2) * r.amp * height * 0.25
-        + Math.sin(x * 0.0009 + t * r.speed * 1.4) * r.amp * height * 0.35;
-    }
-
-    function draw(t) {
-      ctx.clearRect(0, 0, width, height);
-      ribbons.forEach((r, i) => {
-        const base = r.y * height;
-        const thick = r.width * height;
-        const fill = ctx.createLinearGradient(0, base - thick, 0, base + thick);
-        fill.addColorStop(0, "rgba(" + r.hue + ", 0)");
-        fill.addColorStop(0.5, "rgba(" + r.hue + ", " + r.alpha + ")");
-        fill.addColorStop(1, "rgba(" + r.hue + ", 0)");
-        ctx.fillStyle = fill;
-        ctx.beginPath();
-        ctx.moveTo(-10, base + edge(-10, t, r, i) - thick / 2);
-        for (let x = 0; x <= width + 10; x += 12) ctx.lineTo(x, base + edge(x, t, r, i) - thick / 2);
-        for (let x = width + 10; x >= -10; x -= 12) ctx.lineTo(x, base + edge(x + 180, t, r, i + 1) + thick / 2);
-        ctx.closePath();
-        ctx.fill();
-      });
-    }
-
-    let start = performance.now();
-    function frame(now) {
-      if (document.hidden) { requestAnimationFrame(frame); return; }
-      draw((now - start) / 1000);
-      requestAnimationFrame(frame);
-    }
-    window.addEventListener("resize", () => { resize(); if (still) draw(12); });
-    resize();
-    if (still) draw(12); else requestAnimationFrame(frame);
+    window.addEventListener("scroll", update, { passive: true }); window.addEventListener("resize", update); update();
+    const menu = document.querySelector(".menu");
+    menu.querySelectorAll("a").forEach(link => link.addEventListener("click", () => menu.removeAttribute("open")));
+    document.addEventListener("click", event => { if (!menu.contains(event.target)) menu.removeAttribute("open"); });
   })();
 </script>
 </body>

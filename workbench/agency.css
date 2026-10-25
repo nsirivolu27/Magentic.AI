@@ -1239,3 +1239,7 @@ details.agent-test-compose > summary { min-height: 40px; padding-block: 8px; fon
   .chat-page .chat-composer { margin: 10px 12px 0; padding: 10px 12px; }
   .chat-page .chat-message { gap: 8px; }
 }
+
+/* Handling marking: the agency's banner on every page, top and bottom, high contrast, never styled away. */
+.handling-banner { display: flex; justify-content: center; padding: 6px 12px; background: var(--warn); color: #1a1500; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.handling-banner span { max-width: 100%; overflow-wrap: anywhere; }

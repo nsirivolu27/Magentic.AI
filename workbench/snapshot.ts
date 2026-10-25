@@ -33,4 +33,6 @@ export interface WorkbenchSnapshot {
   documents?: DocumentState;
   workspaceId: string; actor: string; roles: Role[]; workflow: Workflow;
   canAuthor: boolean; records: RecordView[]; audit: AuditEvent[]; demo: boolean; mail?: Mailbox; mcp: McpOverview; chat: ChatAvailability;
+  /** The deployment's handling marking (for example CUI), shown on every page and stamped into exports. Absent when none is set. */
+  handling?: string;
 }

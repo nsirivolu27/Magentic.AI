@@ -84,29 +84,3 @@ Preserve the approved interface unless a new request changes it. Keep the
 Magentic adapter/LNKZ relay boundary, backend authorization, body limit,
 frozen-run configuration, reference-data treatment, and human-review gates.
 Never commit credentials, tokens, private runtime records, or generated output.
-
-## ChatGPT / Codex handoff
-
-For continuing code development, authorize this repository in Codex and start
-from `main`. A suitable first instruction is:
-
-> Open nsirivolu27/Magentic.AI on main. Read AGENTS.md,
-> docs/assistant-handoff.md, docs/operations-ui.md, and LANGCHAIN.md.
-> The Accenture-purple operator interface, stage/reference fixes, aligned
-> providers, and security updates are already merged. Preserve the approved
-> layout and existing authorization/review controls. Inspect current repository
-> state before changing anything, and verify the requested changes using the
-> pinned pnpm scripts. Do not deploy without explicit approval.
-
-OpenAI documents its ChatGPT GitHub app as read-only for repository analysis;
-it directs code editing and pushing to Codex:
-https://help.openai.com/en/articles/11145903-connecting-github-to-chatgpt
-
-Using Magentic's MCP tools inside ChatGPT is a **separate** integration task.
-No ChatGPT MCP connection or public endpoint was deployed or verified in this
-work. The hosted relay adapter uses Streamable HTTP at `/mcp` or an agent
-endpoint, with a caller-supplied relay bearer key; see the hosting section of
-`README.md`. The local workspace `/api/mcp` is loopback-bound and uses a
-different workspace token. Do not expose it or substitute credentials between
-these surfaces. Confirm ChatGPT's current remote-endpoint and authentication
-requirements before configuring a connection.

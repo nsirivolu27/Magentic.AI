@@ -30,6 +30,8 @@ Approvals bind to the reviewed content. Editing that content invalidates its app
 - **Implemented:** company roles, workspace access checks, agent tool allowlists, request validation, and content-bound approval gates.
 - **AWS deployment design:** IAM/STS, private VPC networking, WAF, KMS/Secrets Manager, CloudTrail/CloudWatch, threat detection, vulnerability scanning, and tested recovery. These cloud controls are proposed, not yet deployed.
 - **Evidence and rollout checks:** [Security controls and AWS architecture](docs/aws-security.md).
+- **Audit package:** any run exports as Markdown or JSON with every output, signer and hash; `corepack pnpm audit:verify` checks it offline. [Audit package](docs/audit-package.md).
+- **Federal readiness:** product behaviour mapped to NIST SP 800-53 control families, with the file and test behind each line. [Federal readiness](docs/federal-readiness.md).
 
 ## Example company workflow
 

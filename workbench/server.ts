@@ -40,6 +40,7 @@ import type { Scheduler } from "./scheduler.js";
 import { CADENCES, type LearningEngine } from "./learning-schedule.js";
 import { DocumentError, type DocumentsEngine } from "./documents.js";
 import { StudioStorageError } from "./studio/store.js";
+import { buildAuditPackage, renderAuditPackage } from "./audit-package.js";
 
 export interface WorkspaceIdentity {
   workspaceId: string; actor: string;
@@ -66,6 +67,8 @@ export interface WorkbenchOptions {
   slack?: Slack;
   billing?: Billing;
   demo?: boolean;
+  /** Handling marking for every page and export; see handling-marking.ts. */
+  handling?: string;
   email?: EmailPortal;
   chat?: ChatConfiguration;
   chatAccess?: ChatAccess;
@@ -222,6 +225,7 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
           ...(options.learning ? { learning: options.learning.snapshot(workspaceId) } : {}),
           ...(options.documents ? { documents: options.documents.snapshot(workspaceId) } : {}),
           workspaceId, actor, roles, workflow, demo: options.demo ?? false,
+          ...(options.handling ? { handling: options.handling } : {}),
           deployment: inspectDeployment(workspaceId),
           slack: options.slack?.summary(workspaceId, !!identity.canSendSlack && roles.includes("admin"))
             ?? { configured: false, ready: false, canSend: false, receipts: [] },
@@ -253,6 +257,17 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       }
       if (path === "/api/agent-tests" && request.method === "GET" && options.agentTests) {
         send(response, 200, options.agentTests.snapshot(workspaceId)); return;
+      }
+      if (path === "/api/audit-package" && request.method === "GET" && options.pipelines) {
+        // One run's chain of custody as a file. Any member may read it; it only contains what the run page already shows.
+        const query = new URL(request.url!, "http://localhost").searchParams;
+        const run = options.pipelines.snapshot(workspaceId).runs.find(item => item.id === query.get("run"));
+        if (!run) throw new RequestError(404, "Run not found in this workspace.");
+        const pkg = buildAuditPackage(run, { workspaceId, actor, ...(options.handling ? { handling: options.handling } : {}) });
+        const markdown = query.get("format") === "markdown";
+        response.writeHead(200, { "Content-Type": markdown ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="audit-package-${run.id}.${markdown ? "md" : "json"}"` });
+        response.end(markdown ? renderAuditPackage(pkg) : JSON.stringify(pkg, null, 2)); return;
       }
       if ((path === "/api/chat/models" || path === "/api/agent-studio/models") && request.method === "GET") {
         // Personal chat connections do not grant credentials to workflow agents.

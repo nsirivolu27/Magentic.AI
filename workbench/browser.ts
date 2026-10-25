@@ -59,6 +59,7 @@ import { WORKFLOW_TEMPLATES } from "./workflow-templates.js";
 import { hint, setHints } from "./ui.js";
 import type { StudioSnapshot } from "./studio/engine.js";
 import type { WorkbenchSnapshot } from "./snapshot.js";
+import { handlingBannerHtml } from "./handling-marking.js";
 
 type RecordView = WorkbenchSnapshot["records"][number];
 type Snapshot = WorkbenchSnapshot;
@@ -355,6 +356,9 @@ function render(): void {
   }
   node("#operator-context").textContent = `${snapshot.actor} · ${snapshot.roles.map(role => role === "approver" ? "Reviewer" : role === "admin" ? "Administrator" : role === "author" ? "Author" : role).join(", ") || "No assigned role"}`;
   node("#operator-context").title = `${node("#operator-context").textContent} · Workspace: ${snapshot.workspaceId}`;
+  node("#handling-top").innerHTML = snapshot.handling ? handlingBannerHtml(snapshot.handling, "top") : "";
+  node("#handling-bottom").innerHTML = snapshot.handling ? handlingBannerHtml(snapshot.handling, "bottom") : "";
+  document.body.classList.toggle("has-handling", Boolean(snapshot.handling));
   node("#environment-banner").innerHTML = snapshot.demo
     ? (document.body.dataset.agentDemo ? `<strong>${document.body.dataset.agentDemo === "live" ? "Live local model" : "Scripted demo"}</strong><span>Synthetic documents · ${document.body.dataset.agentDemo === "live" ? "Ollama inference" : "No inference or token charges"}</span>` : "<strong>Demo environment</strong><span>Synthetic sample data only. No live agency service is connected.</span>")
     : companyMode ? "<strong>Company workspace</strong><span>Company membership controls access. Repository execution requires an isolated worker.</span>"

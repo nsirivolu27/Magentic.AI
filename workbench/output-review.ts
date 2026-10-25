@@ -151,7 +151,9 @@ export function outputReview(options: ReviewOptions): string {
     approval = `${pill({ tone: "warn", label: "Awaiting approval" })}<p class="fine">${progress.approvals.length} of ${run.requiredApprovals} approvals${progress.approvals.length ? ` · ${progress.approvals.map(escape).join(", ")}` : ""}</p>
       ${eligible ? options.where === "desk" ? `<button class="primary" data-pipeline-action="approve" ${options.busy ? "disabled" : ""}>Approve this handoff</button>` : `<a class="primary small" href="#/desk/${run.id}">Review on the work item</a>` : `<p class="text-2">${reason}</p>`}`;
   } else approval = `${pill({ tone: "neutral", label: "Review gate" })}<p class="fine">${run.requiredApprovals} independent approvals after the handoff is submitted.</p>`;
-  const approvalBlock = `<div class="review-block" aria-label="Approval"><h4>Approval</h4>${approval}</div>`;
+  // The audit package is the same facts as this grid, as a file an auditor can keep and verify offline.
+  const auditLinks = `<p class="fine audit-links">Audit package: <a href="/api/audit-package?run=${encodeURIComponent(run.id)}&amp;format=markdown" download>Markdown</a> · <a href="/api/audit-package?run=${encodeURIComponent(run.id)}&amp;format=json" download>JSON</a></p>`;
+  const approvalBlock = `<div class="review-block" aria-label="Approval"><h4>Approval</h4>${approval}${auditLinks}</div>`;
 
   return `<div class="review-grid">${evidence}${originalBlock}${handoffBlock}${approvalBlock}</div>`;
 }
