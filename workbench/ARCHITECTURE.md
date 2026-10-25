@@ -717,3 +717,24 @@ back when the person returns to a phase. Irreversible decisions (retire a
 release, archive a project, disable an assistant) ask for an inline
 confirmation. A refused command is shown on the page it concerned. Statuses
 never rely on color alone.
+
+## Company reviewer coverage
+
+Workspace → Access offers an on-demand team check to company administrators.
+`GET /api/company-team` derives its workspace from authentication, accepts no
+query parameters, and checks current administrator membership before and after
+reading Clerk's organization membership list. Local mode cannot use this endpoint.
+It uses the existing Clerk backend key and company role mapping; it never changes
+membership or sends invitations.
+
+The response contains member IDs and mapped roles, without contact details.
+Waiting handoffs use each run's saved approval count. Remaining reviewer counts
+exclude its owner, output author and existing signers. These are staffing facts
+at the displayed check time, not approvals or a deployment certificate. Model
+releases keep their separate signing policy.
+
+The provider lookup has a ten-second deadline and a 2,500-member limit. Partial,
+duplicate, foreign or inconsistent pages fail rather than return partial coverage.
+The UI clears old counts on refresh failure and discards responses after a company,
+identity or administrator-access change. Test coverage uses synthetic membership
+responses and signed test sessions; it does not prove a live Clerk connection.

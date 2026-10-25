@@ -8,6 +8,7 @@ import { zenfluenceCommand } from "./zenfluence-api.js";
 import { AutomationError, type AutomationRuntime } from "./automation-runtime.js";
 import { ChatHistoryError } from "./chat-history.js";
 import type { CompanyAccess } from "./company-access.js";
+import { companyTeamReport } from "./company-team.js";
 import { companyPage, companyClientScript } from "./company-page.js";
 import { ChatAccessError, type ChatAccess } from "./chat-access.js";
 import { handleChatMcp } from "./chat-mcp.js";
@@ -40,7 +41,7 @@ import type { Scheduler } from "./scheduler.js";
 import { CADENCES, type LearningEngine } from "./learning-schedule.js";
 import { DocumentError, type DocumentsEngine } from "./documents.js";
 import { StudioStorageError } from "./studio/store.js";
-import { buildAuditPackage, renderAuditPackage } from "./audit-package.js";
+import { buildAuditPackage, buildWorkspaceAudit, renderAuditPackage, renderWorkspaceAudit } from "./audit-package.js";
 
 export interface WorkspaceIdentity {
   workspaceId: string; actor: string;
@@ -180,6 +181,16 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       const { workspaceId, actor } = identity;
       const roles = await options.context.members!.rolesFor(workspaceId, actor);
       if (!roles.length) throw new PermissionError("You are not a member of this workspace.");
+      if (path === "/api/company-team") {
+        if (request.method !== "GET") throw new RequestError(405, "Team coverage is read-only.");
+        if (new URL(request.url!, "http://localhost").search) throw new RequestError(400, "Team coverage uses the signed-in workspace; no query parameters are accepted.");
+        if (!options.companies) throw new RequestError(503, "Team coverage requires company sign-in.");
+        if (!roles.includes("admin") || options.companies.actor(request) !== actor) throw new PermissionError("A signed-in company administrator must check team coverage.");
+        const team = await options.companies.team(workspaceId, actor);
+        await pending;
+        response.setHeader("Cache-Control", "no-store");
+        send(response, 200, companyTeamReport(workspaceId, team, options.pipelines?.snapshot(workspaceId).runs)); return;
+      }
       if (request.method === "GET" && path === "/api/deployment-report") {
         if (new URL(request.url!, "http://localhost").search) throw new RequestError(400, "The deployment report uses the signed-in workspace; no query parameters are accepted.");
         await pending;
@@ -261,13 +272,22 @@ export function createWorkbenchServer(options: WorkbenchOptions) {
       if (path === "/api/audit-package" && request.method === "GET" && options.pipelines) {
         // One run's chain of custody as a file. Any member may read it; it only contains what the run page already shows.
         const query = new URL(request.url!, "http://localhost").searchParams;
+        const markdown = query.get("format") === "markdown";
+        const marking = options.handling ? { handling: options.handling } : {};
+        const deliver = (name: string, text: string) => {
+          response.writeHead(200, { "Content-Type": markdown ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${name}.${markdown ? "md" : "json"}"` });
+          response.end(text);
+        };
+        if (query.get("scope") === "workspace") {
+          // The whole workspace: every run's package plus the definition audit log, under one bundle hash.
+          const bundle = buildWorkspaceAudit(options.pipelines.snapshot(workspaceId).runs, await options.context.audit.list(workspaceId), { workspaceId, actor, ...marking });
+          deliver(`workspace-audit-${workspaceId}`, markdown ? renderWorkspaceAudit(bundle) : JSON.stringify(bundle, null, 2)); return;
+        }
         const run = options.pipelines.snapshot(workspaceId).runs.find(item => item.id === query.get("run"));
         if (!run) throw new RequestError(404, "Run not found in this workspace.");
-        const pkg = buildAuditPackage(run, { workspaceId, actor, ...(options.handling ? { handling: options.handling } : {}) });
-        const markdown = query.get("format") === "markdown";
-        response.writeHead(200, { "Content-Type": markdown ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8",
-          "Content-Disposition": `attachment; filename="audit-package-${run.id}.${markdown ? "md" : "json"}"` });
-        response.end(markdown ? renderAuditPackage(pkg) : JSON.stringify(pkg, null, 2)); return;
+        const pkg = buildAuditPackage(run, { workspaceId, actor, ...marking });
+        deliver(`audit-package-${run.id}`, markdown ? renderAuditPackage(pkg) : JSON.stringify(pkg, null, 2)); return;
       }
       if ((path === "/api/chat/models" || path === "/api/agent-studio/models") && request.method === "GET") {
         // Personal chat connections do not grant credentials to workflow agents.

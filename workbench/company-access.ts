@@ -1,4 +1,5 @@
 import type { IncomingMessage } from "node:http";
+import type { CompanyRoster, CompanyTeamMember } from "./company-team.js";
 import { z } from "zod";
 import { accountActor, type AccountsConfig } from "./accounts.js";
 import type { MemberDirectory, Role } from "../registry/roles.js";
@@ -44,7 +45,7 @@ export function clerkMemberships(secret: string, request: typeof fetch = fetch):
   };
 }
 
-export function createCompanyAccess(config: AccountsConfig, directory: CompanyWorkspaceDirectory, memberships: CompanyMemberships) {
+export function createCompanyAccess(config: AccountsConfig, directory: CompanyWorkspaceDirectory, memberships: CompanyMemberships, roster?: CompanyRoster) {
   if (!config.companies) throw new Error("Company access requires companies settings.");
   const rolesForMembership = (membership: CompanyMembership): readonly Role[] => config.companies!.roles[membership.role] ?? [];
   async function list(actor: string) {
@@ -64,6 +65,15 @@ export function createCompanyAccess(config: AccountsConfig, directory: CompanyWo
   };
   return {
     members,
+    async team(workspaceId: string, actor: string): Promise<CompanyTeamMember[]> {
+      if (!(await members.rolesFor(workspaceId, actor)).includes("admin")) throw new PipelineError(403, "A company administrator must check team coverage.");
+      const entry = directory.list().workspaces.find(item => item.id === workspaceId);
+      if (!entry?.organizationId || !roster) throw new PipelineError(503, "Company team lookup is unavailable.");
+      const people = await roster(entry.organizationId);
+      // Membership may have changed while the provider was responding.
+      if (!(await members.rolesFor(workspaceId, actor)).includes("admin")) throw new PipelineError(403, "Company administrator access changed. Sign in again.");
+      return people.map(person => ({ actor: person.actor, roles: [...(config.companies!.roles[person.role] ?? [])] }));
+    },
     actor(request: IncomingMessage) { return accountActor(request, config); },
     list,
     async listing(actor: string): Promise<WorkspaceListing> {

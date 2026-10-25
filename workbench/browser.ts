@@ -11,6 +11,8 @@ import { accountPage, type AccountSummary } from "./account-view.js";
 import { workspaceSetupPage } from "./workspace-setup.js";
 import { workspaceConsole, workspaceTab } from "./workspace-console.js";
 import { workspaceServiceView } from "./workspace-services.js";
+import { createCompanyTeamView } from "./company-team-controller.js";
+import type { CompanyTeamReport } from "./company-team.js";
 import type { SlackPreview, SlackReceipt } from "./slack.js";
 import type { DeploymentReport } from "./deployment-report.js";
 import type { OntologyCatalog } from "./ontology.js";
@@ -74,6 +76,9 @@ let refreshVersion = 0;
 let snapshot: Snapshot;
 let slackPreview: SlackPreview | undefined;
 let slackScope = "";
+const companyTeam = createCompanyTeamView({
+  request: workspace => api("/api/company-team", undefined, workspace) as Promise<CompanyTeamReport>, render,
+});
 let chatAccess: ChatAccessSummary | undefined;
 let chatAccessError = "";
 let connectionFeedback: ConnectionFeedback | undefined;
@@ -347,6 +352,8 @@ async function refresh(): Promise<void> {
 }
 
 function render(): void {
+  const teamAdmin = companyMode && snapshot.roles.includes("admin");
+  companyTeam.context(teamAdmin ? snapshot.workspaceId : undefined, teamAdmin ? snapshot.actor : undefined);
   operationsRoot?.unmount(); operationsRoot = undefined;
   watchSchedule();
   if (view === "desk" || view === "pipelines") {
@@ -437,7 +444,7 @@ function currentPage(): Page {
       return { title: "Workspace", context: workspaceList?.workspaces.find(item => item.id === snapshot.workspaceId)?.name ?? snapshot.workspaceId,
         actions: snapshot.canAuthor && workspaceTab(route.query) === "work" ? '<button class="primary" data-work-new>+ New work item</button>' : "",
         body: workspaceConsole(snapshot, companyMode, route.query, slackPreview)
-          + workspaceServiceView(snapshot, companyMode, route.query) };
+          + workspaceServiceView(snapshot, companyMode, route.query, companyTeam.state) };
     }
     case "assistants":
       // The chat below an assistant always speaks as that assistant.
@@ -580,6 +587,7 @@ document.addEventListener("click", async (event) => {
   const button = (event.target as Element).closest<HTMLElement>("button");
   if (!button || busy) return;
   if (!snapshot) { if (button.id === "refresh-workspace") void boot(); return; }
+  if (button.hasAttribute("data-company-team-refresh")) { await companyTeam.load(); return; }
   if (button.dataset.slackAction) {
     if (button.dataset.slackAction === "cancel") { slackPreview = undefined; render(); return; }
     const scope = snapshot.workspaceId + ":" + snapshot.actor;

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { PipelineRun } from "./pipeline.js";
+import type { AuditEvent } from "../registry/audit.js";
 
 /**
  * The audit package: one run's chain of custody as a document an auditor can
@@ -148,5 +149,85 @@ export function renderAuditPackage(pkg: AuditPackage): string {
   for (const event of pkg.events) out.push(`- ${event.at} · ${event.actor} · ${event.stage} · ${event.action}: ${line(event.detail)}`);
   out.push("", "## How to verify", "", "Keep the JSON form of this package beside this file. `corepack pnpm audit:verify <file.json>` recomputes every hash above from the text in the file and reports any difference. A hash that matches proves the text was not edited after the package was produced.", "");
   if (pkg.handling) out.push(pkg.handling, "");
+  return out.join("\n");
+}
+
+/**
+ * The workspace audit: every run's package plus the definition audit log
+ * (who authored, edited, submitted, approved or retired an agent), under one
+ * bundle hash. This is what an authorization review asks for: the whole
+ * workspace at a point in time, checkable offline.
+ */
+export const workspaceAuditSchema = z.object({
+  kind: z.literal("magentic-workspace-audit"),
+  version: z.literal(1),
+  generatedAt: z.string().datetime(),
+  generatedBy: z.string(),
+  workspaceId: z.string(),
+  handling: z.string().optional(),
+  runs: z.array(auditPackageSchema),
+  definitionEvents: z.array(z.object({ agentName: z.string(), action: z.string(), actor: z.string(), at: z.string(), definitionHash: z.string(), note: z.string().optional() }).strict()),
+  bundleHash: z.string(),
+}).strict();
+export type WorkspaceAudit = z.infer<typeof workspaceAuditSchema>;
+
+export function buildWorkspaceAudit(runs: readonly PipelineRun[], definitionEvents: readonly AuditEvent[], options: { workspaceId: string; actor: string; now?: Date; handling?: string }): WorkspaceAudit {
+  const now = options.now ?? new Date();
+  const body: Omit<WorkspaceAudit, "bundleHash"> = {
+    kind: "magentic-workspace-audit", version: 1,
+    generatedAt: now.toISOString(), generatedBy: options.actor, workspaceId: options.workspaceId,
+    ...(options.handling ? { handling: options.handling } : {}),
+    runs: [...runs].sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(run => buildAuditPackage(run, { ...options, now })),
+    definitionEvents: definitionEvents.map(event => ({ agentName: event.agentName, action: event.action, actor: event.actor, at: event.at, definitionHash: event.definitionHash, ...(event.note ? { note: event.note } : {}) })),
+  };
+  return { ...body, bundleHash: sha256(canonical(body)) };
+}
+
+export function verifyWorkspaceAudit(raw: unknown): Verification {
+  const parsed = workspaceAuditSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return { ok: false, problems: [`Not a workspace audit: ${issue?.path.join(".") || "root"} ${issue?.message ?? ""}`.trim()], summary: "Unreadable" };
+  }
+  const bundle = parsed.data;
+  const { bundleHash, ...body } = bundle;
+  const problems: string[] = [];
+  if (!hashPattern.test(bundleHash) || sha256(canonical(body)) !== bundleHash) problems.push("The bundle hash does not match its contents. The file was edited after it was produced.");
+  for (const run of bundle.runs) {
+    if (run.workspaceId !== bundle.workspaceId) problems.push(`Run ${run.run.title}: belongs to workspace ${run.workspaceId}, not ${bundle.workspaceId}.`);
+    if ((run.handling ?? "") !== (bundle.handling ?? "")) problems.push(`Run ${run.run.title}: its handling marking differs from the bundle's.`);
+    for (const problem of verifyAuditPackage(run).problems) problems.push(`Run ${run.run.title}: ${problem}`);
+  }
+  bundle.definitionEvents.forEach((event, index) => { if (!hashPattern.test(event.definitionHash)) problems.push(`Definition event ${index + 1} (${event.agentName}): the definition hash is not a SHA-256 digest.`); });
+  const signed = bundle.runs.reduce((count, run) => count + run.stages.filter(stage => stage.approvals.length).length, 0);
+  return { ok: problems.length === 0, problems, summary: `Workspace ${bundle.workspaceId}: ${bundle.runs.length} runs, ${signed} signed stages, ${bundle.definitionEvents.length} definition events.` };
+}
+
+/** Decides by the kind field, so one command checks either file. */
+export function verifyAny(raw: unknown): Verification {
+  const kind = raw && typeof raw === "object" ? (raw as { kind?: unknown }).kind : undefined;
+  if (kind === "magentic-workspace-audit") return verifyWorkspaceAudit(raw);
+  return verifyAuditPackage(raw);
+}
+
+export function renderWorkspaceAudit(bundle: WorkspaceAudit): string {
+  const out: string[] = [];
+  if (bundle.handling) out.push(bundle.handling, "");
+  out.push(`# Workspace audit: ${bundle.workspaceId}`, "");
+  out.push(`Generated ${bundle.generatedAt} by ${bundle.generatedBy}. Bundle hash ${bundle.bundleHash}.`, "");
+  out.push("## Runs", "");
+  if (!bundle.runs.length) out.push("No runs.", "");
+  else {
+    out.push("| Run | Status | Stages signed | Package hash |", "|---|---|---|---|");
+    for (const run of bundle.runs) out.push(`| ${run.run.title.replace(/\|/g, "/")} | ${run.run.status} | ${run.stages.filter(stage => stage.approvals.length).length} of ${run.stages.filter(stage => stage.gate).length} gated | ${run.packageHash.slice(0, 16)} |`);
+    out.push("");
+  }
+  out.push("## Agent definitions", "");
+  if (!bundle.definitionEvents.length) out.push("No definition events.", "");
+  for (const event of bundle.definitionEvents) out.push(`- ${event.at} · ${event.actor} · ${event.action} ${event.agentName} · hash ${event.definitionHash.slice(0, 16)}${event.note ? ` · ${line(event.note)}` : ""}`);
+  if (bundle.definitionEvents.length) out.push("");
+  for (const run of bundle.runs) { out.push("---", ""); out.push(renderAuditPackage({ ...run, handling: undefined }).replace(/^# /, "## ")); }
+  out.push("## How to verify", "", "Keep the JSON form beside this file. `corepack pnpm audit:verify <file.json>` recomputes the bundle hash, every run's package hash and every output hash, and reports any difference.", "");
+  if (bundle.handling) out.push(bundle.handling, "");
   return out.join("\n");
 }

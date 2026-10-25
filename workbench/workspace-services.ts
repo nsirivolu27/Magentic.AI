@@ -1,4 +1,5 @@
 import type { WorkbenchSnapshot } from "./snapshot.js";
+import { companyTeamPanel, type CompanyTeamState } from "./company-team-view.js";
 import { workspaceAgents, workspaceTab } from "./workspace-console.js";
 import { homeView } from "./home-view.js";
 import { escape, status, table, cellLink } from "./ui.js";
@@ -72,21 +73,22 @@ export function workspaceReadiness(snapshot: WorkbenchSnapshot): string {
     <p class="team-footnote">This console does not provision cloud infrastructure.</p></section>`;
 }
 
-export function workspaceAccess(snapshot: WorkbenchSnapshot, company: boolean): string {
+export function workspaceAccess(snapshot: WorkbenchSnapshot, company: boolean, team?: CompanyTeamState): string {
   return `<section class="team-section" aria-labelledby="access-title"><div class="team-section-head"><div><h2 id="access-title">Access &amp; team</h2><p>${company ? "Company membership controls workspace access." : "Local workspace · company sign-in is not active here."}</p></div><a class="secondary" href="${company ? "/companies" : "#/onboarding"}">${company ? "Manage team" : "Workspace setup"}</a></div>
     <div class="team-access-grid"><section><h3>Your identity</h3><p>${escape(snapshot.actor)}</p><small>${escape(snapshot.workspaceId)}</small></section>
       <section><h3>Your roles</h3><p>${snapshot.roles.map(role => role === "admin" ? "Administrator" : role === "approver" ? "Reviewer" : "Author").join(" · ") || "No workspace roles"}</p><small>Server checks apply to every action.</small></section>
       <section><h3>Independent review</h3><p>${snapshot.workflow.requiredApprovals} required for gated handoffs</p><small>Reviewer coverage has not been verified.</small></section></div>
-    <div class="team-section-foot"><a href="#/workflow">Review policy</a><a href="#/account">Account settings</a><a href="#/activity">Audit trail</a></div></section>`;
+    <div class="team-section-foot"><a href="#/workflow">Review policy</a><a href="#/account">Account settings</a><a href="#/activity">Audit trail</a></div></section>
+    ${companyTeamPanel(company, snapshot.roles.includes("admin"), team)}`;
 }
 
-export function workspaceServiceView(snapshot: WorkbenchSnapshot, company: boolean, query: URLSearchParams): string {
+export function workspaceServiceView(snapshot: WorkbenchSnapshot, company: boolean, query: URLSearchParams, team?: CompanyTeamState): string {
   switch (workspaceTab(query)) {
     case "agents": return workspaceAgents(snapshot);
     case "tools": return workspaceTools(query.get("q") ?? "");
     case "workflows": return workspaceWorkflow(snapshot);
     case "readiness": return workspaceReadiness(snapshot);
-    case "access": return workspaceAccess(snapshot, company);
+    case "access": return workspaceAccess(snapshot, company, team);
     default: return homeView(snapshot);
   }
 }

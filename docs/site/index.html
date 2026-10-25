@@ -292,7 +292,7 @@
     <span class="label">Leave the walkthrough</span>
     <h2>Two ways<br><span class="dim">to demonstrate it.</span></h2>
     <div class="split">
-      <div><h3>Your local workspace</h3><p>The development server uses your saved data. Show the assigned documentation agent, the draft and its evidence. Stop at the approval gate if independent reviewers are unavailable.</p><a class="btn" href="http://127.0.0.1:4182/#/workspace" target="_blank" rel="noopener">Open local workspace <span aria-hidden="true">↗</span></a><span class="small">Requires the app running on this computer at port 4182.</span></div>
+      <div><h3>Your local workspace</h3><p>The development server uses your saved data. Show the assigned documentation agent, the draft and its evidence. Stop at the approval gate if independent reviewers are unavailable.</p><pre>corepack pnpm dev:workbench -- --port=4182</pre><span class="small">Then open <code>http://127.0.0.1:4182/#/workspace</code> on that computer. The address only answers where the app is running.</span></div>
       <div><h3>Reproducible product demo</h3><p>The agent demo uses a synthetic SOP, a scripted model and demo reviewer identities. Its workflow engine, tool reads and approval checks are real. It does not measure model quality.</p><pre>corepack pnpm build:workbench
 corepack pnpm demo:agents</pre><span class="small">Open the printed URL. No provider key needed for the scripted demo.</span></div>
     </div>

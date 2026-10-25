@@ -144,6 +144,15 @@ export function activityPage(snapshot: WorkbenchSnapshot, projectFilter?: string
       rows.push({ at: event.at, actor: event.actor, summary: text.summary, object: text.object, ...(text.from ? { from: text.from } : {}), ...(text.to ? { to: text.to } : {}), href: text.href, detail: event.detail, technical: `${event.entity} ${event.entityId}`, workspace: snapshot.workspaceId });
     }
   }
+  // Workflow runs: every event a run recorded, so the audit trail is the whole workspace and not only definitions.
+  const runLabels: Record<string, string> = { started: "started run", handoff: "recorded handoff on", stage_completed: "completed stage of", review_requested: "requested review of", approved: "approved stage of",
+    run_completed: "completed run", paused: "paused run", resumed: "resumed run", blocked: "blocked run", retried: "reopened run", cancelled: "cancelled run", materials: "changed references of" };
+  if (!projectFilter) for (const run of snapshot.pipelines?.runs ?? []) {
+    for (const event of run.events) {
+      rows.push({ at: event.at, actor: event.actor, summary: runLabels[event.action] ?? event.action.replace(/_/g, " "), object: run.title, href: `#/desk/${run.id}`,
+        detail: event.action === "approved" || event.action === "started" ? "" : event.detail.slice(0, 160), technical: `run ${run.id} · stage ${event.stage} · ${event.action}`, workspace: run.workspaceId });
+    }
+  }
   // A project filter shows Model Studio events only; registry events belong to agents.
   if (projectFilter) rows.splice(0, rows.length, ...rows.filter((row) => !row.technical.startsWith("definition")));
   rows.sort((a, b) => b.at.localeCompare(a.at));
@@ -157,6 +166,8 @@ export function activityPage(snapshot: WorkbenchSnapshot, projectFilter?: string
       escape(row.workspace),
       row.href ? `<a href="${escape(row.href)}">Open</a>` : "",
     ] })), { label: "Activity", compact: true }) : empty("No activity recorded yet.");
-  return { title: project ? `Activity · ${project.name}` : "Activity", ...(project ? { crumbs: [["Activity", "#/activity"]] as [string, string][] } : {}), context: "Every change, who made it and what state it produced. Newest first.", body };
+  // The whole workspace as a file an auditor can keep: every run's package plus the definition log, one bundle hash.
+  const exportActions = projectFilter ? undefined : `<span class="audit-links">Workspace audit: <a class="secondary small" href="/api/audit-package?scope=workspace&amp;format=markdown" download>Markdown</a> <a class="secondary small" href="/api/audit-package?scope=workspace&amp;format=json" download>JSON</a></span>`;
+  return { title: project ? `Activity · ${project.name}` : "Activity", ...(project ? { crumbs: [["Activity", "#/activity"]] as [string, string][] } : {}), context: "Every change, who made it and what state it produced. Newest first.", ...(exportActions ? { actions: exportActions } : {}), body };
 }
 

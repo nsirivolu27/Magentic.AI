@@ -1,5 +1,5 @@
 import { readFileSync, statSync } from "node:fs";
-import { verifyAuditPackage } from "./audit-package.js";
+import { verifyAny } from "./audit-package.js";
 
 /**
  * audit:verify <package.json>
@@ -13,9 +13,9 @@ const path = process.argv[2];
 try {
   if (!path) throw new Error("Usage: audit:verify <package.json>");
   if (statSync(path).size > 16_000_000) throw new Error("The file is larger than 16 MB, which no audit package is.");
-  const result = verifyAuditPackage(JSON.parse(readFileSync(path, "utf8")));
+  const result = verifyAny(JSON.parse(readFileSync(path, "utf8")));
   console.log(result.summary);
-  if (result.ok) console.log("Verified: every hash matches its text and the package hash matches its contents.");
+  if (result.ok) console.log("Verified: every hash matches its text and the file hash matches its contents.");
   else { for (const problem of result.problems) console.error(`Problem: ${problem}`); process.exitCode = 1; }
 } catch (error) {
   console.error(`Verification stopped. ${error instanceof Error ? error.message.slice(0, 300) : "The file could not be read."}`);

@@ -33,6 +33,17 @@ author. What it does not prove: that the named people were who they said
 they were. Identity comes from the workspace's sign in and membership
 records, which the company server keeps.
 
+## The whole workspace
+
+The Activity page offers "Workspace audit: Markdown · JSON". That bundle holds
+every run's package plus the definition audit log (who authored, edited,
+submitted, approved or retired an agent) under one bundle hash, and comes from
+`GET /api/audit-package?scope=workspace&format=markdown|json`. The same
+`audit:verify` command checks it: the bundle hash, every run's package hash
+and every output hash inside. The Activity page itself lists run events
+(started, handoff, review requested, approved) beside definition events, each
+linked to its run.
+
 ## Format
 
 `workbench/audit-package.ts` holds the schema. The package hash is a SHA-256

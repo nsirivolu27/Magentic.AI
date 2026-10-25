@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { IncomingMessage } from "node:http";
 import { loadAccounts } from "./accounts.js";
 import { clerkMemberships, createCompanyAccess } from "./company-access.js";
+import { clerkCompanyRoster } from "./company-team.js";
 import { fileWorkspaceStore, workspacesDirectory } from "./storage.js";
 import { workspaceDirectory } from "./workspace-directory.js";
 import { filePipelines } from "./pipeline.js";
@@ -67,7 +68,7 @@ export async function startCompanyWorkbench() {
   let ticker: ReturnType<typeof setInterval> | undefined;
   try {
     const directory = workspaceDirectory(dataDir, store, "company-system");
-    const companies = createCompanyAccess(accounts, directory, memberships);
+    const companies = createCompanyAccess(accounts, directory, memberships, clerkCompanyRoster(setting("MAGENTIC_CLERK_SECRET_KEY") ?? ""));
     const workflow = resolveWorkflow();
     // A tenant may upload text, never select a file from the shared server.
     const studio = createModelStudio({ storage: "file", persistence: fileStudioStore(join(dataDir, "model-studio")),

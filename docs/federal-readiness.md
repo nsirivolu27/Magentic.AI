@@ -12,7 +12,7 @@ Families follow NIST SP 800-53 Rev. 5 naming.
 |---|---|---|
 | AC, Access control | Every API call is checked for current membership of the workspace it names. Roles (admin, author, approver) gate every command on the server, not only in the interface. | `workbench/server.ts`, `registry/roles.ts`, `tests/ontology.test.ts` (membership paths) |
 | AC-5, Separation of duties | The run owner and the output author cannot approve their own stage. A gated stage needs the configured number of independent approvals. | `workbench/pipeline.ts`, `tests/workspace-focus.test.ts` |
-| AU, Audit and accountability | Every run keeps an ordered event log with actor, time, stage and action. Approvals record the hash they signed. The audit package exports the whole record with a package hash, and `audit:verify` checks it offline. | `workbench/audit-package.ts`, `docs/audit-package.md`, `tests/audit-package.test.ts` |
+| AU, Audit and accountability | Every run keeps an ordered event log with actor, time, stage and action. Approvals record the hash they signed. The audit package exports the whole record with a package hash, the workspace audit bundles every run and the definition log under one bundle hash, and `audit:verify` checks either offline. | `workbench/audit-package.ts`, `docs/audit-package.md`, `tests/audit-package.test.ts` |
 | AU-9, Protection of audit information | The definition audit log is append only; nothing updates or deletes an entry. A changed output invalidates the signatures on it. | `registry/audit.ts`, `workbench/pipeline.ts` |
 | CM, Configuration management | Every request body, stored document and configuration file is parsed with a strict schema; unknown fields are refused. A workspace folder carries a storage version and a newer version is refused with a message instead of being rewritten. | `workbench/workspace-directory.ts`, `tests/first-run.test.ts` |
 | CM-7, Least functionality | The local application listens on loopback only. Agents get an explicit tool allowlist, call budget and timeout, enforced by the server. | `workbench/bot-worker.ts`, `workbench/agent-configurables.ts`, `tests/agent-assignment-gate.test.ts` |
@@ -47,6 +47,5 @@ See `docs/design-tokens.md` and `docs/ui-components.md`.
 - No PIV or CAC sign in; the company server uses the configured identity
   provider.
 - The package is not code signed yet.
-- Audit log export is per run; a workspace wide export is not built.
 - FIPS validated cryptography depends on the Node build in use; the
   application uses SHA-256 through Node's crypto module.
