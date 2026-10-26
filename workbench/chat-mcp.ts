@@ -20,18 +20,19 @@ export function createChatMcpServer(access: ChatAccess, workspace: string, actor
     description: "Send a text conversation to a connected model. This transmits the supplied conversation to its provider and can incur API charges. Auto may change providers only when routing is explicitly auto and the member has paid access. No workspace tools, files, web search, or approved profiles are used.",
     inputSchema: chatRequestSchema,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  }, async input => {
+  }, async (input, extra) => {
     let release: (() => void) | undefined;
     const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, extra.signal]);
     const timeout = setTimeout(() => controller.abort(), 120_000);
     try {
       if (!(await member())) throw new ChatAccessError(403, "Workspace access is no longer available.");
       if (input.profile) throw new ChatAccessError(400, "The chat MCP tool does not accept assistant profiles.");
       release = access.acquire(workspace, actor);
       const prepared = await access.prepare(workspace, actor, input);
-      const model = await untilAborted(prepared.config.loadModel(prepared.model, prepared.maxOutputTokens === undefined ? undefined : { maxOutputTokens: prepared.maxOutputTokens }), controller.signal);
+      const model = await untilAborted(prepared.config.loadModel(prepared.model, prepared.maxOutputTokens === undefined ? undefined : { maxOutputTokens: prepared.maxOutputTokens }), signal);
       let answer: ChatEvent | undefined;
-      await runBaseChat(contextMessages(input.messages, input.history ?? "recent"), model, controller.signal, event => { if (event.type === "answer") answer = event; });
+      await runBaseChat(contextMessages(input.messages, input.history ?? "recent"), model, signal, event => { if (event.type === "answer") answer = event; });
       return result({ model: prepared.model, ...(prepared.route ? { route: prepared.route } : {}), answer });
     } catch (error) {
       return { ...result({ error: error instanceof ChatAccessError ? error.message : "The model request failed or timed out. Check the connection and retry." }), isError: true };

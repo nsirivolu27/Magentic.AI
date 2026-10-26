@@ -56,6 +56,7 @@ test("the next action follows the saved state: model, test, review, assign, run"
   assert.equal(nextAction(snapshot, agent, models, tests(run({ status: "running" }))).label, "Wait for the test");
   assert.equal(nextAction(snapshot, agent, models, tests(run({ status: "failed", summary: "", error: "Required source read missing." }))).label, "Fix and run test again");
   assert.equal(nextAction(snapshot, agent, models, tests(run())).label, "Review result");
+  assert.equal(nextAction(snapshot, agent, models, tests(run({ review: { verdict: "fail", note: "Missing source context", by: "reviewer", at: "2026-10-12T10:05:00.000Z" } }))).label, "Improve and test again");
   const reviewed = run({ review: { verdict: "pass", note: "", by: "reviewer", at: "2026-10-12T10:05:00.000Z" } });
   assert.equal(nextAction(snapshot, agent, models, tests(reviewed)).label, "Assign to workflow");
   assert.equal(nextAction(fixture(["admin"], true).snapshot, agent, models, tests(reviewed)).label, "Run in a workflow");
@@ -77,6 +78,8 @@ test("the test page shows evidence, usage and elapsed time from the run, keeps e
   assert.match(html, /&lt;b&gt;bold&lt;\/b&gt;/);
   assert.doesNotMatch(html, /<b>bold<\/b>/);
   assert.match(html, /id="agent-test-case"/);
+  assert.match(html, /<summary>Evidence — tools and execution<\/summary>/);
+  assert.ok(html.indexOf("Quality review") < html.indexOf("<dt>Tokens</dt>"));
   assert.match(html, /data-form="agent-test-run"/);
   assert.doesNotMatch(html, /accurate|confidence|score|cost/i);
 });
@@ -130,11 +133,15 @@ test("the workflow page explains input, output, tools, review and next step for 
 test("the setup page separates instructions, knowledge, tools, limits and review, names automatic routing as unavailable, and seeds the template example", () => {
   const { snapshot } = fixture();
   const html = agentStudioPage(snapshot, agent.id, null, models, emptyStudioUi()).body;
-  for (const heading of ["<legend>Instructions</legend>", "<legend>Knowledge</legend>", "<legend>Tools</legend>", "Execution limits", "<legend>Review</legend>"]) assert.ok(html.includes(heading), heading);
+  for (const heading of ["<legend>Purpose</legend>", "<legend>Knowledge</legend>", "<legend>Tools</legend>", "Execution limits", "<legend>Review</legend>"]) assert.ok(html.includes(heading), heading);
   assert.match(html, /Automatic model routing is not available on this execution path/);
   assert.match(html, /<code>\/repo<\/code>/);
   assert.match(html, /2 independent approvals/);
-  assert.match(html, /aria-current="page">Knowledge &amp; tools</);
+  assert.match(html, /aria-current="page">Purpose &amp; setup</);
+  assert.doesNotMatch(html, /id="agent-studio-start"|id="agent-studio-assign"/);
+  const assignment = agentStudioPage(snapshot, agent.id, null, models, emptyStudioUi(), "workflow").body;
+  assert.match(assignment, /id="agent-studio-start"/);
+  assert.match(assignment, /id="agent-studio-assign"/);
   const fresh = agentStudioPage(snapshot, "new", "docs", models, emptyStudioUi()).body;
   assert.match(fresh, /name="examplePrompt"/);
   assert.match(fresh, /name="exampleSource" value="SOP\.md"/);

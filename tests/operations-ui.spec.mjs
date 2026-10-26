@@ -16,10 +16,9 @@ test("queue search, status filters, and refresh use actual snapshot data", async
   await page.goto("/#/workspace");
   await expect(page.getByRole("heading", { name: "Work queue", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Helpdesk assistant", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "+ New work item", exact: true })).toHaveCSS("background-color", "rgb(161, 0, 255)");
-  await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgb(21, 16, 25)");
-  await expect(page.locator(".brand .mark")).toHaveCSS("background-color", "rgb(161, 0, 255)");
-  await expect(page.locator(".topbar")).toHaveCSS("box-shadow", /rgb\(161, 0, 255\)/);
+  await expect(page.getByRole("button", { name: "+ New work item", exact: true })).toHaveCSS("background-color", "rgb(100, 87, 224)");
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(page.locator(".console-diamond")).toHaveCSS("color", "rgb(224, 122, 196)");
   await expect(page.locator("#environment-banner")).toContainText("Synthetic sample data");
   await page.getByRole("searchbox", { name: "Search work queue" }).fill("not an actual item");
   await expect(page.getByRole("heading", { name: "No work matches these filters" })).toBeVisible();
@@ -42,6 +41,7 @@ test("new work, queue deep links, and legacy task URLs open the correct run", as
   await page.locator('#desk-start textarea[name=brief]').fill("Review synthetic intake guidance; do not connect a live service.");
   await page.getByRole("button", { name: "Start work item", exact: true }).click();
   await expect(page.locator(".work-title h2")).toHaveText("Synthetic federal inquiry");
+  await page.getByRole("button", { name: "Open services", exact: true }).click();
   await page.locator('a.nav[data-route=workspace]').click();
   const item = page.getByRole("link", { name: "Synthetic federal inquiry", exact: true });
   const href = await item.getAttribute("href");
@@ -54,6 +54,7 @@ test("new work, queue deep links, and legacy task URLs open the correct run", as
   await page.goto("/#/desk/not-a-workspace-record");
   await expect(page.getByRole("heading", { name: "Work item not found" })).toBeVisible();
   await expect(page.locator(".work-title")).toHaveCount(0);
+  await page.getByRole("button", { name: "Open services", exact: true }).click();
   await page.locator('a.nav[data-route=workspace]').click();
   await page.getByRole("button", { name: "+ New work item", exact: true }).click();
   await expect(page.locator("#desk-start")).toBeVisible();
@@ -70,12 +71,13 @@ test("operator shell keeps feature navigation and passes automated accessibility
   const audit = await accessibility(page);
   expect(audit.violations).toEqual([]);
   for (const route of ["assistants", "workflows", "documents", "studio", "evaluations", "approvals", "activity", "workflow"]) {
+    await page.getByRole("button", { name: "Open services", exact: true }).click();
     await page.locator(`a.nav[data-route=${route}]`).click();
     await expect(page).toHaveURL(new RegExp(`#/${route}$`));
     await expect(page.locator("#title")).not.toBeEmpty();
     await expect(page.locator("#title")).toBeFocused();
   }
-  await page.locator(".advanced-nav summary").click();
+  await page.getByRole("button", { name: "Open services", exact: true }).click();
   await page.locator('a.nav[data-route=mcp]').click();
   await expect(page.locator("#title")).toHaveText("MCP inspector");
   await expect(page.locator("#other-panel")).toBeVisible();
@@ -85,21 +87,19 @@ test("mobile navigation contains keyboard focus and the queue does not overflow 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/#/workspace");
   await expect(page.locator(".operations-queue")).toBeVisible();
-  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Workspace navigation" })).toBeVisible();
-  await expect(page.locator("#nav-close")).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(page.locator(".brand")).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(page.getByRole("combobox", { name: "Acting as" })).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.locator(".brand")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.locator("#nav-close")).toBeFocused();
+  await page.getByRole("button", { name: "Open services", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Services", exact: true })).toBeVisible();
+  await expect(page.locator("#service-search")).toBeFocused();
+  await page.getByRole("searchbox", { name: "Find a service" }).fill("knowledge");
+  await expect(page.locator('a.nav[data-route=documents]')).toBeVisible();
+  await expect(page.locator('a.nav[data-route=workflows]')).toBeHidden();
+  await page.getByRole("searchbox", { name: "Find a service" }).fill("no-such-service");
+  await expect(page.locator("#service-empty")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("#nav-toggle")).toBeFocused();
   await expect(page.locator("main")).not.toHaveAttribute("inert", "");
-  await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await page.getByRole("button", { name: "Open services", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Find a service" }).fill("");
   await page.locator('a.nav[data-route=workflows]').click();
   await expect(page.locator("#nav-toggle")).toHaveAttribute("aria-expanded", "false");
   await page.goto("/#/workspace");
@@ -114,7 +114,7 @@ test("local workspace preserves its identity and discloses remote model data han
   await expect(page.locator(".operations-queue")).toBeVisible();
   await expect(page.locator(".workspace-icon")).toBeVisible();
   await expect(page.locator(".workspace small")).toContainText("LOCAL");
-  await expect(page.locator("#environment-banner")).toContainText("Model inputs may leave");
+  await expect(page.locator("#environment-banner")).toContainText("Remote models receive sent content");
   await expect(page.locator(".identity")).toBeHidden();
   await page.getByRole("button", { name: "Refresh workspace", exact: true }).click();
   await expect(page.locator(".workspace-icon")).toBeVisible();
@@ -145,6 +145,7 @@ test("workflow settings preserve unchecked drafts, save one stage, and freeze ex
   expect(started.ok()).toBe(true);
   const startedRun = (await started.json()).runs.find(run => run.requestId === requestId);
   expect(startedRun).toBeTruthy();
+  await page.locator(".console-account > summary").click();
   await page.getByRole("combobox", { name: "Acting as" }).selectOption("taylor.admin");
   await expect(page.locator("#operator-context")).toContainText("Administrator");
   await page.goto(`/#/workflows/${stage.id}`);
@@ -171,6 +172,7 @@ test("workflow settings preserve unchecked drafts, save one stage, and freeze ex
   expect(after.pipelines.config.stages.filter(item => item.id !== stage.id)).toEqual(config.stages.filter(item => item.id !== stage.id));
   expect(after.pipelines.runs.find(run => run.id === startedRun.id).config).toEqual(startedRun.config);
   await page.reload();
+  await page.locator(".console-account > summary").click();
   await page.getByRole("combobox", { name: "Acting as" }).selectOption("taylor.admin");
   await expect(form.getByRole("checkbox")).not.toBeChecked();
   await expect(form.getByRole("textbox", { name: "Requested context", exact: true })).toHaveValue("Frozen reference excerpts");
