@@ -55,9 +55,6 @@ test("Ollama transport preserves streamed response text and errors", { timeout: 
 });
 
 test("stopping an Ollama request closes its connection before the first token", { timeout: 15000 }, async t => {
-  const specifier = "@langchain/ollama";
-  try { await import(specifier); }
-  catch { t.skip("Optional Ollama adapter is not installed"); return; }
   let seen!: (body: Record<string, unknown>) => void;
   const requestSeen = new Promise<Record<string, unknown>>(resolve => { seen = resolve; });
   let closed!: () => void;

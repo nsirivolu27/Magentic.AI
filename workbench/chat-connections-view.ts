@@ -1,4 +1,5 @@
 import type { ChatAccessSummary } from "./chat-access.js";
+import type { ChatModelOption } from "./chat.js";
 import type { Page } from "./studio-view.js";
 import { status } from "./ui.js";
 
@@ -9,13 +10,19 @@ export interface ConnectionFeedback {
   message?: string;
   models: string[];
 }
-export function chatConnectionsPage(access?: ChatAccessSummary, error?: string, feedback?: ConnectionFeedback): Page {
+export function chatConnectionsPage(access?: ChatAccessSummary, error?: string, feedback?: ConnectionFeedback, server?: { models: ChatModelOption[]; loading: boolean; error?: string }): Page {
   if (!access) return { title: "Connections", body: `<section class="panel account-panel"><p role="status">${escape(error ?? "Loading your connections…")}</p><button class="secondary" data-chat-access-refresh>Retry</button></section>` };
   const providers = [{ id: "openai", name: "OpenAI", url: "https://platform.openai.com/api-keys" },
     { id: "anthropic", name: "Claude", url: "https://console.anthropic.com/settings/keys" },
     { id: "google", name: "Gemini", url: "https://aistudio.google.com/apikey" }];
   return { title: "Connections", context: "Models and access.", actions: '<a class="primary" href="#/base-chat">Back to chat</a>', body: `
     ${error ? `<p role="alert">${escape(error)}</p>` : ""}
+    <section class="panel account-panel" aria-labelledby="server-models-title"><div class="provider-head"><h2 id="server-models-title">Server models</h2><button class="secondary" data-refresh-models ${server?.loading ? "disabled" : ""}>${server?.loading ? "Checking models…" : "Refresh models"}</button></div>
+      <p>Ollama and administrator-configured APIs. Personal API accounts below remain private to your workspace account; workflow agents use server configuration, not your personal keys.</p>
+      ${server?.error ? `<p role="status">${escape(server.error)}</p>` : ""}
+      ${server?.loading ? '<p role="status">Checking model service availability…</p>' : server?.models.length ? `<ul class="agent-readiness">${server.models.filter(model => !model.id.startsWith("personal/")).map(model => `<li><div><strong>${escape(model.label)}</strong> · ${escape(model.provider)} ${status(model.available ? "ok" : "warn", model.available ? "Configured" : "Unavailable")}<small>${escape(model.detail)}</small></div></li>`).join("")}</ul>` : '<p class="text-2">No server models have been listed yet. Refresh to check the connection.</p>'}
+      <details><summary>Ollama and API setup</summary><p>On the application server, set <code>MAGENTIC_LLM_PROVIDER=ollama</code>, <code>MAGENTIC_LLM_BASE_URL</code> and <code>MAGENTIC_LLM_CHAT_MODEL</code>, then restart. Install the chosen model in Ollama separately; this app never downloads one automatically.</p><p>Ollama must be reachable from the application server. A loopback address points to that server, not to your laptop.</p><p>API-only setups do not need Ollama. Store provider keys as server secrets and set the corresponding <code>MAGENTIC_OPENAI_MODELS</code>, <code>MAGENTIC_ANTHROPIC_MODELS</code> or <code>MAGENTIC_GOOGLE_MODELS</code> to model IDs your account supports. Azure and compatible gateways use their existing server settings.</p><p>Configured access is not an inference health check. A provider may still reject a model request.</p></details>
+    </section>
     <section class="panel account-panel connection-accounts"><div class="provider-head"><h2>Your accounts</h2><button class="secondary" data-chat-access-refresh>Refresh connections</button></div><p>Connect a provider, then choose a model in Chat. Provider charges apply.</p>
       <div class="provider-cards">${providers.map(provider => {
         const connected = access.connections.find(item => item.provider === provider.id);

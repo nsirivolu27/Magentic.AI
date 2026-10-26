@@ -66,7 +66,7 @@ test("studio offers an actionable task form and keeps historical runs tied to sa
   snapshot.pipelines = engine.execute("one", "operator", ["author"], { action: "start", requestId: randomUUID(), expectedVersion: pipelines.version, configurableId: agent.id, ...DEMO_TASK }, 2);
   const ui = emptyStudioUi();
   ui.drafts[`agent-trial:${agent.id}`] = { title: '<script>unsafe</script>', brief: "Check a known source." };
-  const html = agentStudioPage(snapshot, agent.id, null, models, ui).body;
+  const html = agentStudioPage(snapshot, agent.id, null, models, ui, "workflow").body;
   assert.match(html, /id="agent-studio-start"/);
   assert.match(html, /Recent runs/);
   assert.match(html, /href="#\/desk\//);
@@ -74,7 +74,7 @@ test("studio offers an actionable task form and keeps historical runs tied to sa
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /single local owner cannot approve/);
   const withoutBots = { ...snapshot }; delete withoutBots.bots;
-  assert.match(agentStudioPage(withoutBots, agent.id, null, models, ui).body, /disabled>Start workflow/);
+  assert.match(agentStudioPage(withoutBots, agent.id, null, models, ui, "workflow").body, /disabled>Start workflow/);
 });
 
 test("scripted demo reads through MCP, records checks and completes only after two independent approvals", { timeout: 90_000 }, async () => {

@@ -11,8 +11,8 @@ import { ago, duration, empty, escape, more, status, when } from "./ui.js";
 /**
  * Agent Studio: one agent at a time, in the order a person configures it.
  *
- * Overview is the library. An agent then has three pages: Knowledge and
- * tools (what it may do), Test (what it did on a saved prompt), Workflow
+ * Overview is the library. An agent then has three pages: Purpose and setup
+ * (what it may do), Test (what it did on a saved prompt), Assignment
  * (where it works and who reviews it). The header keeps the agent, its
  * saved version and the next action in view on every page, and the
  * technical detail sits behind disclosures so an analyst can finish the
@@ -21,7 +21,7 @@ import { ago, duration, empty, escape, more, status, when } from "./ui.js";
 
 const toolLabels: Record<typeof BOT_REPOSITORY_TOOLS[number], string> = { list_project_files: "Find project files", read_project_file: "Read file contents", project_diff: "Inspect changes" };
 export type StudioSection = "setup" | "test" | "workflow";
-const SECTIONS: { id: StudioSection; label: string; path: string }[] = [{ id: "setup", label: "Knowledge & tools", path: "" }, { id: "test", label: "Test", path: "/test" }, { id: "workflow", label: "Workflow", path: "/workflow" }];
+const SECTIONS: { id: StudioSection; label: string; path: string }[] = [{ id: "setup", label: "Purpose & setup", path: "" }, { id: "test", label: "Test", path: "/test" }, { id: "workflow", label: "Assignment", path: "/workflow" }];
 
 /** The runs for one agent, newest first, with whether each still matches the saved version. */
 export function agentTestHistory(agent: AgentConfigurable, tests: AgentTestsSnapshot | undefined) {
@@ -42,6 +42,7 @@ export function nextAction(snapshot: WorkbenchSnapshot, agent: AgentConfigurable
   if (latest.stale) return { label: "Run test again", href: `#/agent-studio/${id}/test` };
   if (latest.run.status !== "succeeded") return { label: "Fix and run test again", href: `#/agent-studio/${id}/test` };
   if (!latest.run.review) return { label: "Review result", href: `#/agent-studio/${id}/test` };
+  if (latest.run.review.verdict !== "pass") return { label: "Improve and test again", href: `#/agent-studio/${id}` };
   const assigned = snapshot.pipelines ? configurableStages(snapshot.pipelines.config, agent) : [];
   if (!assigned.length) return { label: "Assign to workflow", href: `#/agent-studio/${id}/workflow` };
   return { label: "Run in a workflow", href: `#/agent-studio/${id}/workflow` };
@@ -76,7 +77,7 @@ export function agentStudioPage(snapshot: WorkbenchSnapshot, id: string | undefi
   const head = selected ? header(snapshot, selected, models, tests, section) : "";
   const body = !selected || section === "setup" ? setup(snapshot, pipeline, selected, starter, models, ui, tests, admin)
     : section === "test" ? testPage(snapshot, pipeline, selected, ui, tests)
-    : workflowPage(snapshot, pipeline, selected, models, admin, tests);
+    : workflowPage(snapshot, pipeline, selected, models, admin, tests, ui);
   return { ...page, title, crumbs, actions: '<button class="secondary" id="refresh-models">Refresh models</button>', body: `<div class="agent-studio">${head}${body}</div>` };
 }
 
@@ -124,7 +125,7 @@ function setup(snapshot: WorkbenchSnapshot, pipeline: NonNullable<WorkbenchSnaps
   const project = snapshot.bots?.project;
   const example = selected ? "" : `<input type="hidden" name="exampleTitle" value="${escape(starter.example.title)}"><input type="hidden" name="examplePrompt" value="${escape(starter.example.prompt)}"><input type="hidden" name="exampleExpected" value="${escape(starter.example.expected)}"><input type="hidden" name="exampleSource" value="${escape(starter.example.source)}">`;
   const editor = `<form id="agent-studio-editor" data-agent="${selected?.id ?? ""}" data-draft="${draftKey}" data-version="${escape(version)}" class="agent-studio-editor"><fieldset ${canEdit}>
-    <legend>Instructions</legend><p class="text-2">How the agent should work. ${selected ? "" : `Prefilled from the ${escape(starter.name)} job; edit freely.`}</p>
+    <legend>Purpose</legend><p class="text-2">How the agent should work. ${selected ? "" : `Prefilled from the ${escape(starter.name)} job; edit freely.`}</p>
     <label>Name<input name="name" required maxlength="80" value="${value("name", selected?.name ?? starter.name)}"></label>
     <label>Outcome<input name="purpose" required maxlength="300" value="${value("purpose", selected?.purpose ?? starter.purpose)}"></label>
     <label>Instructions<textarea name="instructions" required maxlength="4000" rows="7">${value("instructions", selected?.instructions ?? starter.instructions)}</textarea></label>${example}
@@ -135,9 +136,10 @@ function setup(snapshot: WorkbenchSnapshot, pipeline: NonNullable<WorkbenchSnaps
     <small>Models use this server's configured providers; personal chat connections are not used here. <a href="#/chat">Check model availability</a>. Automatic model routing is not available on this execution path: the saved model is the one that runs.</small>
     ${more("Execution limits", `<div class="form-grid"><label>Model calls<input name="maxSteps" type="number" min="1" max="12" required value="${value("maxSteps", String(selected?.bot.maxSteps ?? 4))}"></label><label>Seconds<input name="timeoutSeconds" type="number" min="15" max="900" required value="${value("timeoutSeconds", String(selected?.bot.timeoutSeconds ?? 120))}"></label><label>Tool calls<input name="maxToolCalls" type="number" min="0" max="11" required value="${value("maxToolCalls", String(selected?.bot.maxToolCalls ?? 3))}"></label></div><small>How much work one run may do. The run stops at the first limit it reaches.</small>`)}
     <legend>Review</legend><label class="checkbox"><input type="checkbox" name="requireSourceRead" ${requireRead ? "checked" : ""}>Require a source read before any answer</label><small>Blocks an answer until a file read returned content. A read proves access, not accuracy; a person still reviews the answer.</small>
-    <p class="text-2">Workflow handoffs from this agent wait for ${pipeline.runs[0]?.requiredApprovals ?? snapshot.workflow.requiredApprovals} independent approvals on gated stages. See the Workflow page.</p>
+    <p class="text-2">Workflow handoffs from this agent wait for ${pipeline.runs[0]?.requiredApprovals ?? snapshot.workflow.requiredApprovals} independent approvals on gated stages. See the Assignment page.</p>
     <div class="agent-studio-actions"><button class="primary">Save agent</button><a href="#/agent-studio">Back to agents</a>${selected ? `<a href="#/agent-studio/${escape(selected.id)}/test">Run test →</a>` : ""}</div></fieldset></form>`;
-  const aside = selected ? sideActions(snapshot, pipeline, selected, models, ui, tests, admin) : `<aside class="agent-studio-review" aria-label="Next steps"><h2>After saving</h2><p>The example task becomes this agent's first saved test. Run it on the Test page, review the result, then assign the agent to a stage.</p>${starter.needs ? `<p class="callout warn">${escape(starter.needs)}</p>` : ""}<details><summary>Execution and approvals</summary><p>This is a supervised configuration, not an approved model release. Model training and release signatures remain in <a href="#/studio">Model Studio</a>.</p></details></aside>`;
+  const next = selected ? nextAction(snapshot, selected, models, tests) : undefined;
+  const aside = selected ? `<aside class="agent-studio-review" aria-label="Next steps"><h2>Next: ${escape(next!.label)}</h2><p>Save changes before testing. Tests belong to an exact saved version; execution finishing does not mean the answer passed review.</p><a class="secondary" href="${escape(next!.href)}">${escape(next!.label)} →</a><h3>Review safeguards</h3><p>Workflow gates require independent reviewers. Existing runs keep their frozen configuration.</p>${more("Saved definition", `<button class="secondary" data-agent-export="${selected.id}">Copy saved definition</button><p>Saved version v${agentHash(selected)}</p>`)}</aside>` : `<aside class="agent-studio-review" aria-label="Next steps"><h2>After saving</h2><p>The example task becomes this agent's first saved test. Run it on the Test page, review the result, then assign the agent to a stage.</p>${starter.needs ? `<p class="callout warn">${escape(starter.needs)}</p>` : ""}<details><summary>Execution and approvals</summary><p>This is a supervised configuration, not an approved model release. Model training and release signatures remain in <a href="#/studio">Model Studio</a>.</p></details></aside>`;
   return `<div class="agent-studio-layout">${editor}${aside}</div>`;
 }
 
@@ -146,14 +148,13 @@ function sideActions(snapshot: WorkbenchSnapshot, pipeline: NonNullable<Workbenc
   const tryKey = `agent-trial:${selected.id}`;
   const trial = ui.drafts[tryKey];
   const history = pipeline.runs.filter(run => { const saved = run.config.configurables?.find(agent => agent.id === selected.id); return saved && configurableStages(run.config, saved).length; }).slice(0, 5);
-  const assign = assignForm(pipeline, selected, admin, passedCurrentTest(selected, tests));
   const trialForm = `<section class="agent-studio-trial"><h3>Run in a workflow</h3><ul class="agent-readiness">${readiness.checks.map(check => `<li><span aria-label="${check.ready ? "Ready" : "Needed"}">${check.ready ? "✓" : "○"}</span>${check.ready ? escape(check.label) : `<a href="${check.href}">${escape(check.label)}</a>`}</li>`).join("")}</ul>
     <form id="agent-studio-start" data-agent="${selected.id}" data-version="${pipeline.version}" data-draft="${tryKey}"><label>Task<input name="title" required minlength="3" maxlength="160" value="${escape(trial?.title ?? selected.purpose)}"></label><label>Expected result<textarea name="brief" rows="3" required maxlength="4000" placeholder="What should the agent produce? How will you check it?">${escape(trial?.brief ?? "")}</textarea></label><button class="primary" ${readiness.ready && snapshot.canAuthor ? "" : "disabled"}>Start workflow</button></form>
     <small>Starts at ${escape(pipeline.config.stages[0]!.name)}. Run each agent from the work item; review gates stay in place.</small>
     ${!snapshot.demo && pipeline.config.stages.some(stage => stage.approval) ? '<small>Gated stages need another reviewer. A single local owner cannot approve their own work.</small>' : ""}
     ${history.length ? `<h3>Recent runs</h3><ul class="agent-recent-runs">${history.map(run => `<li><a href="#/desk/${run.id}">${escape(run.title)}</a><small>${escape(run.status)} · v${run.version}</small></li>`).join("")}</ul>` : ""}</section>`;
   const latest = agentTestHistory(selected, tests).runs[0];
-  return `<aside class="agent-studio-review" aria-label="Agent review"><h2>Test and assign</h2><p>${latest ? `Latest test ${escape(ago(latest.run.startedAt))}: ${outcomePill(latest)}` : "Not tested yet."} <a href="#/agent-studio/${escape(selected.id)}/test">Open tests</a></p>${assign}${trialForm}<a href="#/desk">Open work items →</a><details><summary>Execution and approvals</summary><p>Attach a repository in local mode, start a workflow, then run the assigned agent from Work items. Check its evidence before accepting the result.</p><p>This is a supervised configuration, not an approved model release. Model training and release signatures remain in <a href="#/studio">Model Studio</a>.</p><p>Approved assistants are assigned separately in <a href="#/workflows">Workflows</a>. Additional external servers are not connected by this form.</p></details>${more("Advanced", `<button class="secondary" data-agent-export="${selected.id}">Copy saved definition</button><p class="text-3">Saved version v${agentHash(selected)} · workspace configuration ${pipeline.version}</p>`)}</aside>`;
+  return `<section class="agent-studio-review" aria-label="Run readiness"><h2>Start a work item</h2><p>${latest ? `Latest test ${escape(ago(latest.run.startedAt))}: ${outcomePill(latest)}` : "Not tested yet."} <a href="#/agent-studio/${escape(selected.id)}/test">Open tests</a></p>${trialForm}<a href="#/desk">Open work items →</a><details><summary>Execution and approvals</summary><p>Run the assigned agent from Work items. Check its evidence before accepting the result. Gated stages still require independent approval.</p><p>This is a supervised configuration, not an approved model release. Model release signatures remain in <a href="#/studio">Model Studio</a>.</p></details></section>`;
 }
 
 function assignForm(pipeline: NonNullable<WorkbenchSnapshot["pipelines"]>, selected: AgentConfigurable, admin: boolean, tested = false): string {
@@ -175,9 +176,9 @@ function testPage(snapshot: WorkbenchSnapshot, pipeline: NonNullable<WorkbenchSn
   const editing = draft?.caseId ? history.cases.find(item => item.id === draft.caseId) : undefined;
   const value = (key: string, fallback: string) => escape(draft?.[key] ?? fallback);
   const busy = tests?.busy ?? false;
-  const cases = history.cases.length ? `<ul class="agent-test-cases">${history.cases.map(item => {
+  const cases = history.cases.length ? `<ul class="agent-test-cases">${history.cases.map((item, index) => {
     const runs = history.runs.filter(entry => entry.run.caseId === item.id);
-    return `<li><div><strong>${escape(item.title)}</strong><small>${item.source ? `Source ${escape(item.source)} · ` : ""}${runs.length ? `${runs.length} run${runs.length === 1 ? "" : "s"} · last ${escape(ago(runs[0]!.run.startedAt))}` : "never run"}</small></div><div class="actions"><form class="inline" id="agent-test-run-${escape(item.id)}" data-form="agent-test-run" data-case="${escape(item.id)}" data-version="${pipeline.version}"><button class="primary small" ${author && !busy ? "" : "disabled"}>Run test</button></form><button type="button" class="quiet small" data-test-edit="${escape(item.id)}">Edit</button>${author ? `<button type="button" class="quiet small" data-test-delete="${escape(item.id)}">Delete</button>` : ""}</div></li>`;
+    return `<li><div><strong>${escape(item.title)}</strong><small>${item.source ? `Source ${escape(item.source)} · ` : ""}${runs.length ? `${runs.length} run${runs.length === 1 ? "" : "s"} · last ${escape(ago(runs[0]!.run.startedAt))}` : "never run"}</small></div><div class="actions"><form class="inline" id="agent-test-run-${escape(item.id)}" data-form="agent-test-run" data-case="${escape(item.id)}" data-version="${pipeline.version}"><button class="${index === 0 ? "primary" : "secondary"} small" ${author && !busy ? "" : "disabled"}>Run test</button></form><button type="button" class="quiet small" data-test-edit="${escape(item.id)}">Edit</button>${author ? `<button type="button" class="quiet small" data-test-delete="${escape(item.id)}">Delete</button>` : ""}</div></li>`;
   }).join("")}</ul>` : '<p class="text-2">No saved tests. Write one below.</p>';
   const form = `<form id="agent-test-case" data-agent="${selected.id}" data-draft="${draftKey}" ${editing ? `data-case="${escape(editing.id)}"` : ""} class="agent-test-form"><fieldset ${author ? "" : "disabled"}><legend>${editing ? "Edit test" : "New test"}</legend>
     <label>Title<input name="title" required maxlength="120" value="${value("title", editing?.title ?? "")}"></label>
@@ -189,7 +190,7 @@ function testPage(snapshot: WorkbenchSnapshot, pipeline: NonNullable<WorkbenchSn
   const shown = draft?.runId ? history.runs.find(entry => entry.run.id === draft.runId) : history.runs[0];
   const result = shown ? testResult(shown, reviewer, snapshot.actor) : `<div class="empty"><p>No result yet. Save a test and run it.</p></div>`;
   const list = history.runs.length > 1 ? more(`All runs (${history.runs.length})`, `<ul class="agent-test-runs">${history.runs.map(entry => `<li><button type="button" class="quiet small" data-test-show="${escape(entry.run.id)}">${when(entry.run.startedAt)}</button> ${outcomePill(entry)} <small>v${entry.run.agentHash}</small></li>`).join("")}</ul>`) : "";
-  return `<div class="agent-test-layout"><section class="agent-test-side" aria-label="Saved tests"><h2>Saved tests</h2>${cases}${form}</section><section class="agent-test-result-wrap" aria-label="Result and evidence"><h2>Result and evidence</h2>${busy ? '<p class="loading" role="status">A test is running. This page updates on its own.</p>' : ""}${result}${list}</section></div>`;
+  return `<div class="agent-test-layout"><section class="agent-test-side" aria-label="Saved tests"><h2>Saved tests</h2>${cases}<details ${editing || !history.cases.length ? "open" : ""}><summary>${editing ? "Edit test" : "Create a test"}</summary>${form}</details></section><section class="agent-test-result-wrap" aria-label="Result and evidence"><h2>Result and evidence</h2>${busy ? '<p class="loading" role="status">A test is running. This page updates on its own.</p>' : ""}${result}${list}</section></div>`;
 }
 
 function testResult(entry: { run: AgentTestRun; stale: boolean }, reviewer: boolean, actor: string): string {
@@ -200,17 +201,17 @@ function testResult(entry: { run: AgentTestRun; stale: boolean }, reviewer: bool
   const evidence = run.source ? (run.sourceRead ? status("ok", `Read ${run.source}`) : status("bad", `${run.source} was not read`)) : run.sourceRead ? status("ok", "A source was read") : status("neutral", "No source read");
   const failure = run.error ? `<p class="callout bad" role="status"><strong>${run.status === "cancelled" ? "Stopped." : "Execution failed."}</strong>${escape(run.error)}</p>` : "";
   const staleNote = stale ? `<p class="callout warn" role="status"><strong>Out of date.</strong>This run tested version v${run.agentHash}; the agent has changed since. Run the test again before relying on it.</p>` : "";
-  const answer = run.summary ? `<h3>Answer</h3><pre class="pre">${escape(run.summary)}</pre>` : "";
+  const answer = run.summary ? `<h3>Answer</h3><pre class="agent-answer">${escape(run.summary)}</pre>` : "";
   const review = run.review ? `<h3>Quality review</h3><p>${status(run.review.verdict === "pass" ? "ok" : run.review.verdict === "fail" ? "bad" : "warn", run.review.verdict)} by ${escape(run.review.by)} · ${escape(ago(run.review.at))}${run.review.note ? `<br>${escape(run.review.note)}` : ""}</p>`
     : run.status === "running" ? "" : run.status !== "succeeded" ? `<h3>Quality review</h3><p class="text-2">No answer to review: the execution did not finish. Fix the cause and run the test again.</p>` : `<h3>Quality review</h3>${reviewer ? `<form id="agent-test-review" data-run="${escape(run.id)}" class="agent-test-review"><p class="text-2">Did the answer do what the test expected? This is separate from the execution finishing.</p><div class="actions"><label class="checkbox"><input type="radio" name="verdict" value="pass" required>Pass</label><label class="checkbox"><input type="radio" name="verdict" value="fail">Fail</label><label class="checkbox"><input type="radio" name="verdict" value="unsure">Unsure</label></div><label>Note<textarea name="note" maxlength="2000" rows="2" placeholder="What was right or wrong, against the expected behaviour."></textarea></label><button class="secondary">Record review</button></form>` : '<p class="text-2">An approver or admin records the quality review.</p>'}`;
   return `<article class="agent-test-result" aria-label="Test result">${staleNote}<div class="agent-test-status">${outcomePill(entry)}</div>${failure}
-    <dl class="agent-kv"><div><dt>Prompt</dt><dd>${escape(run.prompt)}</dd></div>${run.expected ? `<div><dt>Expected</dt><dd>${escape(run.expected)}</dd></div>` : ""}<div><dt>Evidence</dt><dd>${evidence}</dd></div><div><dt>Tool calls</dt><dd>${calls}</dd></div><div><dt>Model</dt><dd><code>${escape(run.model)}</code></dd></div><div><dt>Model calls</dt><dd>${run.calls}</dd></div><div><dt>Tokens</dt><dd>${escape(usage)}</dd></div><div><dt>Elapsed</dt><dd>${escape(elapsed)}</dd></div><div><dt>Started</dt><dd>${when(run.startedAt)} by ${escape(run.startedBy)}${run.startedBy === actor ? " (you)" : ""}</dd></div><div><dt>Version</dt><dd><code>v${run.agentHash}</code></dd></div></dl>
-    ${answer}${review}${more("Execution log", `<ul class="plain">${run.events.map(event => `<li>${escape(event)}</li>`).join("") || "<li>No events</li>"}</ul>`)}</article>`;
+    <dl class="agent-kv"><div><dt>Prompt</dt><dd>${escape(run.prompt)}</dd></div>${run.expected ? `<div><dt>Expected</dt><dd>${escape(run.expected)}</dd></div>` : ""}<div><dt>Sources</dt><dd>${evidence}</dd></div></dl>
+    ${answer}${review}${more("Evidence — tools and execution", `<dl class="agent-kv"><div><dt>Tool calls</dt><dd>${calls}</dd></div><div><dt>Model</dt><dd><code>${escape(run.model)}</code></dd></div><div><dt>Model calls</dt><dd>${run.calls}</dd></div><div><dt>Tokens</dt><dd>${escape(usage)}</dd></div><div><dt>Elapsed</dt><dd>${escape(elapsed)}</dd></div><div><dt>Started</dt><dd>${when(run.startedAt)} by ${escape(run.startedBy)}${run.startedBy === actor ? " (you)" : ""}</dd></div><div><dt>Version</dt><dd><code>v${run.agentHash}</code></dd></div></dl><h3>Execution log</h3><ul class="plain">${run.events.map(event => `<li>${escape(event)}</li>`).join("") || "<li>No events</li>"}</ul>`)}</article>`;
 }
 
 // ------------------------------------------------------------------ workflow
 
-function workflowPage(snapshot: WorkbenchSnapshot, pipeline: NonNullable<WorkbenchSnapshot["pipelines"]>, selected: AgentConfigurable, models: ChatModelOption[], admin: boolean, tests: AgentTestsSnapshot | undefined): string {
+function workflowPage(snapshot: WorkbenchSnapshot, pipeline: NonNullable<WorkbenchSnapshot["pipelines"]>, selected: AgentConfigurable, models: ChatModelOption[], admin: boolean, tests: AgentTestsSnapshot | undefined, ui: StudioUi): string {
   const assigned = configurableStages(pipeline.config, selected);
   const stages = pipeline.config.stages;
   const approvals = snapshot.workflow.requiredApprovals;
@@ -227,5 +228,5 @@ function workflowPage(snapshot: WorkbenchSnapshot, pipeline: NonNullable<Workben
   };
   const list = assigned.length ? assigned.map(row).join("") : '<p class="text-2">Not assigned to any stage yet. Choose one below.</p>';
   const open = pipeline.runs.filter(run => run.status === "running" || run.status === "paused" || run.status === "blocked").length;
-  return `<div class="agent-studio-layout"><section class="agent-studio-editor" aria-label="Assigned stages"><h2>Where this agent works</h2>${list}<p class="text-2">${open ? `${open} open run${open === 1 ? " keeps" : "s keep"} the configuration they started with. ` : ""}Changes affect future runs only.</p></section><aside class="agent-studio-review" aria-label="Assign"><h2>Assign to workflow</h2>${assignForm(pipeline, selected, admin, passedCurrentTest(selected, tests))}${nextAction(snapshot, selected, models, undefined).label === "Choose a connected model" ? '<p class="callout warn">The saved model is not connected; a run would stop at its first model call.</p>' : ""}<a href="#/desk">Open work items →</a><p class="text-3">There is no publish step: a saved agent is available to this workspace's workflow once assigned. Release approval applies to trained models in Model Studio, not to agent configurations.</p></aside></div>`;
+  return `<div class="agent-studio-layout"><section class="agent-studio-editor" aria-label="Assigned stages"><h2>Where this agent works</h2>${list}<p class="text-2">${open ? `${open} open run${open === 1 ? " keeps" : "s keep"} the configuration they started with. ` : ""}Changes affect future runs only.</p><h2>Assign to workflow</h2>${assignForm(pipeline, selected, admin, passedCurrentTest(selected, tests))}<p><a href="#/canvas">Open workflow canvas →</a></p></section>${sideActions(snapshot, pipeline, selected, models, ui, tests, admin)}</div>`;
 }

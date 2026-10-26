@@ -1,6 +1,7 @@
 # Connected chat
 
-Chat remains the first application page. Connections sits directly below it.
+Open **Services → Chat** for general chat or workspace MCP chat, and
+**Services → Models & connections** for model setup.
 
 Free access uses local models or personal API credentials. OpenAI, Anthropic and
 Gemini connections are scoped to the authenticated workspace and member. The
@@ -16,6 +17,45 @@ kept outside the data directory. Back up data and key separately. Encryption doe
 not protect against the server administrator or a compromised running server.
 The browser cannot retrieve saved keys. Disconnect removes that provider from
 future requests; it cannot recall a request already sent.
+
+## Ollama and server API setup
+
+Workbench chat, workflow bots and Chat MCP share the workbench model configuration.
+Ollama chat uses its native `/api/tags` and `/api/chat` endpoints; it does not need
+an optional LangChain package. The standalone relay's retrieval and embedding
+tools retain their own optional-adapter requirements.
+
+For local Ollama, run it on a machine reachable from the application server,
+install the selected model separately, and configure:
+
+```sh
+export MAGENTIC_LLM_PROVIDER=ollama
+export MAGENTIC_LLM_BASE_URL=http://127.0.0.1:11434
+export MAGENTIC_LLM_CHAT_MODEL=YOUR_INSTALLED_MODEL_ID
+corepack pnpm build:workbench
+corepack pnpm local:workbench
+```
+
+`127.0.0.1` means the application server, not a remote user's laptop. This
+conversation environment does not provide an Ollama daemon or a hosted model.
+The app lists installed models, refuses unknown selections, and never pulls a
+model automatically. Source reads and independent workflow review are unchanged.
+Native requests carry structured output format, output limits and cancellation;
+usage appears only when Ollama actually reports it.
+
+API-only installations may configure server secrets (`OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`) and supported text model
+IDs through the existing `MAGENTIC_*_MODELS` settings. They do not need to enable
+Ollama or set `MAGENTIC_LLM_PROVIDER` merely to make API models available.
+An explicitly selected `MAGENTIC_LLM_CHAT_MODEL` is retained. An OpenAI-compatible
+`MAGENTIC_LLM_BASE_URL` is routed through that endpoint, never silently replaced
+by the public OpenAI API. Keys are server secrets, never command-line examples
+or committed configuration.
+
+Connections now shows server models separately from personal API accounts,
+with refresh and unavailable states. “Configured” means settings or model
+discovery are available, not that a paid inference request has succeeded.
+Personal credentials are not granted to workflow agents.
 
 ## Managed models and Auto
 
@@ -93,6 +133,8 @@ accepts the same message, model, output cap, history, routing and preference fie
 as general chat. It cannot use assistant profiles or workspace tools. It shares
 the same entitlement, usage and concurrency checks as browser chat. A call may
 send its conversation to an external provider and consume API credits.
+MCP client cancellation propagates to the provider and releases the shared
+active-request slot; the two-minute request deadline still applies.
 
 Example client configuration (syntax varies by client):
 
@@ -115,6 +157,12 @@ publish the local server or implement MCP OAuth discovery.
 This release is text-only. General chat has no live weather, web search, image,
 audio or file tools. Workspace MCP chat keeps its existing read-only tool gate.
 No hosted inference, real subscription or secret is supplied by this code.
+
+The protocol regression tests exercise a disposable Ollama-shaped HTTP server,
+the actual browser-chat HTTP routes, and an SDK Streamable HTTP Chat MCP client.
+Those fixtures validate routing, parsing, usage and access controls; they do
+not demonstrate a live model's quality, a provider account's quota, or a working
+connection from ChatGPT's cloud to a loopback-only server.
 
 ## Free, Pro and Max
 

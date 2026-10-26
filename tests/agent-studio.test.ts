@@ -71,7 +71,8 @@ test("the creation page escapes content and preserves unsaved access choices and
   assert.doesNotMatch(html, /name="tools"[^>]*checked/);
   assert.match(html, /not connected/);
   assert.match(html, /Execution limits/);
-  assert.match(html, /not an approved model release/);
+  const assignment = agentStudioPage(snapshot, agent.id, null, [], ui, "workflow").body;
+  assert.match(assignment, /not an approved model release/);
   assert.match(html, /Additional external servers are not connected/);
 });
 
@@ -79,7 +80,8 @@ test("read-only viewers cannot edit or assign and missing agents never open a ne
   const { snapshot, agent } = fixture(false);
   const html = agentStudioPage(snapshot, agent.id, null, [], emptyStudioUi()).body;
   assert.match(html, /<fieldset disabled>/);
-  assert.match(html, /disabled>Assign saved agent/);
+  const assignment = agentStudioPage(snapshot, agent.id, null, [], emptyStudioUi(), "workflow").body;
+  assert.match(assignment, /disabled>Assign saved agent/);
   const library = agentStudioPage(snapshot, undefined, null, [], emptyStudioUi());
   assert.doesNotMatch(library.body, /agent-studio-import/);
   assert.equal(library.actions, "");
@@ -98,7 +100,8 @@ test("the studio links workflow staffing and models to pages in the operations w
   const editor = agentStudioPage(snapshot, agent.id, null, [], emptyStudioUi());
   assert.equal(editor.title, agent.name);
   assert.match(editor.body, /href="#\/chat"/);
-  assert.match(editor.body, /href="#\/desk"/);
+  const assignment = agentStudioPage(snapshot, agent.id, null, [], emptyStudioUi(), "workflow");
+  assert.match(assignment.body, /href="#\/desk"/);
   assert.doesNotMatch(editor.body, /href="#\/connections"/);
   assert.equal(agentStudioPage(snapshot, "new", "docs", [], emptyStudioUi()).title, "New agent");
 });
@@ -107,7 +110,7 @@ test("approved-assistant stages cannot be overwritten from the assignment picker
   const { snapshot, agent } = fixture();
   const config = snapshot.pipelines!.config;
   for (const stage of config.stages) stage.assistantId = randomUUID();
-  const html = agentStudioPage(snapshot, agent.id, null, [], emptyStudioUi()).body;
+  const html = agentStudioPage(snapshot, agent.id, null, [], emptyStudioUi(), "workflow").body;
   assert.match(html, /name="stage" required disabled/);
   assert.match(html, /disabled>Assign saved agent/);
   assert.throws(() => applyConfigurable(config, agent.id, config.stages[0]!.id), /approved assistant/);

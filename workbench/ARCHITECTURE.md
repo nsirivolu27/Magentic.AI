@@ -136,9 +136,10 @@ $env:MAGENTIC_LLM_BASE_URL = 'http://127.0.0.1:11434'
 corepack pnpm local:workbench
 ```
 
-Open the printed loopback address. Model execution additionally needs Ollama,
-the selected downloaded model and the existing optional `@langchain/ollama`
-adapter. Automated policy tests do not establish model quality or live provider
+Open the printed loopback address. Model execution additionally needs a reachable
+Ollama service and the selected downloaded model. Workbench chat and bots use the
+native Ollama HTTP API; the standalone relay's optional retrieval adapters are
+unchanged. Automated policy tests do not establish model quality or live provider
 availability. Do not use a real project to test deliberately failing commands.
 
 ### The documentation portal

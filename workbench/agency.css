@@ -1,3 +1,19 @@
+/* Console appearance overrides live in the same token system as the workbench. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f6fa; --surface: #ffffff; --raised: #eef0f6; --input: #ffffff;
+  --line: #dadde7; --line-strong: #b6bccd; --border-strong: #81869a;
+  --text: #202334; --text-2: #4c5268; --text-3: #5e657b;
+  --brand-hover: #5140bb; --brand-link: #5140bb; --brand-soft: #eeeafa;
+  --brand-border: #bfb4ec; --brand-selection: #dad4f4;
+  --brand-pink: #963674; --brand-pink-soft: #faeaf4;
+  --ok: #17613e; --ok-soft: #e7f4eb; --ok-line: #90bf9f;
+  --warn: #7c5708; --warn-soft: #fff5d9; --warn-line: #d4b568;
+  --bad: #9d253d; --bad-soft: #fff0f2; --bad-line: #d9a0ad;
+  --nav-bg: var(--bg); --nav-surface: var(--surface); --nav-raised: var(--raised);
+  --nav-line: var(--line); --nav-border: var(--border-strong); --nav-text: var(--text);
+  --nav-text-2: var(--text-2); --nav-text-3: var(--text-3); --nav-accent: var(--brand-link); --nav-active: var(--brand-soft);
+}
 /*
  * Magentic visual system: a dark, high contrast workspace in the manner of
  * modern developer tools. Near black surfaces, white text, violet for the
@@ -28,7 +44,7 @@
 }
 ::selection { background: var(--brand-selection); color: var(--text); }
 [hidden] { display: none !important; }
-body { display: flex; }
+ body { display: block; }
 a, button, summary, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 :where(a, button, summary, [tabindex]):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .skip-link { position: fixed; top: -70px; left: 16px; z-index: 100; padding: 12px 18px; background: var(--surface); color: var(--brand-link); border: 2px solid var(--brand-primary); font-weight: 700; }
@@ -778,4 +794,61 @@ footer { color: var(--text-3); }
   .base-chat-toolbar { padding: 12px; }
   .base-model label { max-width: none; }
   .connection-accounts, .connection-plans { padding: 16px; }
+}
+
+/* Compact enterprise console: services are a dialog, never a permanent rail. */
+body.navigation-open { overflow: hidden; }
+main { width: 100%; min-width: 0; }
+.console-topbar { position: sticky; top: 0; height: auto; min-height: 64px; display: flex; gap: 16px; padding: 10px 24px; background: var(--surface); }
+.console-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 19px; font-weight: 750; white-space: nowrap; text-decoration: none; }
+.console-diamond { color: var(--brand-pink); font-size: 32px; line-height: 1; }
+.console-topbar .services-toggle { display: inline-flex; flex: none; }
+.console-topbar .workspace { display: flex; align-items: center; gap: 8px; margin: 0; min-height: 36px; max-width: 240px; padding: 4px 10px; text-align: left; background: var(--raised); border-color: var(--line-strong); color: var(--text); }
+.console-topbar .workspace div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console-topbar .workspace small { display: block; color: var(--text-3); }
+.console-topbar .topbar-location { flex: 1; }
+.console-topbar .topbar-actions { margin-left: auto; gap: 10px; display: flex; align-items: center; }
+.console-account { position: relative; margin: 0; padding: 0; border: 0; }
+.console-account > summary { cursor: pointer; min-height: 36px; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--text); white-space: nowrap; }
+.account-popover { position: absolute; right: 0; top: calc(100% + 12px); z-index: 20; width: 290px; max-width: calc(100vw - 24px); padding: 20px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.account-popover h2 { font-size: 18px; margin: 0 0 12px; }
+.account-popover label { margin-top: 16px; }
+.account-popover .identity { padding: 12px 0 0; margin-top: 16px; }
+.account-popover .hints-switch { margin: 16px 0; font-size: 13px; }
+.account-popover .operator-context { display: block; white-space: normal; }
+.services-dialog, .workspace-picker { position: fixed; inset: 76px 16px auto; width: min(900px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); margin: 0 auto; padding: 24px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); overflow-y: auto; box-shadow: var(--shadow); }
+.services-dialog::backdrop, .workspace-picker::backdrop { background: color-mix(in srgb, var(--bg) 80%, transparent); }
+.console-dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
+.console-dialog-head h2 { margin: 0; font-size: 22px; }
+.services-dialog nav.services-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+.service-group h3 { color: var(--text-3); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 10px 8px; }
+.service-group .nav { color: var(--text-2); display: flex; }
+.service-group .nav:hover, .service-group .nav.active { color: var(--text); }
+.workspace-picker { width: min(540px, calc(100vw - 32px)); }
+.workspace-picker #local-workspaces { margin: 16px 0 0; padding: 0; border: 0; }
+.agent-studio-nav a { font-family: var(--font); }
+.agent-answer { white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.65 var(--font); color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.agent-studio-review h3 { margin-top: 24px; }
+.agent-studio-head { background: var(--surface); }
+.agent-studio-trial form { display: grid; gap: 12px; }
+.agent-test-side > details { margin-top: 24px; }
+@media (max-width: 1100px) {
+  .console-topbar { gap: 10px; padding: 10px 16px; }
+  .console-topbar .workspace-status, .console-topbar #crumbs-bar { display: none; }
+}
+@media (max-width: 650px) {
+  .console-topbar { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .console-brand { font-size: 17px; }
+  .console-topbar .workspace { max-width: 170px; font-size: 12px; }
+  .console-topbar .workspace-icon { display: none; }
+  .console-topbar .topbar-location { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+  .console-topbar .workspace { margin-left: auto; max-width: 140px; }
+  .console-topbar .topbar-actions { gap: 6px; }
+  .console-topbar .demo-badge, .console-topbar .refresh-label { display: none; }
+  .console-account > summary { font-size: 12px; }
+  .services-dialog, .workspace-picker { top: 116px; max-height: calc(100dvh - 132px); padding: 16px; }
+  .services-dialog nav.services-grid { grid-template-columns: 1fr; gap: 16px; }
+  .environment-banner { padding: 10px 16px; flex-wrap: wrap; gap: 4px; }
+  .agent-studio-nav { flex-wrap: wrap; }
+  .agent-studio-nav a { flex: 1; text-align: center; padding: 10px 6px; font-size: 13px; }
 }

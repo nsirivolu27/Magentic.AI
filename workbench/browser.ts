@@ -82,41 +82,77 @@ let billingOpening = false;
 let operationsRoot: Root | undefined;
 let filter = "all";
 node(".skip-link").addEventListener("click", event => { event.preventDefault(); node("main").focus(); });
-const mobileNavigation = window.matchMedia("(max-width: 800px)");
+const servicesDialog = node<HTMLDialogElement>("#workspace-navigation");
 function closeNavigation(): void {
-  document.body.classList.remove("navigation-open");
-  node("#workspace-navigation").removeAttribute("role");
-  node("#workspace-navigation").removeAttribute("aria-modal");
-  node("#nav-toggle").setAttribute("aria-expanded", "false");
-  node("#nav-backdrop").hidden = true;
-  node("main").inert = false;
+  if (servicesDialog.open) servicesDialog.close();
 }
 node("#nav-toggle").addEventListener("click", () => {
+  filterServices();
+  servicesDialog.showModal();
   document.body.classList.add("navigation-open");
-  node("#workspace-navigation").setAttribute("role", "dialog");
-  node("#workspace-navigation").setAttribute("aria-modal", "true");
   node("#nav-toggle").setAttribute("aria-expanded", "true");
-  node("#nav-backdrop").hidden = false;
-  node("main").inert = true;
-  node("#nav-close").focus();
+  node("#service-search").focus();
 });
-for (const id of ["#nav-close", "#nav-backdrop"]) node(id).addEventListener("click", () => {
-  closeNavigation(); node("#nav-toggle").focus();
+node("#nav-close").addEventListener("click", closeNavigation);
+servicesDialog.addEventListener("keydown", event => {
+  // Search inputs may otherwise consume Escape to clear their value instead
+  // of dismissing the modal. Keep dismissal consistent for keyboard users.
+  if (event.key === "Escape") { event.preventDefault(); closeNavigation(); }
 });
-node("#workspace-navigation").addEventListener("click", event => {
-  if (mobileNavigation.matches && (event.target as Element).closest("a.nav, a.brand")) closeNavigation();
+servicesDialog.addEventListener("close", () => {
+  document.body.classList.remove("navigation-open");
+  node("#nav-toggle").setAttribute("aria-expanded", "false");
+  node("#nav-toggle").focus();
 });
-node("#workspace-navigation").addEventListener("keydown", event => {
-  if (!mobileNavigation.matches || !document.body.classList.contains("navigation-open")) return;
-  if (event.key === "Escape") { closeNavigation(); node("#nav-toggle").focus(); return; }
-  if (event.key !== "Tab") return;
-  const controls = [...node("#workspace-navigation").querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')]
-    .filter(control => control.offsetParent !== null);
-  const first = controls[0], last = controls.at(-1);
-  if (event.shiftKey && document.activeElement === first && last) { event.preventDefault(); last.focus(); }
-  else if (!event.shiftKey && document.activeElement === last && first) { event.preventDefault(); first.focus(); }
+servicesDialog.addEventListener("click", event => {
+  if ((event.target as Element).closest("a.nav")) closeNavigation();
+  const rect = servicesDialog.getBoundingClientRect();
+  if (event.target === servicesDialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) closeNavigation();
 });
-mobileNavigation.addEventListener("change", () => closeNavigation());
+function filterServices(): void {
+  const query = node<HTMLInputElement>("#service-search").value.trim().toLowerCase();
+  let any = false;
+  for (const group of servicesDialog.querySelectorAll<HTMLElement>(".service-group")) {
+    let visible = false;
+    for (const link of group.querySelectorAll<HTMLElement>("a.nav")) {
+      const matches = `${group.querySelector("h3")?.textContent} ${link.textContent}`.toLowerCase().includes(query);
+      link.hidden = !matches || (link.id === "company-navigation" && !companyMode);
+      visible ||= !link.hidden;
+    }
+    group.hidden = !visible;
+    any ||= visible;
+  }
+  node("#service-empty").hidden = any;
+}
+node("#service-search").addEventListener("input", filterServices);
+const workspacePicker = node<HTMLDialogElement>("#workspace-picker");
+node("#workspace-picker-toggle").addEventListener("click", () => workspacePicker.showModal());
+node("#workspace-picker-close").addEventListener("click", () => workspacePicker.close());
+workspacePicker.addEventListener("change", event => {
+  if ((event.target as HTMLElement).id === "workspace-select") workspacePicker.close();
+});
+const accountMenu = node<HTMLDetailsElement>(".console-account");
+document.addEventListener("click", event => {
+  if (!accountMenu.contains(event.target as Node)) accountMenu.open = false;
+});
+accountMenu.addEventListener("keydown", event => {
+  if (event.key === "Escape") { accountMenu.open = false; accountMenu.querySelector("summary")?.focus(); }
+});
+const themeSelect = node<HTMLSelectElement>("#theme-select");
+const systemTheme = window.matchMedia("(prefers-color-scheme: light)");
+function applyTheme(): void {
+  document.documentElement.dataset.theme = themeSelect.value === "system" ? (systemTheme.matches ? "light" : "dark") : themeSelect.value;
+}
+try {
+  const saved = localStorage.getItem("magentic.theme");
+  if (saved && ["light", "dark", "system"].includes(saved)) themeSelect.value = saved;
+} catch { /* Appearance is a browser preference, never a credential. */ }
+applyTheme();
+systemTheme.addEventListener("change", applyTheme);
+themeSelect.addEventListener("change", () => {
+  applyTheme();
+  try { localStorage.setItem("magentic.theme", themeSelect.value); } catch { /* Storage may be blocked. */ }
+});
 /**
  * Routing.
  *
@@ -130,7 +166,7 @@ const PRIMARY_VIEWS = ["zenfluence", "canvas", "marketplace", "connections", "ba
 const LEGACY_VIEWS = ["desk", "pipelines", "agents", "email", "mcp", "workflow", "chat"];
 function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?");
-  const [view = "base-chat", id, sub] = path!.split("/").filter(Boolean);
+  const [view = "workspace", id, sub] = path!.split("/").filter(Boolean);
   const query = new URLSearchParams(search);
   if (view === "team") return { view: "agent-studio", ...(id ? { id } : {}), query };
   if (view === "tasks") return { view: "desk", ...(id ? { id } : {}), query };
@@ -270,6 +306,10 @@ function render(): void {
   node("#environment-banner").insertAdjacentHTML("beforeend", `<span class="mobile-operator-context">${escape(snapshot.workspaceId)} · ${escape(node("#operator-context").textContent ?? "")}</span>`);
   document.body.classList.toggle("developer-desk", view === "desk");
   renderWorkspaces();
+  if (!localMode) {
+    node(".workspace div").firstChild!.textContent = document.body.dataset.agentDemo ? "Agent Studio demo" : snapshot.workspaceId;
+  }
+  node("#workspace-demo-note").hidden = !snapshot.demo;
   const primary = PRIMARY_VIEWS.includes(view);
   node("#new-agent").hidden = !snapshot.canAuthor || view !== "agents";
   node("#new-invitation").hidden = !snapshot.mail?.canInvite || view !== "email";
@@ -317,7 +357,8 @@ function currentPage(): Page {
     case "connections": {
       const scope = selectedWorkspace + ":" + snapshot.actor;
       if (chatAccessScope !== scope) { chatAccess = undefined; chatAccessError = ""; connectionFeedback = undefined; chatAccessScope = scope; void loadChatAccess(); }
-      return chatConnectionsPage(chatAccess, chatAccessError, connectionFeedbackScope === scope ? connectionFeedback : undefined);
+      return chatConnectionsPage(chatAccess, chatAccessError, connectionFeedbackScope === scope ? connectionFeedback : undefined,
+        { models: chatState.options, loading: chatState.loadingModels, error: chatState.error });
     }
     case "account": {
       if (accountScope !== selectedWorkspace + ":" + snapshot.actor) { accountSummary = undefined; accountError = undefined; accountScope = selectedWorkspace + ":" + snapshot.actor; void loadAccount(); }
@@ -868,7 +909,8 @@ function typingInPage(): boolean {
 async function loadChatModels(): Promise<void> {
   if (!snapshot.chat.configured || chatState.busy) return;
   const state = chatState;
-  state.loadingModels = true; renderChat();
+  state.loadingModels = true;
+  if (view === "connections") render(); else renderChat();
   try {
     const result = await api("/api/chat/models") as { models: string[]; options?: typeof state.options; access?: ChatAccessSummary };
     if (chatState !== state) return;
@@ -892,7 +934,7 @@ async function loadChatModels(): Promise<void> {
     state.selectedModel = desired || result.models[0] || state.options[0]?.id || "";
     state.error = result.models.length || state.options.length ? "" : "No models are installed. Install a model in Ollama, then refresh this list.";
   } catch (error) { if (chatState === state) state.error = (error as Error).message; }
-  finally { if (chatState === state) { state.loadingModels = false; renderChat(); if ((view === "agent-studio" || view === "canvas") && !document.activeElement?.closest("form")) render(); } }
+   finally { if (chatState === state) { state.loadingModels = false; renderChat(); if ((view === "agent-studio" || view === "canvas" || view === "connections") && !document.activeElement?.closest("form")) render(); } }
 }
 document.addEventListener("change", (event) => {
   const input = event.target as HTMLSelectElement;
@@ -1702,7 +1744,10 @@ async function loadChatAccess(): Promise<void> {
   chatAccessScope = scope;
   try {
     const result = await api("/api/chat/access") as ChatAccessSummary;
-    if (scope === selectedWorkspace + ":" + snapshot.actor) { chatAccess = result; chatAccessError = ""; }
+    if (scope === selectedWorkspace + ":" + snapshot.actor) {
+      chatAccess = result; chatAccessError = "";
+      if (view === "connections") await loadChatModels();
+    }
   } catch { if (scope === selectedWorkspace + ":" + snapshot.actor) chatAccessError = "Connections could not be loaded. Refresh to retry."; }
   finally { chatAccessLoading = false; if (view === "connections") { if (scope !== selectedWorkspace + ":" + snapshot.actor) void loadChatAccess(); else render(); } }
 }
